@@ -1,0 +1,118 @@
+--[[
+    ╔══════════════════════════════════════════════════════════════╗
+    ║         MINECRAFT UI LIBRARY v3.6 — CFrame Speed Script      ║
+    ║         Изменение скорости через CFrame                      ║
+    ╚══════════════════════════════════════════════════════════════╝
+]]
+
+-- 1. Загружаем библиотеку
+local Lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/Mamaksimaaa/Roblox-script/refs/heads/main/Minecraft%20library/Minecraftlibrary.lua"))()
+
+-- 2. Создаём окно
+local Window = Lib:CreateWindow("CFrame Speed", {Theme = "Overworld"})
+
+-- 3. Вкладка управления скоростью
+local SpeedTab = Window:AddTab("Speed")
+
+-- Переменные для управления
+local speedEnabled = false
+local speedMultiplier = 5  -- по умолчанию 5x
+local speedConnection = nil -- соединение с RunService.Heartbeat
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+-- Функция запуска/остановки CFrame-ускорения
+local function updateSpeedLoop()
+    if speedConnection then
+        speedConnection:Disconnect()
+        speedConnection = nil
+    end
+
+    if speedEnabled then
+        speedConnection = game:GetService("RunService").Heartbeat:Connect(function(dt)
+            -- Проверяем, что персонаж и его части живы
+            if not character or not character.Parent or not humanoid or humanoid.Health <= 0 then
+                return
+            end
+            if not rootPart or not rootPart.Parent then
+                return
+            end
+
+            -- Направление движения (WASD)
+            local moveDirection = humanoid.MoveDirection
+            if moveDirection.Magnitude > 0 then
+                -- Базовая скорость ходьбы (обычно 16 studs/sec)
+                local baseSpeed = humanoid.WalkSpeed
+                local distance = baseSpeed * speedMultiplier * dt
+                local offset = moveDirection * distance
+
+                -- Перемещаем персонаж напрямую через CFrame
+                rootPart.CFrame = rootPart.CFrame + offset
+            end
+        end)
+    end
+end
+
+-- Функция обновления ссылок на персонажа (при респавне)
+local function onCharacterAdded(newCharacter)
+    character = newCharacter
+    humanoid = character:WaitForChild("Humanoid")
+    rootPart = character:WaitForChild("HumanoidRootPart")
+    -- Перезапускаем цикл, если скорость была включена
+    if speedEnabled then
+        updateSpeedLoop()
+    end
+end
+player.CharacterAdded:Connect(onCharacterAdded)
+
+-- Обработка включения/выключения скорости
+local function setSpeedEnabled(state)
+    speedEnabled = state
+    updateSpeedLoop()
+    Window:Notify("Speed", state and "CFrame Speed: ON" or "CFrame Speed: OFF", 2)
+end
+
+-- Создаём элементы UI
+
+-- Тоггл для включения/выключения
+local Toggle = SpeedTab:AddToggle("Enable CFrame Speed", false, function(state)
+    setSpeedEnabled(state)
+end)
+
+-- Слайдер для множителя скорости
+local Slider = SpeedTab:AddSlider("Speed Multiplier", 1, 50, speedMultiplier, function(value)
+    speedMultiplier = value
+    Window:Notify("Speed", "Multiplier set to " .. value .. "x", 1)
+    -- Если скорость включена, обновляем цикл с новым множителем (не обязательно, но чисто)
+    if speedEnabled then
+        updateSpeedLoop()
+    end
+end)
+
+-- Кнопка для быстрого сброса
+SpeedTab:AddButton("Reset Speed", function()
+    Slider:Set(5)
+    speedMultiplier = 5
+    if speedEnabled then
+        updateSpeedLoop()
+    end
+    Window:Notify("Speed", "Speed reset to 5x", 2)
+end)
+
+-- Разделитель и подпись
+SpeedTab:AddSeparator("Info")
+SpeedTab:AddLabel("Use WASD to move. Speed multiplies your normal WalkSpeed.")
+
+-- Дополнительная вкладка с инструкцией
+local InfoTab = Window:AddTab("Help")
+InfoTab:AddLabel("1. Enable CFrame Speed")
+InfoTab:AddLabel("2. Adjust multiplier (1x-50x)")
+InfoTab:AddLabel("3. Move using WASD")
+InfoTab:AddLabel("Note: This directly moves your character's CFrame, may cause clipping or anti-cheat detection.")
+
+-- Стартовое уведомление
+task.delay(1, function()
+    Window:Notify("CFrame Speed Loaded", "RightShift to toggle UI | Use Speed tab", 4)
+end)
