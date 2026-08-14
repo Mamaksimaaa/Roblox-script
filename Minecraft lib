@@ -25,7 +25,7 @@ local TextureURLs = {
     OakPlanks       = "https://art.pixilart.com/thumb/sr26db5fe648aaws3.png",
     Button          = "https://art.pixilart.com/sr2ff82b7a8f295.png",
     ButtonHighlight = "https://cdn.modrinth.com/data/4YAqXMsI/673821e1959c1d694e6e5a2a389c8bdc3d5005d1.png",
-    Slot            = "https://i.ibb.co/S8KM9ZD/cc1d4a93dc6b5fc6ac2e116625947597.jpg",
+    Slot            = "https://art.pixilart.com/sr2ff82b7a8f295.png",
     GrassBlock      = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT822Jc6Q9s_l2j0pvLPuvieY_A14J9yDLz5RNBLAQtwwh02b3qr1YaVyh_&s=10",
     Achievement     = "https://i.ibb.co/0pM7PnSs/8c54b7db9e7f4c04cd2deac63a6cc564.jpg",
     OverworldBg     = "https://i.ibb.co/WvNMkCQ5/c072441fb834ae7d4f22ef963f0ed94b.jpg",
