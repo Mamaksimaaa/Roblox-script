@@ -304,7 +304,7 @@ function MinecraftLib:CreateWindow(title, config)
     self._uiScale = UIScaleInst
 
     -- ═════════════════════════════════════════════════
-    -- TITLE BAR (деревянные доски — сплошные, не прозрачные)
+    -- TITLE BAR (деревянные доски)
     -- ═════════════════════════════════════════════════
     local TitleBar = Create("Frame", {
         Size = UDim2.new(1, 0, 0, self._mobile and 36 or 42),
@@ -312,9 +312,6 @@ function MinecraftLib:CreateWindow(title, config)
         ZIndex = 2, Parent = Main,
     })
     PixelBevel(TitleBar, self._theme, 2)
-
-    Create("ImageLabel", {
-        Name = "Pl PixelBevel(TitleBar, self._theme, 2)
 
     Create("ImageLabel", {
         Name = "PlanksTexture", Size = UDim2.new(1,0,1,0),
@@ -632,7 +629,7 @@ function MinecraftLib:CreateWindow(title, config)
 
             local Btn = Create("TextButton", {
                 Name = "ActionBtn", Size = UDim2.new(1, -14, 1, -10),
-                Position = UDim2.new(0, 7.new(0, 7, 0.5, -(rowH - 10)/2),
+                Position = UDim2.new(0, 7, 0.5, -(rowH - 10)/2),
                 BackgroundColor3 = t2.Accent, BackgroundTransparency = 0.2,
                 Text = "> " .. text, TextColor3 = t2.TextPrimary,
                 TextSize = FONT_BODY, Font = FONT, BorderSizePixel = 0, ZIndex = 5, Parent = row,
