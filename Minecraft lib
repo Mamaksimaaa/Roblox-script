@@ -69,7 +69,6 @@ local Themes = {
         Shadow           = Color3.fromRGB(5,   4,   2),
         Title            = Color3.fromRGB(255, 255, 255),
         CloseBtn         = Color3.fromRGB(176, 46,  38),    -- красный камень
-        MinBtn           = Color3.fromRGB(200, 171, 55),    -- золото
         Notification     = Color3.fromRGB(40,  32,  22),
         NotifAccent      = Color3.fromRGB(200, 171, 55),
         Separator        = Color3.fromRGB(139, 111, 71),
@@ -101,7 +100,6 @@ local Themes = {
         Shadow           = Color3.fromRGB(3,   1,   1),
         Title            = Color3.fromRGB(255, 210, 190),
         CloseBtn         = Color3.fromRGB(220, 60,  50),
-        MinBtn           = Color3.fromRGB(200, 130, 40),
         Notification     = Color3.fromRGB(28,  10,  8),
         NotifAccent      = Color3.fromRGB(220, 100, 40),
         Separator        = Color3.fromRGB(94,  35,  22),
@@ -133,7 +131,6 @@ local Themes = {
         Shadow           = Color3.fromRGB(4,   3,   2),
         Title            = Color3.fromRGB(230, 210, 245),
         CloseBtn         = Color3.fromRGB(176, 46,  38),
-        MinBtn           = Color3.fromRGB(88,  200, 190),  -- телепорт-циан
         Notification     = Color3.fromRGB(30,  25,  20),
         NotifAccent      = Color3.fromRGB(130, 90,  180),
         Separator        = Color3.fromRGB(90,  78,  55),
@@ -340,7 +337,6 @@ function MinecraftLib:CreateWindow(title, config)
     self._theme     = Themes["Overworld"]
     self._tabs      = {}
     self._activeTab = nil
-    self._minimized = false
     self._visible   = true
     self._keybinds  = {}
     self._title     = title or "Minecraft UI"
@@ -435,21 +431,10 @@ function MinecraftLib:CreateWindow(title, config)
     PixelText(CloseBtn)
     PixelBevel(CloseBtn, self._theme, 1)
 
-    -- Minimize Button
-    local MinBtn = Create("TextButton", {
-        Name = "Min", Size = UDim2.new(0, BtnSize, 0, BtnSize),
-        Position = UDim2.new(1, -BtnSize * 2 - 8, 0.5, -BtnSize / 2),
-        BackgroundColor3 = self._theme.MinBtn, Text = "_",
-        TextColor3 = Color3.fromRGB(30, 25, 15), TextSize = 14,
-        Font = Enum.Font.Arcade, BorderSizePixel = 0, ZIndex = 4, Parent = TitleBar,
-    })
-    PixelText(MinBtn, Color3.fromRGB(30, 25, 15))
-    PixelBevel(MinBtn, self._theme, 1)
-
-    -- Theme selector button (переключение измерений)
+    -- Theme selector button (переключение измерений) — теперь на месте бывшей кнопки сворачивания
     local ThemeBtn = Create("TextButton", {
         Name = "Theme", Size = UDim2.new(0, self._mobile and 50 or 60, 0, self._mobile and 18 or 20),
-        Position = UDim2.new(1, -BtnSize * 2 - (self._mobile and 62 or 74), 0.5, -(self._mobile and 9 or 10)),
+        Position = UDim2.new(1, -BtnSize - (self._mobile and 58 or 70), 0.5, -(self._mobile and 9 or 10)),
         BackgroundColor3 = self._theme.SecondaryBG, Text = "DIM",
         TextColor3 = self._theme.TextSecondary, TextSize = 9,
         Font = Enum.Font.Arcade, BorderSizePixel = 0, ZIndex = 4, Parent = TitleBar,
@@ -510,24 +495,13 @@ function MinecraftLib:CreateWindow(title, config)
     end)
 
     -- ── Button Hovers (жёлтый текст-ховер, как в меню MC) ──
-    CloseBtn.MouseEnter:Connect(function() Tween(CloseBtn, {BackgroundColor3 = Color3.fromRGB(220, 80, 70)}, 0.12) end)
-    CloseBtn.MouseLeave:Connect(function() Tween(CloseBtn, {BackgroundColor3 = self._theme.CloseBtn}, 0.12) end)
+    CloseBtn.MouseEnter:Connect(function() Tween(CloseBtn, {BackgroundColor3 = Color3.fromRGB(220, 80, 70)}, 0.18, Enum.EasingStyle.Sine) end)
+    CloseBtn.MouseLeave:Connect(function() Tween(CloseBtn, {BackgroundColor3 = self._theme.CloseBtn}, 0.18, Enum.EasingStyle.Sine) end)
     CloseBtn.MouseButton1Click:Connect(function()
         Tween(Main, {Size = UDim2.new(0, 0, 0, 0),
-            Position = UDim2.new(Main.Position.X.Scale, Main.Position.X.Offset + WIN_W / 2, Main.Position.Y.Scale, Main.Position.Y.Offset + WIN_H / 2)}, 0.25)
-        Tween(Shadow, {BackgroundTransparency = 1}, 0.2)
-        task.delay(0.3, function() ScreenGui:Destroy() end)
-    end)
-
-    MinBtn.MouseButton1Click:Connect(function()
-        self._minimized = not self._minimized
-        if self._minimized then
-            Tween(Main, {Size = UDim2.new(0, WIN_W, 0, self._mobile and 30 or 36)}, 0.25)
-            MinBtn.Text = "^"
-        else
-            Tween(Main, {Size = UDim2.new(0, WIN_W, 0, WIN_H)}, 0.25)
-            MinBtn.Text = "_"
-        end
+            Position = UDim2.new(Main.Position.X.Scale, Main.Position.X.Offset + WIN_W / 2, Main.Position.Y.Scale, Main.Position.Y.Offset + WIN_H / 2)}, 0.32, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+        Tween(Shadow, {BackgroundTransparency = 1}, 0.28, Enum.EasingStyle.Sine)
+        task.delay(0.34, function() ScreenGui:Destroy() end)
     end)
 
     -- ── Theme Cycling (Overworld -> Nether -> End) ─────
@@ -556,12 +530,12 @@ function MinecraftLib:CreateWindow(title, config)
         if self._visible then
             Main.Visible, Shadow.Visible = true, true
             Main.Size = UDim2.new(0, 0, 0, 0)
-            Tween(Main, {Size = UDim2.new(0, WIN_W, 0, self._minimized and (self._mobile and 30 or 36) or WIN_H)}, 0.2)
-            Tween(Shadow, {BackgroundTransparency = 0.35}, 0.2)
+            Tween(Main, {Size = UDim2.new(0, WIN_W, 0, WIN_H)}, 0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            Tween(Shadow, {BackgroundTransparency = 0.35}, 0.3, Enum.EasingStyle.Sine)
         else
-            Tween(Main, {Size = UDim2.new(0, 0, 0, 0)}, 0.15)
-            Tween(Shadow, {BackgroundTransparency = 1}, 0.15)
-            task.delay(0.16, function()
+            Tween(Main, {Size = UDim2.new(0, 0, 0, 0)}, 0.22, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+            Tween(Shadow, {BackgroundTransparency = 1}, 0.2, Enum.EasingStyle.Sine)
+            task.delay(0.23, function()
                 if not self._visible then Main.Visible, Shadow.Visible = false, false end
             end)
         end
@@ -616,7 +590,6 @@ function MinecraftLib:CreateWindow(title, config)
         BottomBar.BackgroundColor3   = t.Accent
         TitleLabel.TextColor3        = t.Title
         CloseBtn.BackgroundColor3    = t.CloseBtn
-        MinBtn.BackgroundColor3      = t.MinBtn
         ThemeBtn.BackgroundColor3    = t.SecondaryBG
         ThemeBtn.TextColor3          = t.TextSecondary
         Shadow.BackgroundColor3      = t.Shadow
@@ -712,12 +685,12 @@ function MinecraftLib:CreateWindow(title, config)
 
         local function SelectThis()
             for _, ti in ipairs(self._tabs) do
-                Tween(ti.btn, {BackgroundColor3 = t.TabInactive}, 0.12)
+                Tween(ti.btn, {BackgroundColor3 = t.TabInactive}, 0.2, Enum.EasingStyle.Sine)
                 ti.btn.TextColor3 = t.TextSecondary
                 ti.btn:FindFirstChild("ActiveBar").Visible = false
                 ti.content.Visible = false
             end
-            Tween(TabBtn, {BackgroundColor3 = t.TabActive}, 0.12)
+            Tween(TabBtn, {BackgroundColor3 = t.TabActive}, 0.2, Enum.EasingStyle.Sine)
             TabBtn.TextColor3 = t.TextPrimary
             ActiveBar.Visible = true
             ContentScroll.Visible = true
@@ -727,13 +700,13 @@ function MinecraftLib:CreateWindow(title, config)
         TabBtn.MouseButton1Click:Connect(SelectThis)
         TabBtn.MouseEnter:Connect(function()
             if self._activeTab ~= tabInfo then
-                Tween(TabBtn, {BackgroundColor3 = t.TertiaryBG}, 0.1)
+                Tween(TabBtn, {BackgroundColor3 = t.TertiaryBG}, 0.18, Enum.EasingStyle.Sine)
                 TabBtn.TextColor3 = t.TextHover
             end
         end)
         TabBtn.MouseLeave:Connect(function()
             if self._activeTab ~= tabInfo then
-                Tween(TabBtn, {BackgroundColor3 = t.TabInactive}, 0.1)
+                Tween(TabBtn, {BackgroundColor3 = t.TabInactive}, 0.18, Enum.EasingStyle.Sine)
                 TabBtn.TextColor3 = t.TextSecondary
             end
         end)
@@ -776,16 +749,16 @@ function MinecraftLib:CreateWindow(title, config)
             PixelBevel(Btn, t2, 1)
 
             Btn.MouseEnter:Connect(function()
-                Tween(Btn, {BackgroundColor3 = t2.AccentHover}, 0.12)
+                Tween(Btn, {BackgroundColor3 = t2.AccentHover}, 0.2, Enum.EasingStyle.Sine)
                 Btn.TextColor3 = t2.TextHover
             end)
             Btn.MouseLeave:Connect(function()
-                Tween(Btn, {BackgroundColor3 = t2.Accent}, 0.12)
+                Tween(Btn, {BackgroundColor3 = t2.Accent}, 0.2, Enum.EasingStyle.Sine)
                 Btn.TextColor3 = t2.TextPrimary
             end)
-            Btn.MouseButton1Down:Connect(function() Tween(Btn, {BackgroundColor3 = t2.AccentPress}, 0.08) end)
+            Btn.MouseButton1Down:Connect(function() Tween(Btn, {BackgroundColor3 = t2.AccentPress}, 0.12, Enum.EasingStyle.Sine) end)
             Btn.MouseButton1Up:Connect(function()
-                Tween(Btn, {BackgroundColor3 = t2.AccentHover}, 0.1)
+                Tween(Btn, {BackgroundColor3 = t2.AccentHover}, 0.18, Enum.EasingStyle.Sine)
                 pcall(callback)
             end)
             return Btn
@@ -824,8 +797,8 @@ function MinecraftLib:CreateWindow(title, config)
             local ToggleBtn = Create("TextButton", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "", ZIndex = 7, Parent = row })
 
             local function UpdateVisual()
-                Tween(Track, {BackgroundColor3 = state and t2.ToggleOn or t2.ToggleOff}, 0.15)
-                Tween(Knob, {Position = state and UDim2.new(0, trackW - 17, 0, 3) or UDim2.new(0, 3, 0, 3)}, 0.15)
+                Tween(Track, {BackgroundColor3 = state and t2.ToggleOn or t2.ToggleOff}, 0.22, Enum.EasingStyle.Quad)
+                Tween(Knob, {Position = state and UDim2.new(0, trackW - 17, 0, 3) or UDim2.new(0, 3, 0, 3)}, 0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
             end
 
             ToggleBtn.MouseButton1Click:Connect(function()
@@ -937,9 +910,9 @@ function MinecraftLib:CreateWindow(title, config)
             AddPadding(Box, 0, 0, 4, 4)
             PixelBevel(Box, t2, 1)
 
-            Box.Focused:Connect(function() Tween(Box, {BackgroundColor3 = t2.SecondaryBG}, 0.1) end)
+            Box.Focused:Connect(function() Tween(Box, {BackgroundColor3 = t2.SecondaryBG}, 0.18, Enum.EasingStyle.Sine) end)
             Box.FocusLost:Connect(function(enter)
-                Tween(Box, {BackgroundColor3 = t2.Background}, 0.1)
+                Tween(Box, {BackgroundColor3 = t2.Background}, 0.18, Enum.EasingStyle.Sine)
                 if enter then pcall(callback, Box.Text) end
             end)
 
@@ -988,10 +961,10 @@ function MinecraftLib:CreateWindow(title, config)
                 })
                 PixelText(OptBtn)
                 OptBtn.MouseEnter:Connect(function()
-                    Tween(OptBtn, {BackgroundColor3 = t2.Accent}, 0.1); OptBtn.TextColor3 = t2.TextHover
+                    Tween(OptBtn, {BackgroundColor3 = t2.Accent}, 0.16, Enum.EasingStyle.Sine); OptBtn.TextColor3 = t2.TextHover
                 end)
                 OptBtn.MouseLeave:Connect(function()
-                    Tween(OptBtn, {BackgroundColor3 = t2.Background}, 0.1); OptBtn.TextColor3 = t2.TextSecondary
+                    Tween(OptBtn, {BackgroundColor3 = t2.Background}, 0.16, Enum.EasingStyle.Sine); OptBtn.TextColor3 = t2.TextSecondary
                 end)
                 OptBtn.MouseButton1Click:Connect(function()
                     selected = opt; DropBtn.Text = opt .. "  v"; open = false; ListFrame.Visible = false
