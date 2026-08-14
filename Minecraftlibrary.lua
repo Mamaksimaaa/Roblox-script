@@ -6,8 +6,8 @@
     ██║ ╚═╝ ██║██║██║ ╚████║███████╗╚██████╗██║  ██║██║  ██║██║        ██║
     ╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝        ╚═╝
 
-    Minecraft UI Library v3.6 "Glass Voxel"
-    • Прозрачные элементы — фон dirt/измерения виден сквозь UI
+    Minecraft UI Library v3.7 "Glass Voxel" — FIXED
+    • Прозрачные элементы, сквозь них виден фон dirt/измерения
     • Реальные текстуры: dirt, oak_planks, grass_block, dimension bg
     • 3 измерения: Overworld / Nether / End
     • PC: RightShift | Mobile: кнопка M
@@ -193,7 +193,6 @@ local function MakeDraggable(frame, handle)
     end)
 end
 
--- Bevel: чёрный контур + свет/тень
 local function PixelBevel(parent, theme, thickness, inset)
     thickness = thickness or 2; inset = inset or false
     local z = (parent.ZIndex or 1) + 1
@@ -268,14 +267,12 @@ function MinecraftLib:CreateWindow(title, config)
 
     self._winW, self._winH, self._tabW = WIN_W, WIN_H, TAB_W
 
-    -- ScreenGui
     local ScreenGui = Create("ScreenGui", {
         Name = "MinecraftUI_v3", ResetOnSpawn = false,
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling, Parent = CoreGui,
     })
     self._gui = ScreenGui
 
-    -- Shadow
     local Shadow = Create("Frame", {
         Size = UDim2.new(0, WIN_W + 12, 0, WIN_H + 12),
         Position = UDim2.new(0.5, -(WIN_W+12)/2, 0.5, -(WIN_H+12)/2),
@@ -283,7 +280,6 @@ function MinecraftLib:CreateWindow(title, config)
         BorderSizePixel = 0, ZIndex = 0, Parent = ScreenGui,
     })
 
-    -- Main Window
     local Main = Create("Frame", {
         Size = UDim2.new(0, WIN_W, 0, WIN_H),
         Position = UDim2.new(0.5, -WIN_W/2, 0.5, -WIN_H/2),
@@ -293,7 +289,6 @@ function MinecraftLib:CreateWindow(title, config)
     PixelBevel(Main, self._theme, 2)
     self._main, self._shadow = Main, Shadow
 
-    -- Фон окна (измерение)
     local MainBg = Create("ImageLabel", {
         Name = "BackgroundImage", Size = UDim2.new(1,0,1,0),
         BackgroundTransparency = 1, Image = Textures[self._theme.BackgroundImage],
@@ -303,9 +298,7 @@ function MinecraftLib:CreateWindow(title, config)
     local UIScaleInst = Create("UIScale", {Scale = 1, Parent = Main})
     self._uiScale = UIScaleInst
 
-    -- ═════════════════════════════════════════════════
-    -- TITLE BAR (деревянные доски)
-    -- ═════════════════════════════════════════════════
+    -- TITLE BAR
     local TitleBar = Create("Frame", {
         Size = UDim2.new(1, 0, 0, self._mobile and 36 or 42),
         BackgroundColor3 = self._theme.TertiaryBG, BorderSizePixel = 0,
@@ -320,12 +313,10 @@ function MinecraftLib:CreateWindow(title, config)
         ZIndex = 2, Parent = TitleBar,
     })
 
-    -- Гвозди
     for _, pos in ipairs({{0,4,0,4},{1,-8,0,4},{0,4,1,-8},{1,-8,1,-8}}) do
         Create("Frame", {Size=UDim2.new(0,4,0,4), Position=UDim2.new(pos[1],pos[2],pos[3],pos[4]), BackgroundColor3=Color3.fromRGB(60,50,35), BorderSizePixel=0, ZIndex=4, Parent=TitleBar})
     end
 
-    -- Иконка травяного блока
     local IconSize = self._mobile and 20 or 24
     Create("ImageLabel", {
         Size = UDim2.new(0, IconSize, 0, IconSize),
@@ -344,7 +335,6 @@ function MinecraftLib:CreateWindow(title, config)
     PixelText(TitleLabel)
     self._titleLabel = TitleLabel
 
-    -- Close Button
     local BtnSize = self._mobile and 26 or 28
     local CloseBtn = Create("TextButton", {
         Size = UDim2.new(0, BtnSize, 0, BtnSize),
@@ -356,7 +346,6 @@ function MinecraftLib:CreateWindow(title, config)
     PixelText(CloseBtn)
     PixelBevel(CloseBtn, self._theme, 1)
 
-    -- Theme Switcher
     local ThemeBtn = Create("TextButton", {
         Size = UDim2.new(0, self._mobile and 52 or 64, 0, self._mobile and 20 or 22),
         Position = UDim2.new(1, -BtnSize - (self._mobile and 64 or 78), 0.5, -(self._mobile and 10 or 11)),
@@ -367,9 +356,7 @@ function MinecraftLib:CreateWindow(title, config)
     PixelText(ThemeBtn)
     PixelBevel(ThemeBtn, self._theme, 1)
 
-    -- ═════════════════════════════════════════════════
     -- TAB BAR
-    -- ═════════════════════════════════════════════════
     local TabBar = Create("Frame", {
         Size = UDim2.new(0, TAB_W, 1, -(self._mobile and 36 or 42)),
         Position = UDim2.new(0, 0, 0, self._mobile and 36 or 42),
@@ -385,9 +372,7 @@ function MinecraftLib:CreateWindow(title, config)
     AddPadding(TabList, 6, 6, 5, 5)
     self._tabList = TabList
 
-    -- ═════════════════════════════════════════════════
-    -- CONTENT AREA (полупрозрачный)
-    -- ═════════════════════════════════════════════════
+    -- CONTENT AREA
     local ContentArea = Create("Frame", {
         Size = UDim2.new(1, -TAB_W - 6, 1, -(self._mobile and 38 or 46)),
         Position = UDim2.new(0, TAB_W + 3, 0, (self._mobile and 38 or 44)),
@@ -397,31 +382,25 @@ function MinecraftLib:CreateWindow(title, config)
     PixelBevel(ContentArea, self._theme, 1, true)
     self._contentArea = ContentArea
 
-    -- Разделитель
     Create("Frame", {
         Size = UDim2.new(0, 2, 1, -(self._mobile and 36 or 42)),
         Position = UDim2.new(0, TAB_W, 0, (self._mobile and 36 or 42)),
         BackgroundColor3 = self._theme.Border, BorderSizePixel = 0, ZIndex = 3, Parent = Main,
     })
 
-    -- Bottom accent bar
     local BottomBar = Create("Frame", {
         Size = UDim2.new(1, 0, 0, 5), Position = UDim2.new(0, 0, 1, -5),
         BackgroundColor3 = self._theme.Accent, BorderSizePixel = 0, ZIndex = 3, Parent = Main,
     })
     self._bottomBar = BottomBar
 
-    -- ═════════════════════════════════════════════════
     -- DRAG & SHADOW SYNC
-    -- ═════════════════════════════════════════════════
     MakeDraggable(Main, TitleBar)
     Main:GetPropertyChangedSignal("Position"):Connect(function()
         Shadow.Position = UDim2.new(Main.Position.X.Scale, Main.Position.X.Offset + 6, Main.Position.Y.Scale, Main.Position.Y.Offset + 6)
     end)
 
-    -- ═════════════════════════════════════════════════
     -- CLOSE
-    -- ═════════════════════════════════════════════════
     CloseBtn.MouseEnter:Connect(function() Tween(CloseBtn, {BackgroundColor3 = Color3.fromRGB(220,70,60)}, 0.15) end)
     CloseBtn.MouseLeave:Connect(function() Tween(CloseBtn, {BackgroundColor3 = self._theme.CloseBtn}, 0.15) end)
     CloseBtn.MouseButton1Click:Connect(function()
@@ -430,9 +409,7 @@ function MinecraftLib:CreateWindow(title, config)
         task.delay(0.32, function() ScreenGui:Destroy() end)
     end)
 
-    -- ═════════════════════════════════════════════════
     -- THEME CYCLING
-    -- ═════════════════════════════════════════════════
     local themeOrder = {"Overworld", "Nether", "End"}
     local themeShort = {Overworld="OW", Nether="NT", End="ED"}
     local themeIdx = 1
@@ -445,9 +422,7 @@ function MinecraftLib:CreateWindow(title, config)
         self:SetTheme(name)
     end)
 
-    -- ═════════════════════════════════════════════════
     -- KEYBINDS
-    -- ═════════════════════════════════════════════════
     UserInputService.InputBegan:Connect(function(input, gp)
         if gp then return end
         for _, kb in ipairs(self._keybinds) do
@@ -455,9 +430,7 @@ function MinecraftLib:CreateWindow(title, config)
         end
     end)
 
-    -- ═════════════════════════════════════════════════
     -- TOGGLE VISIBILITY
-    -- ═════════════════════════════════════════════════
     function self:ToggleVisible()
         self._visible = not self._visible
         if self._visible then
@@ -492,7 +465,6 @@ function MinecraftLib:CreateWindow(title, config)
         self._mobileToggle = ToggleBtn
     end
 
-    -- Viewport scale
     local function AdjustToViewport()
         local vp = Camera.ViewportSize
         local scale = math.clamp(math.min(vp.X/(WIN_W+50), vp.Y/(WIN_H+50), 1), 0.5, 1)
@@ -501,9 +473,7 @@ function MinecraftLib:CreateWindow(title, config)
     Camera:GetPropertyChangedSignal("ViewportSize"):Connect(AdjustToViewport)
     AdjustToViewport()
 
-    -- ═════════════════════════════════════════════════
     -- SET THEME
-    -- ═════════════════════════════════════════════════
     function self:SetTheme(name)
         local t = Themes[name]
         if not t then return end
@@ -603,15 +573,15 @@ function MinecraftLib:CreateWindow(title, config)
         local Tab = {}
         Tab._theme = t
         Tab._parent = ContentScroll
+        Tab._window = self
         local layoutOrder = 0
         local function NextOrder() layoutOrder = layoutOrder + 1; return layoutOrder end
         local rowH = mobile and 42 or 36
         local sliderH = mobile and 56 or 48
         local textboxH = mobile and 54 or 46
 
-        -- "Слот" — полупрозрачная рамка, сквозь неё виден фон
-        local function MakeSlot(height, customParent)
-            local parent = customParent or Tab._parent
+        local function MakeSlot(height, parent)
+            parent = parent or Tab._parent
             local t2 = self._theme
             local row = Create("Frame", {
                 Size = UDim2.new(1, 0, 0, height or rowH),
@@ -622,10 +592,10 @@ function MinecraftLib:CreateWindow(title, config)
             return row
         end
 
-        -- BUTTON (прозрачный, сквозь него виден dirt)
+        -- BUTTON
         function Tab:AddButton(text, callback)
             local t2 = self._theme
-            local row = MakeSlot(rowH)
+            local row = MakeSlot(rowH, self._parent)
 
             local Btn = Create("TextButton", {
                 Name = "ActionBtn", Size = UDim2.new(1, -14, 1, -10),
@@ -657,9 +627,9 @@ function MinecraftLib:CreateWindow(title, config)
             return Btn
         end
 
-        -- TOGGLE (прозрачный трек)
+        -- TOGGLE
         function Tab:AddToggle(text, default, callback)
-            local t2, row = self._theme, MakeSlot(rowH)
+            local t2, row = self._theme, MakeSlot(rowH, self._parent)
             local state = default or false
 
             local lbl = Create("TextLabel", {
@@ -704,9 +674,9 @@ function MinecraftLib:CreateWindow(title, config)
             return toggle
         end
 
-        -- SLIDER (прозрачный)
+        -- SLIDER
         function Tab:AddSlider(text, min, max, default, callback)
-            local t2, row = self._theme, MakeSlot(sliderH)
+            local t2, row = self._theme, MakeSlot(sliderH, self._parent)
             local val = default or min
 
             local Header = Create("Frame", {Size = UDim2.new(1, 0, 0, mobile and 26 or 22), BackgroundTransparency = 1, ZIndex = 5, Parent = row})
@@ -786,9 +756,9 @@ function MinecraftLib:CreateWindow(title, config)
             return slider
         end
 
-        -- TEXTBOX (прозрачный)
+        -- TEXTBOX
         function Tab:AddTextbox(text, placeholder, callback)
-            local t2, row = self._theme, MakeSlot(textboxH)
+            local t2, row = self._theme, MakeSlot(textboxH, self._parent)
             local lbl = Create("TextLabel", {
                 Name = "ItemLabel", Size = UDim2.new(1, -10, 0, mobile and 20 or 18), Position = UDim2.new(0, 10, 0, 4),
                 BackgroundTransparency = 1, Text = text, TextColor3 = t2.TextSecondary,
@@ -819,11 +789,11 @@ function MinecraftLib:CreateWindow(title, config)
             return tb
         end
 
-        -- DROPDOWN (прозрачный)
+        -- DROPDOWN
         function Tab:AddDropdown(text, options, callback)
             local t2, open = self._theme, false
             local selected = options[1] or ""
-            local row = MakeSlot(rowH)
+            local row = MakeSlot(rowH, self._parent)
 
             local lbl = Create("TextLabel", {
                 Name = "ItemLabel", Size = UDim2.new(0.35, 0, 1, 0), Position = UDim2.new(0, 10, 0, 0),
@@ -896,9 +866,9 @@ function MinecraftLib:CreateWindow(title, config)
             return dd
         end
 
-        -- LABEL (прозрачный)
+        -- LABEL
         function Tab:AddLabel(text)
-            local t2, row = self._theme, MakeSlot(mobile and 32 or 28)
+            local t2, row = self._theme, MakeSlot(mobile and 32 or 28, self._parent)
             row.BackgroundTransparency = 1
             for _, ch in ipairs(row:GetChildren()) do
                 if ch.Name:sub(1,5) == "Bevel" or ch:IsA("UIStroke") then ch:Destroy() end
@@ -920,7 +890,7 @@ function MinecraftLib:CreateWindow(title, config)
             local t2 = self._theme
             local row = Create("Frame", {
                 Size = UDim2.new(1, 0, 0, mobile and 22 or 20), BackgroundTransparency = 1,
-                BorderSizePixel = 0, LayoutOrder = NextOrder(), ZIndex = 4, Parent = Tab._parent,
+                BorderSizePixel = 0, LayoutOrder = NextOrder(), ZIndex = 4, Parent = self._parent,
             })
             Create("Frame", {
                 Name = "Separator", Size = UDim2.new(1, -18, 0, 2), Position = UDim2.new(0, 9, 0.5, 0),
@@ -942,9 +912,9 @@ function MinecraftLib:CreateWindow(title, config)
             end
         end
 
-        -- KEYBIND (прозрачный)
+        -- KEYBIND
         function Tab:AddKeybind(text, defaultKey, callback)
-            local t2, row = self._theme, MakeSlot(rowH)
+            local t2, row = self._theme, MakeSlot(rowH, self._parent)
             local key, listening = defaultKey, false
 
             local lbl = Create("TextLabel", {
@@ -987,9 +957,9 @@ function MinecraftLib:CreateWindow(title, config)
             return kb
         end
 
-        -- COLOR PICKER (прозрачный)
+        -- COLOR PICKER
         function Tab:AddColorPicker(text, default, callback)
-            local t2, row = self._theme, MakeSlot(rowH)
+            local t2, row = self._theme, MakeSlot(rowH, self._parent)
             local col, open = default or Color3.fromRGB(255, 0, 0), false
 
             local lbl = Create("TextLabel", {
@@ -1106,7 +1076,7 @@ function MinecraftLib:CreateWindow(title, config)
                 BackgroundColor3 = t2.TertiaryBG, BackgroundTransparency = 0.2,
                 Text = "v " .. title, TextColor3 = t2.Accent, TextSize = FONT_BODY,
                 Font = FONT, TextXAlignment = Enum.TextXAlignment.Left, BorderSizePixel = 0,
-                LayoutOrder = NextOrder(), ZIndex = 4, Parent = Tab._parent,
+                LayoutOrder = NextOrder(), ZIndex = 4, Parent = self._parent,
             })
             PixelText(Header, t2.Accent)
             AddPadding(Header, 0, 0, 10, 10)
@@ -1114,7 +1084,7 @@ function MinecraftLib:CreateWindow(title, config)
 
             local SectionFrame = Create("Frame", {
                 Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
-                BackgroundTransparency = 1, LayoutOrder = NextOrder(), ZIndex = 4, Parent = Tab._parent,
+                BackgroundTransparency = 1, LayoutOrder = NextOrder(), ZIndex = 4, Parent = self._parent,
             })
             Create("UIListLayout", {Padding = UDim.new(0, mobile and 5 or 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = SectionFrame})
             AddPadding(SectionFrame, 0, 0, 10, 0)
@@ -1129,19 +1099,20 @@ function MinecraftLib:CreateWindow(title, config)
             local Sec = {}
             setmetatable(Sec, {__index = Tab})
             Sec._parent = SectionFrame
+            Sec._window = self
             return Sec
         end
 
-        -- NOTIFY из вкладки
+        -- NOTIFY из вкладки (исправлено: теперь вызывает Window:Notify)
         function Tab:AddNotify(title, msg, duration)
-            self:Notify(title, msg, duration)
+            self._window:Notify(title, msg, duration)
         end
 
         return Tab
     end
 
     -- ══════════════════════════════════════════════════
-    -- ACHIEVEMENT TOAST (UI-стиль, без картинки)
+    -- ACHIEVEMENT TOAST
     -- ══════════════════════════════════════════════════
     function self:Notify(title, message, duration)
         local t = self._theme
@@ -1154,7 +1125,6 @@ function MinecraftLib:CreateWindow(title, config)
         })
         PixelBevel(notif, t, 2)
 
-        -- Золотая полоска слева
         Create("Frame", {
             Size = UDim2.new(0, 4, 1, 0), BackgroundColor3 = t.NotifAccent,
             BorderSizePixel = 0, ZIndex = 26, Parent = notif,
@@ -1182,7 +1152,6 @@ function MinecraftLib:CreateWindow(title, config)
         })
         PixelText(ml)
 
-        -- Прогресс-бар
         local ProgBG = Create("Frame", {
             Size = UDim2.new(1, 0, 0, 2), Position = UDim2.new(0, 0, 1, -2),
             BackgroundColor3 = t.SliderBG, BackgroundTransparency = 0.5,
