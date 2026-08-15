@@ -1,29 +1,85 @@
 --[[
-    ╔══════════════════════════════════════════════════════════════╗
-    ║         MINECRAFT UI LIBRARY v3.6 — CFrame Speed Script      ║
-    ║         Изменение скорости через CFrame                      ║
-    ╚══════════════════════════════════════════════════════════════╝
+    ╔══════════════════════════════════════════════════════════════════════════════╗
+    ║                     MINECRAFT UI LIBRARY v3.6 — CFrame Speed Script        ║
+    ║                     Change movement speed via CFrame                       ║
+    ╚══════════════════════════════════════════════════════════════════════════════╝
+
+    📘 HOW TO USE THIS LIBRARY (instructions for AI and developers)
+    ===========================================================================
+
+    1. LOADING
+       local Lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/Mamaksimaaa/Roblox-script/refs/heads/main/Minecraft%20library/Minecraftlibrary.lua"))()
+       — The library returns an object with the CreateWindow method.
+
+    2. CREATING A WINDOW
+       local Window = Lib:CreateWindow(title, { Theme = "Overworld|Nether|End" })
+       — Returns a window object.
+
+    3. ADDING TABS
+       local Tab = Window:AddTab(name)
+       — Returns a tab object on which you can place controls.
+
+    4. UI ELEMENTS (all return objects with Set() and Get() methods)
+       ┌─────────────────────────────────────────────────────────────────────────┐
+       │ Tab:AddButton(text, callback)               — button, no state        │
+       │ Tab:AddToggle(text, default, callback)      — toggle switch           │
+       │ Tab:AddSlider(text, min, max, default, callback) — slider            │
+       │ Tab:AddTextbox(text, placeholder, callback) — text input field        │
+       │ Tab:AddDropdown(text, {options}, callback)  — dropdown list           │
+       │ Tab:AddLabel(text)                          — static label            │
+       │ Tab:AddSeparator([label])                   — separator line          │
+       │ Tab:AddKeybind(text, key, callback)         — key binding             │
+       │ Tab:AddColorPicker(text, color, callback)   — color picker            │
+       │ Tab:AddSection(title)                       — collapsible section     │
+       │ Tab:AddNotify(title, message, duration)     — toast notification      │
+       └─────────────────────────────────────────────────────────────────────────┘
+       All elements (except Button and Separator) have:
+         element:Set(new_value) — update state
+         element:Get()          — get current value
+
+    5. NOTIFICATIONS (toasts)
+       Window:Notify(title, message, duration_sec)
+       — Appear in the bottom‑right corner, disappear automatically.
+
+    6. WINDOW CONTROL
+       Window:ToggleVisible()   — show/hide window (with animation)
+       Window:SetTheme(name)    — change theme (Overworld/Nether/End)
+       Window:Destroy()         — completely destroy the window
+
+    7. HOTKEYS AND MOBILE VERSION
+       • On PC: press RightShift to toggle the window.
+       • On mobile: a floating "M" button appears to call the window.
+       • All sizes and paddings adapt to the screen automatically.
+
+    8. FEATURES
+       • All textures (dirt, planks, grass, dimension backgrounds) are loaded from
+         the internet and cached in the MinecraftUI folder (requires file access).
+       • Pixel style: Arcade font, bevelled edges, shadows.
+       • Animations on hover, toggle, show/hide.
+       • All callbacks are wrapped in pcall to prevent errors.
+
+    ===========================================================================
 ]]
 
--- 1. Загружаем библиотеку
+-- 1. Load the library (replace the URL with the actual one if needed)
 local Lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/Mamaksimaaa/Roblox-script/refs/heads/main/Minecraft%20library/Minecraftlibrary.lua"))()
 
--- 2. Создаём окно
+-- 2. Create a window with Overworld theme (can be Nether or End)
 local Window = Lib:CreateWindow("CFrame Speed", {Theme = "Overworld"})
 
--- 3. Вкладка управления скоростью
+-- 3. Tab for speed control
 local SpeedTab = Window:AddTab("Speed")
 
--- Переменные для управления
+-- Control variables
 local speedEnabled = false
-local speedMultiplier = 5  -- по умолчанию 5x
-local speedConnection = nil -- соединение с RunService.Heartbeat
+local speedMultiplier = 5  -- default 5x
+local speedConnection = nil -- RunService.Heartbeat connection
 local player = game.Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 local rootPart = character:WaitForChild("HumanoidRootPart")
 
--- Функция запуска/остановки CFrame-ускорения
+-- Function to start/stop CFrame speed boosting
 local function updateSpeedLoop()
     if speedConnection then
         speedConnection:Disconnect()
@@ -32,7 +88,7 @@ local function updateSpeedLoop()
 
     if speedEnabled then
         speedConnection = game:GetService("RunService").Heartbeat:Connect(function(dt)
-            -- Проверяем, что персонаж и его части живы
+            -- Check that the character and its parts are alive
             if not character or not character.Parent or not humanoid or humanoid.Health <= 0 then
                 return
             end
@@ -40,60 +96,60 @@ local function updateSpeedLoop()
                 return
             end
 
-            -- Направление движения (WASD)
+            -- Movement direction (WASD)
             local moveDirection = humanoid.MoveDirection
             if moveDirection.Magnitude > 0 then
-                -- Базовая скорость ходьбы (обычно 16 studs/sec)
+                -- Base walking speed (usually 16 studs/sec)
                 local baseSpeed = humanoid.WalkSpeed
                 local distance = baseSpeed * speedMultiplier * dt
                 local offset = moveDirection * distance
 
-                -- Перемещаем персонаж напрямую через CFrame
+                -- Move the character directly via CFrame
                 rootPart.CFrame = rootPart.CFrame + offset
             end
         end)
     end
 end
 
--- Функция обновления ссылок на персонажа (при респавне)
+-- Update character references on respawn
 local function onCharacterAdded(newCharacter)
     character = newCharacter
     humanoid = character:WaitForChild("Humanoid")
     rootPart = character:WaitForChild("HumanoidRootPart")
-    -- Перезапускаем цикл, если скорость была включена
+    -- Restart the loop if speed was enabled
     if speedEnabled then
         updateSpeedLoop()
     end
 end
 player.CharacterAdded:Connect(onCharacterAdded)
 
--- Обработка включения/выключения скорости
+-- Handle enable/disable of speed
 local function setSpeedEnabled(state)
     speedEnabled = state
     updateSpeedLoop()
     Window:Notify("Speed", state and "CFrame Speed: ON" or "CFrame Speed: OFF", 2)
 end
 
--- Создаём элементы UI
+-- Create UI elements
 
--- Тоггл для включения/выключения
+-- Toggle for enabling/disabling (returns an object you can later modify)
 local Toggle = SpeedTab:AddToggle("Enable CFrame Speed", false, function(state)
     setSpeedEnabled(state)
 end)
 
--- Слайдер для множителя скорости
+-- Slider for speed multiplier (returns an object with Set/Get)
 local Slider = SpeedTab:AddSlider("Speed Multiplier", 1, 50, speedMultiplier, function(value)
     speedMultiplier = value
     Window:Notify("Speed", "Multiplier set to " .. value .. "x", 1)
-    -- Если скорость включена, обновляем цикл с новым множителем (не обязательно, но чисто)
+    -- If speed is enabled, update the loop with the new multiplier (not strictly necessary, but clean)
     if speedEnabled then
         updateSpeedLoop()
     end
 end)
 
--- Кнопка для быстрого сброса
+-- Button to reset speed (no state, just callback)
 SpeedTab:AddButton("Reset Speed", function()
-    Slider:Set(5)
+    Slider:Set(5)          -- change slider value via its Set method
     speedMultiplier = 5
     if speedEnabled then
         updateSpeedLoop()
@@ -101,18 +157,18 @@ SpeedTab:AddButton("Reset Speed", function()
     Window:Notify("Speed", "Speed reset to 5x", 2)
 end)
 
--- Разделитель и подпись
+-- Separator and label (for visual grouping)
 SpeedTab:AddSeparator("Info")
 SpeedTab:AddLabel("Use WASD to move. Speed multiplies your normal WalkSpeed.")
 
--- Дополнительная вкладка с инструкцией
+-- Additional help tab (demonstration of another tab)
 local InfoTab = Window:AddTab("Help")
 InfoTab:AddLabel("1. Enable CFrame Speed")
 InfoTab:AddLabel("2. Adjust multiplier (1x-50x)")
 InfoTab:AddLabel("3. Move using WASD")
 InfoTab:AddLabel("Note: This directly moves your character's CFrame, may cause clipping or anti-cheat detection.")
 
--- Стартовое уведомление
+-- Startup notification (appears after 1 second)
 task.delay(1, function()
     Window:Notify("CFrame Speed Loaded", "RightShift to toggle UI | Use Speed tab", 4)
 end)
