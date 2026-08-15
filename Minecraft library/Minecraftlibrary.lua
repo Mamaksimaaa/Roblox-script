@@ -249,6 +249,9 @@ function MinecraftLib:CreateWindow(title, config)
     self._keybinds = {}
     self._title = title or "Minecraft UI"
     self._mobile = IsMobile()
+    self._connections = {}
+
+    function self:_track(conn) table.insert(self._connections, conn) return conn end
 
     local Textures = {
         Dirt = LoadTexture(TextureURLs.Dirt, "dirt.jpg"),
@@ -448,9 +451,9 @@ function MinecraftLib:CreateWindow(title, config)
 
     MakeDraggable(Main, TitleBar)
 
-    Main:GetPropertyChangedSignal("Position"):Connect(function()
+    self:_track(Main:GetPropertyChangedSignal("Position"):Connect(function()
         Shadow.Position = UDim2.new(Main.Position.X.Scale, Main.Position.X.Offset + 6, Main.Position.Y.Scale, Main.Position.Y.Offset + 6)
-    end)
+    end))
 
     CloseBtn.MouseEnter:Connect(function()
         Tween(CloseBtn, {BackgroundColor3 = Color3.fromRGB(220,70,60)}, 0.15)
@@ -459,11 +462,7 @@ function MinecraftLib:CreateWindow(title, config)
         Tween(CloseBtn, {BackgroundColor3 = self._theme.CloseBtn}, 0.15)
     end)
     CloseBtn.MouseButton1Click:Connect(function()
-        Tween(Main, {Size = UDim2.new(0,0,0,0), Position = UDim2.new(Main.Position.X.Scale, Main.Position.X.Offset+WIN_W/2, Main.Position.Y.Scale, Main.Position.Y.Offset+WIN_H/2)}, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In)
-        Tween(Shadow, {BackgroundTransparency = 1}, 0.25)
-        task.delay(0.32, function()
-            ScreenGui:Destroy()
-        end)
+        self:Destroy()
     end)
 
     local themeOrder = {"Overworld", "Nether", "End"}
@@ -483,14 +482,14 @@ function MinecraftLib:CreateWindow(title, config)
         self:SetTheme(name)
     end)
 
-    UserInputService.InputBegan:Connect(function(input, gp)
+    self:_track(UserInputService.InputBegan:Connect(function(input, gp)
         if gp then return end
         for _, kb in ipairs(self._keybinds) do
             if input.KeyCode == kb.key then
                 pcall(kb.callback)
             end
         end
-    end)
+    end))
 
     function self:ToggleVisible()
         self._visible = not self._visible
@@ -511,12 +510,12 @@ function MinecraftLib:CreateWindow(title, config)
     end
 
     if not self._mobile then
-        UserInputService.InputBegan:Connect(function(input, gp)
+        self:_track(UserInputService.InputBegan:Connect(function(input, gp)
             if gp then return end
             if input.KeyCode == Enum.KeyCode.RightShift then
                 self:ToggleVisible()
             end
-        end)
+        end))
     else
         local ToggleBtn = Create("TextButton", {
             Name = "MC_MobileToggle",
@@ -555,12 +554,12 @@ function MinecraftLib:CreateWindow(title, config)
         end
         local camera = workspace.CurrentCamera
         if camera then
-            viewportConnection = camera:GetPropertyChangedSignal("ViewportSize"):Connect(AdjustToViewport)
+            viewportConnection = self:_track(camera:GetPropertyChangedSignal("ViewportSize"):Connect(AdjustToViewport))
         end
         AdjustToViewport()
     end
 
-    workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(WatchCamera)
+    self:_track(workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(WatchCamera))
     WatchCamera()
 
     function self:SetTheme(name)
@@ -899,17 +898,17 @@ function MinecraftLib:CreateWindow(title, config)
                 end
             end)
 
-            UserInputService.InputEnded:Connect(function(inp)
+            self._window:_track(UserInputService.InputEnded:Connect(function(inp)
                 if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
                     dragging = false
                 end
-            end)
+            end))
 
-            UserInputService.InputChanged:Connect(function(inp)
+            self._window:_track(UserInputService.InputChanged:Connect(function(inp)
                 if dragging and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) then
                     SetFromInput(inp)
                 end
-            end)
+            end))
 
             local slider = {}
             function slider:Set(v)
@@ -1071,7 +1070,7 @@ function MinecraftLib:CreateWindow(title, config)
                 DropBtn.Text = selected .. (open and " ▲" or " ▼")
             end)
 
-            UserInputService.InputBegan:Connect(function(inp, gp)
+            self._window:_track(UserInputService.InputBegan:Connect(function(inp, gp)
                 if gp then return end
                 if open and inp.UserInputType == Enum.UserInputType.MouseButton1 then
                     local pos = inp.Position
@@ -1084,7 +1083,7 @@ function MinecraftLib:CreateWindow(title, config)
                         end
                     end
                 end
-            end)
+            end))
 
             local dd = {}
             function dd:Set(v)
@@ -1215,7 +1214,7 @@ function MinecraftLib:CreateWindow(title, config)
                 listening = true
                 KeyBtn.Text = "..."
                 local con
-                con = UserInputService.InputBegan:Connect(function(inp, gp)
+                con = self._window:_track(UserInputService.InputBegan:Connect(function(inp, gp)
                     if gp then return end
                     if inp.UserInputType == Enum.UserInputType.Keyboard then
                         key = inp.KeyCode
@@ -1230,7 +1229,7 @@ function MinecraftLib:CreateWindow(title, config)
                         end
                         table.insert(self._keybinds, {id = text, key = key, callback = callback})
                     end
-                end)
+                end))
             end)
 
             if key then
@@ -1374,17 +1373,17 @@ function MinecraftLib:CreateWindow(title, config)
                     end
                 end)
 
-                UserInputService.InputEnded:Connect(function(inp)
+                self._window:_track(UserInputService.InputEnded:Connect(function(inp)
                     if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
                         draggingRGB = false
                     end
-                end)
+                end))
 
-                UserInputService.InputChanged:Connect(function(inp)
+                self._window:_track(UserInputService.InputChanged:Connect(function(inp)
                     if draggingRGB and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) then
                         apply(inp)
                     end
-                end)
+                end))
             end
 
             makeRGBSlider("R", 66, function() return r end, function(v) r = v; col = Color3.new(r, g, b) end)
@@ -1397,7 +1396,7 @@ function MinecraftLib:CreateWindow(title, config)
                 Popup.Visible = open
             end)
 
-            UserInputService.InputBegan:Connect(function(inp, gp)
+            self._window:_track(UserInputService.InputBegan:Connect(function(inp, gp)
                 if gp or not open then return end
                 if inp.UserInputType == Enum.UserInputType.MouseButton1 then
                     local pos = inp.Position
@@ -1409,7 +1408,7 @@ function MinecraftLib:CreateWindow(title, config)
                         end
                     end
                 end
-            end)
+            end))
 
             local cp = {}
             function cp:Set(c)
@@ -1572,6 +1571,10 @@ function MinecraftLib:CreateWindow(title, config)
     end
 
     function self:Destroy()
+        for _, conn in ipairs(self._connections) do
+            conn:Disconnect()
+        end
+        self._connections = {}
         if self._gui then
             self._gui:Destroy()
         end
@@ -1626,7 +1629,6 @@ function MinecraftLib:CreateWindow(title, config)
     Create("ImageLabel", {
         Name = "RobloxAvatar",
         Size = UDim2.new(0, self._mobile and 75 or 85, 0, self._mobile and 75 or 85),
-        Position = UDim2.new(0.5
         Position = UDim2.new(0.5, self._mobile and -37 or -42, 0, 5),
         BackgroundTransparency = 1,
         Image = "https://www.roblox.com/Thumbs/Avatar.ashx?x=100&y=100&username=xXHaNdEROXx",
