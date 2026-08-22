@@ -1,174 +1,223 @@
---[[
-    ╔══════════════════════════════════════════════════════════════════════════════╗
-    ║                     MINECRAFT UI LIBRARY v3.6 — CFrame Speed Script        ║
-    ║                     Change movement speed via CFrame                       ║
-    ╚══════════════════════════════════════════════════════════════════════════════╝
+-- Загрузка библиотеки
+local MinecraftLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/Mamaksimaaa/Roblox-script/refs/heads/main/Lib/load.lua"))()
 
-    📘 HOW TO USE THIS LIBRARY (instructions for AI and developers)
-    ===========================================================================
+-- Создание окна
+local Window = MinecraftLib:CreateWindow("Minecraft UI v3", {
+    Theme = "Overworld" -- Overworld / Nether / End
+})
 
-    1. LOADING
-       local Lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/Mamaksimaaa/Roblox-script/refs/heads/main/Minecraft%20library/Minecraftlibrary.lua"))()
-       — The library returns an object with the CreateWindow method.
+-- ==================== ВКЛАДКА 1: Main ====================
+local MainTab = Window:AddTab("Main")
 
-    2. CREATING A WINDOW
-       local Window = Lib:CreateWindow(title, { Theme = "Overworld|Nether|End" })
-       — Returns a window object.
+MainTab:AddLabel("Welcome to Minecraft UI!")
 
-    3. ADDING TABS
-       local Tab = Window:AddTab(name)
-       — Returns a tab object on which you can place controls.
-
-    4. UI ELEMENTS (all return objects with Set() and Get() methods)
-       ┌─────────────────────────────────────────────────────────────────────────┐
-       │ Tab:AddButton(text, callback)               — button, no state        │
-       │ Tab:AddToggle(text, default, callback)      — toggle switch           │
-       │ Tab:AddSlider(text, min, max, default, callback) — slider            │
-       │ Tab:AddTextbox(text, placeholder, callback) — text input field        │
-       │ Tab:AddDropdown(text, {options}, callback)  — dropdown list           │
-       │ Tab:AddLabel(text)                          — static label            │
-       │ Tab:AddSeparator([label])                   — separator line          │
-       │ Tab:AddKeybind(text, key, callback)         — key binding             │
-       │ Tab:AddColorPicker(text, color, callback)   — color picker            │
-       │ Tab:AddSection(title)                       — collapsible section     │
-       │ Tab:AddNotify(title, message, duration)     — toast notification      │
-       └─────────────────────────────────────────────────────────────────────────┘
-       All elements (except Button and Separator) have:
-         element:Set(new_value) — update state
-         element:Get()          — get current value
-
-    5. NOTIFICATIONS (toasts)
-       Window:Notify(title, message, duration_sec)
-       — Appear in the bottom‑right corner, disappear automatically.
-
-    6. WINDOW CONTROL
-       Window:ToggleVisible()   — show/hide window (with animation)
-       Window:SetTheme(name)    — change theme (Overworld/Nether/End)
-       Window:Destroy()         — completely destroy the window
-
-    7. HOTKEYS AND MOBILE VERSION
-       • On PC: press RightShift to toggle the window.
-       • On mobile: a floating "M" button appears to call the window.
-       • All sizes and paddings adapt to the screen automatically.
-
-    8. FEATURES
-       • All textures (dirt, planks, grass, dimension backgrounds) are loaded from
-         the internet and cached in the MinecraftUI folder (requires file access).
-       • Pixel style: Arcade font, bevelled edges, shadows.
-       • Animations on hover, toggle, show/hide.
-       • All callbacks are wrapped in pcall to prevent errors.
-
-    ===========================================================================
-]]
-
--- 1. Load the library (replace the URL with the actual one if needed)
-local Lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/Mamaksimaaa/Roblox-script/refs/heads/main/Minecraft%20library/Minecraftlibrary.lua"))()
-
--- 2. Create a window with Overworld theme (can be Nether or End)
-local Window = Lib:CreateWindow("CFrame Speed", {Theme = "Overworld"})
-
--- 3. Tab for speed control
-local SpeedTab = Window:AddTab("Speed")
-
--- Control variables
-local speedEnabled = false
-local speedMultiplier = 5  -- default 5x
-local speedConnection = nil -- RunService.Heartbeat connection
-local player = game.Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
-local rootPart = character:WaitForChild("HumanoidRootPart")
-
--- Function to start/stop CFrame speed boosting
-local function updateSpeedLoop()
-    if speedConnection then
-        speedConnection:Disconnect()
-        speedConnection = nil
-    end
-
-    if speedEnabled then
-        speedConnection = game:GetService("RunService").Heartbeat:Connect(function(dt)
-            -- Check that the character and its parts are alive
-            if not character or not character.Parent or not humanoid or humanoid.Health <= 0 then
-                return
-            end
-            if not rootPart or not rootPart.Parent then
-                return
-            end
-
-            -- Movement direction (WASD)
-            local moveDirection = humanoid.MoveDirection
-            if moveDirection.Magnitude > 0 then
-                -- Base walking speed (usually 16 studs/sec)
-                local baseSpeed = humanoid.WalkSpeed
-                local distance = baseSpeed * speedMultiplier * dt
-                local offset = moveDirection * distance
-
-                -- Move the character directly via CFrame
-                rootPart.CFrame = rootPart.CFrame + offset
-            end
-        end)
-    end
-end
-
--- Update character references on respawn
-local function onCharacterAdded(newCharacter)
-    character = newCharacter
-    humanoid = character:WaitForChild("Humanoid")
-    rootPart = character:WaitForChild("HumanoidRootPart")
-    -- Restart the loop if speed was enabled
-    if speedEnabled then
-        updateSpeedLoop()
-    end
-end
-player.CharacterAdded:Connect(onCharacterAdded)
-
--- Handle enable/disable of speed
-local function setSpeedEnabled(state)
-    speedEnabled = state
-    updateSpeedLoop()
-    Window:Notify("Speed", state and "CFrame Speed: ON" or "CFrame Speed: OFF", 2)
-end
-
--- Create UI elements
-
--- Toggle for enabling/disabling (returns an object you can later modify)
-local Toggle = SpeedTab:AddToggle("Enable CFrame Speed", false, function(state)
-    setSpeedEnabled(state)
+MainTab:AddButton("Click Me!", function()
+    Window:Notify("Button", "You clicked the button!", 3)
 end)
 
--- Slider for speed multiplier (returns an object with Set/Get)
-local Slider = SpeedTab:AddSlider("Speed Multiplier", 1, 50, speedMultiplier, function(value)
-    speedMultiplier = value
-    Window:Notify("Speed", "Multiplier set to " .. value .. "x", 1)
-    -- If speed is enabled, update the loop with the new multiplier (not strictly necessary, but clean)
-    if speedEnabled then
-        updateSpeedLoop()
-    end
+MainTab:AddSeparator("Features")
+
+local autoFarmToggle = MainTab:AddToggle("Auto Farm", false, function(state)
+    Window:Notify("Toggle", "Auto Farm: " .. tostring(state), 2)
+    print("[Auto Farm] State:", state)
 end)
 
--- Button to reset speed (no state, just callback)
-SpeedTab:AddButton("Reset Speed", function()
-    Slider:Set(5)          -- change slider value via its Set method
-    speedMultiplier = 5
-    if speedEnabled then
-        updateSpeedLoop()
-    end
-    Window:Notify("Speed", "Speed reset to 5x", 2)
+local speedSlider = MainTab:AddSlider("Walk Speed", 16, 200, 50, function(val)
+    print("[Speed] Value:", val)
+    -- game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = val
 end)
 
--- Separator and label (for visual grouping)
-SpeedTab:AddSeparator("Info")
-SpeedTab:AddLabel("Use WASD to move. Speed multiplies your normal WalkSpeed.")
-
--- Additional help tab (demonstration of another tab)
-local InfoTab = Window:AddTab("Help")
-InfoTab:AddLabel("1. Enable CFrame Speed")
-InfoTab:AddLabel("2. Adjust multiplier (1x-50x)")
-InfoTab:AddLabel("3. Move using WASD")
-InfoTab:AddLabel("Note: This directly moves your character's CFrame, may cause clipping or anti-cheat detection.")
-
--- Startup notification (appears after 1 second)
-task.delay(1, function()
-    Window:Notify("CFrame Speed Loaded", "RightShift to toggle UI | Use Speed tab", 4)
+MainTab:AddTextbox("Player Name", "Enter name...", function(text)
+    Window:Notify("Textbox", "Entered: " .. text, 2)
+    print("[Player] Name:", text)
 end)
+
+local gameModeDropdown = MainTab:AddDropdown("Game Mode", {"Survival", "Creative", "Adventure", "Spectator"}, function(selected)
+    Window:Notify("Dropdown", "Selected: " .. selected, 2)
+    print("[Mode] Selected:", selected)
+end)
+
+local toggleUIKeybind = MainTab:AddKeybind("Toggle UI", Enum.KeyCode.F, function()
+    Window:ToggleVisible()
+end)
+
+local accentColor = MainTab:AddColorPicker("Accent Color", Color3.fromRGB(80, 140, 45), function(color)
+    print("[Color] Selected:", color)
+end)
+
+-- ==================== ВКЛАДКА 2: Player ====================
+local PlayerTab = Window:AddTab("Player")
+
+PlayerTab:AddLabel("Player Settings")
+
+PlayerTab:AddButton("Heal to Full", function()
+    Window:Notify("Heal", "Healed to full HP!", 2)
+    print("[Heal] Full health restored")
+end)
+
+PlayerTab:AddButton("Suicide", function()
+    Window:Notify("Death", "You died!", 2)
+    print("[Suicide] Player died")
+end)
+
+PlayerTab:AddSeparator("Stats")
+
+local healthSlider = PlayerTab:AddSlider("Max Health", 100, 1000, 100, function(val)
+    print("[Health] Max:", val)
+end)
+
+local jumpSlider = PlayerTab:AddSlider("Jump Power", 50, 300, 100, function(val)
+    print("[Jump] Power:", val)
+    -- game.Players.LocalPlayer.Character.Humanoid.JumpPower = val
+end)
+
+local noclipToggle = PlayerTab:AddToggle("Noclip", false, function(state)
+    print("[Noclip] State:", state)
+end)
+
+local godModeToggle = PlayerTab:AddToggle("God Mode", false, function(state)
+    print("[God] State:", state)
+end)
+
+PlayerTab:AddTextbox("Teleport to Player", "Username...", function(name)
+    print("[Teleport] Target:", name)
+    Window:Notify("Teleport", "Teleporting to " .. name .. "...", 2)
+end)
+
+-- ==================== ВКЛАДКА 3: Combat ====================
+local CombatTab = Window:AddTab("Combat")
+
+CombatTab:AddLabel("Combat Features")
+
+local aimbotToggle = CombatTab:AddToggle("Aimbot", false, function(state)
+    print("[Aimbot] State:", state)
+end)
+
+local silentAimToggle = CombatTab:AddToggle("Silent Aim", false, function(state)
+    print("[Silent Aim] State:", state)
+end)
+
+CombatTab:AddSeparator("Weapon")
+
+local damageSlider = CombatTab:AddSlider("Damage Multiplier", 1, 10, 1, function(val)
+    print("[Damage] Multiplier:", val)
+end)
+
+local reachSlider = CombatTab:AddSlider("Reach", 5, 50, 10, function(val)
+    print("[Reach] Distance:", val)
+end)
+
+local hitboxDropdown = CombatTab:AddDropdown("Hitbox Expand", {"Head", "Torso", "All", "None"}, function(selected)
+    print("[Hitbox] Mode:", selected)
+end)
+
+local autoClickToggle = CombatTab:AddToggle("Auto Clicker", false, function(state)
+    print("[AutoClick] State:", state)
+end)
+
+CombatTab:AddKeybind("Aim Key", Enum.KeyCode.Q, function()
+    print("[Aim] Key pressed")
+end)
+
+-- ==================== ВКЛАДКА 4: Settings ====================
+local SettingsTab = Window:AddTab("Settings")
+
+SettingsTab:AddLabel("UI Configuration")
+
+local fpsSlider = SettingsTab:AddSlider("FPS Cap", 30, 240, 60, function(val)
+    print("[FPS] Cap:", val)
+end)
+
+local fovSlider = SettingsTab:AddSlider("FOV", 30, 120, 70, function(val)
+    print("[FOV] Value:", val)
+    -- workspace.CurrentCamera.FieldOfView = val
+end)
+
+SettingsTab:AddSeparator("Advanced")
+
+local antiAFKToggle = SettingsTab:AddToggle("Anti-AFK", true, function(state)
+    print("[Anti-AFK] State:", state)
+end)
+
+local antiBanToggle = SettingsTab:AddToggle("Anti-Ban", false, function(state)
+    print("[Anti-Ban] State:", state)
+end)
+
+local espToggle = SettingsTab:AddToggle("ESP", false, function(state)
+    print("[ESP] State:", state)
+end)
+
+local tracerToggle = SettingsTab:AddToggle("Tracers", false, function(state)
+    print("[Tracers] State:", state)
+end)
+
+SettingsTab:AddDropdown("ESP Mode", {"Boxes", "Skeleton", "Chams", "Glow"}, function(selected)
+    print("[ESP] Mode:", selected)
+end)
+
+-- Секция внутри Settings
+local debugSection = SettingsTab:AddSection("Debug")
+
+debugSection:AddToggle("Console Logs", true, function(state)
+    print("[Debug] Logs:", state)
+end)
+
+debugSection:AddToggle("Error Notifications", false, function(state)
+    print("[Debug] Errors:", state)
+end)
+
+debugSection:AddButton("Dump Config", function()
+    Window:Notify("Debug", "Config dumped to console!", 2)
+    print("=== CONFIG DUMP ===")
+    print("Auto Farm:", autoFarmToggle:Get())
+    print("Walk Speed:", speedSlider:Get())
+    print("Game Mode:", gameModeDropdown:Get())
+    print("Accent Color:", accentColor:Get())
+end)
+
+-- ==================== ВКЛАДКА 5: Teleport ====================
+local TeleportTab = Window:AddTab("Teleport")
+
+TeleportTab:AddLabel("Locations")
+
+TeleportTab:AddButton("Spawn", function()
+    Window:Notify("Teleport", "Teleported to Spawn!", 2)
+    print("[TP] Spawn")
+end)
+
+TeleportTab:AddButton("Base", function()
+    Window:Notify("Teleport", "Teleported to Base!", 2)
+    print("[TP] Base")
+end)
+
+TeleportTab:AddButton("Shop", function()
+    Window:Notify("Teleport", "Teleported to Shop!", 2)
+    print("[TP] Shop")
+end)
+
+TeleportTab:AddButton("Dungeon", function()
+    Window:Notify("Teleport", "Teleported to Dungeon!", 2)
+    print("[TP] Dungeon")
+end)
+
+TeleportTab:AddSeparator("Custom")
+
+TeleportTab:AddTextbox("X Coordinate", "0", function(x)
+    print("[TP] X:", x)
+end)
+
+TeleportTab:AddTextbox("Y Coordinate", "0", function(y)
+    print("[TP] Y:", y)
+end)
+
+TeleportTab:AddTextbox("Z Coordinate", "0", function(z)
+    print("[TP] Z:", z)
+end)
+
+TeleportTab:AddButton("Teleport to Coords", function()
+    Window:Notify("Teleport", "Teleported to coordinates!", 2)
+end)
+
+-- ==================== СТАРТОВОЕ УВЕДОМЛЕНИЕ ====================
+Window:Notify("Minecraft UI", "Loaded successfully! Press RightShift or F to toggle.", 5)
+print("[Minecraft UI] Script loaded successfully!")
