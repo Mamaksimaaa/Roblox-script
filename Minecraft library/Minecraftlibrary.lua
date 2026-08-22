@@ -14,6 +14,7 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
+local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
 local function EnsureFolder()
@@ -197,6 +198,88 @@ local function MakeDraggable(frame, handle)
     end)
 end
 
+-- Drop Shadow (внешняя тень окна) - многослойная с градиентом прозрачности
+local function CreateDropShadow(parent, theme, offset, size)
+    offset = offset or 8
+    size = size or 24
+    local shadowContainer = Create("Frame", {
+        Name = "DropShadow",
+        Size = UDim2.new(1, size * 2, 1, size * 2),
+        Position = UDim2.new(0, -size, 0, -size),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ZIndex = 0,
+        Parent = parent,
+    })
+
+    local layers = 6
+    for i = 1, layers do
+        local alpha = 0.55 - (i * 0.08)
+        local spread = size - (i * 3)
+        Create("Frame", {
+            Name = "ShadowLayer" .. i,
+            Size = UDim2.new(1, -((layers - i) * 4), 1, -((layers - i) * 4)),
+            Position = UDim2.new(0, (layers - i) * 2, 0, (layers - i) * 2),
+            BackgroundColor3 = theme.Shadow,
+            BackgroundTransparency = math.clamp(alpha, 0.1, 0.9),
+            BorderSizePixel = 0,
+            ZIndex = 0,
+            Parent = shadowContainer,
+        })
+    end
+    return shadowContainer
+end
+
+-- Inset Shadow (внутренняя тень для кнопок)
+local function CreateInsetShadow(parent, theme, thickness)
+    thickness = thickness or 3
+    local z = (parent.ZIndex or 1) + 1
+    local dark = theme.Shadow
+    
+    -- Верхняя/левая тень (темнее)
+    Create("Frame", {
+        Name = "InsetTop",
+        BackgroundColor3 = dark,
+        BackgroundTransparency = 0.6,
+        BorderSizePixel = 0,
+        Size = UDim2.new(1, 0, 0, thickness),
+        Position = UDim2.new(0, 0, 0, 0),
+        ZIndex = z,
+        Parent = parent,
+    })
+    Create("Frame", {
+        Name = "InsetLeft",
+        BackgroundColor3 = dark,
+        BackgroundTransparency = 0.6,
+        BorderSizePixel = 0,
+        Size = UDim2.new(0, thickness, 1, 0),
+        Position = UDim2.new(0, 0, 0, 0),
+        ZIndex = z,
+        Parent = parent,
+    })
+    -- Нижняя/правая подсветка (светлее для эффекта вдавленности)
+    Create("Frame", {
+        Name = "InsetBottom",
+        BackgroundColor3 = theme.BevelLight,
+        BackgroundTransparency = 0.7,
+        BorderSizePixel = 0,
+        Size = UDim2.new(1, 0, 0, 1),
+        Position = UDim2.new(0, 0, 1, -1),
+        ZIndex = z,
+        Parent = parent,
+    })
+    Create("Frame", {
+        Name = "InsetRight",
+        BackgroundColor3 = theme.BevelLight,
+        BackgroundTransparency = 0.7,
+        BorderSizePixel = 0,
+        Size = UDim2.new(0, 1, 1, 0),
+        Position = UDim2.new(1, -1, 0, 0),
+        ZIndex = z,
+        Parent = parent,
+    })
+end
+
 local function PixelBevel(parent, theme, thickness, inset)
     thickness = thickness or 2; inset = inset or false
     local z = (parent.ZIndex or 1) + 1
@@ -279,16 +362,6 @@ function MinecraftLib:CreateWindow(title, config)
     })
     self._gui = ScreenGui
 
-    local Shadow = Create("Frame", {
-        Size = UDim2.new(0, WIN_W + 12, 0, WIN_H + 12),
-        Position = UDim2.new(0.5, -(WIN_W+12)/2, 0.5, -(WIN_H+12)/2),
-        BackgroundColor3 = self._theme.Shadow,
-        BackgroundTransparency = 0.4,
-        BorderSizePixel = 0,
-        ZIndex = 0,
-        Parent = ScreenGui,
-    })
-
     local Main = Create("Frame", {
         Size = UDim2.new(0, WIN_W, 0, WIN_H),
         Position = UDim2.new(0.5, -WIN_W/2, 0.5, -WIN_H/2),
@@ -299,7 +372,10 @@ function MinecraftLib:CreateWindow(title, config)
         Parent = ScreenGui,
     })
     PixelBevel(Main, self._theme, 2)
-    self._main, self._shadow = Main, Shadow
+    self._main = Main
+
+    -- Drop Shadow (внешняя тень окна)
+    self._shadow = CreateDropShadow(Main, self._theme, 8, 28)
 
     local MainBg = Create("ImageLabel", {
         Name = "BackgroundImage",
@@ -380,6 +456,7 @@ function MinecraftLib:CreateWindow(title, config)
     })
     PixelText(CloseBtn)
     PixelBevel(CloseBtn, self._theme, 1)
+    CreateInsetShadow(CloseBtn, self._theme, 2)
 
     local ThemeBtn = Create("TextButton", {
         Size = UDim2.new(0, self._mobile and 52 or 64, 0, self._mobile and 20 or 22),
@@ -395,6 +472,7 @@ function MinecraftLib:CreateWindow(title, config)
     })
     PixelText(ThemeBtn)
     PixelBevel(ThemeBtn, self._theme, 1)
+    CreateInsetShadow(ThemeBtn, self._theme, 2)
 
     local TabBar = Create("Frame", {
         Size = UDim2.new(0, TAB_W, 1, -(self._mobile and 36 or 42)),
@@ -449,10 +527,6 @@ function MinecraftLib:CreateWindow(title, config)
 
     MakeDraggable(Main, TitleBar)
 
-    Main:GetPropertyChangedSignal("Position"):Connect(function()
-        Shadow.Position = UDim2.new(Main.Position.X.Scale, Main.Position.X.Offset + 6, Main.Position.Y.Scale, Main.Position.Y.Offset + 6)
-    end)
-
     CloseBtn.MouseEnter:Connect(function()
         Tween(CloseBtn, {BackgroundColor3 = Color3.fromRGB(220,70,60)}, 0.15)
     end)
@@ -461,7 +535,11 @@ function MinecraftLib:CreateWindow(title, config)
     end)
     CloseBtn.MouseButton1Click:Connect(function()
         Tween(Main, {Size = UDim2.new(0,0,0,0), Position = UDim2.new(Main.Position.X.Scale, Main.Position.X.Offset+WIN_W/2, Main.Position.Y.Scale, Main.Position.Y.Offset+WIN_H/2)}, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In)
-        Tween(Shadow, {BackgroundTransparency = 1}, 0.25)
+        if self._shadow then
+            for _, child in ipairs(self._shadow:GetChildren()) do
+                Tween(child, {BackgroundTransparency = 1}, 0.25)
+            end
+        end
         task.delay(0.32, function()
             ScreenGui:Destroy()
         end)
@@ -496,16 +574,26 @@ function MinecraftLib:CreateWindow(title, config)
     function self:ToggleVisible()
         self._visible = not self._visible
         if self._visible then
-            Main.Visible, Shadow.Visible = true, true
+            Main.Visible = true
             Main.Size = UDim2.new(0,0,0,0)
             Tween(Main, {Size = UDim2.new(0,WIN_W,0,WIN_H)}, 0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-            Tween(Shadow, {BackgroundTransparency = 0.4}, 0.3)
+            if self._shadow then
+                self._shadow.Visible = true
+                for _, child in ipairs(self._shadow:GetChildren()) do
+                    Tween(child, {BackgroundTransparency = math.clamp(0.55 - (tonumber(child.Name:match("%d")) or 1) * 0.08, 0.1, 0.9)}, 0.3)
+                end
+            end
         else
             Tween(Main, {Size = UDim2.new(0,0,0,0)}, 0.22, Enum.EasingStyle.Back, Enum.EasingDirection.In)
-            Tween(Shadow, {BackgroundTransparency = 1}, 0.2)
+            if self._shadow then
+                for _, child in ipairs(self._shadow:GetChildren()) do
+                    Tween(child, {BackgroundTransparency = 1}, 0.2)
+                end
+            end
             task.delay(0.24, function()
                 if not self._visible then
-                    Main.Visible, Shadow.Visible = false, false
+                    Main.Visible = false
+                    if self._shadow then self._shadow.Visible = false end
                 end
             end)
         end
@@ -534,6 +622,7 @@ function MinecraftLib:CreateWindow(title, config)
         })
         PixelText(ToggleBtn)
         PixelBevel(ToggleBtn, self._theme, 2)
+        CreateInsetShadow(ToggleBtn, self._theme, 2)
         MakeDraggable(ToggleBtn, ToggleBtn)
         ToggleBtn.MouseButton1Click:Connect(function()
             self:ToggleVisible()
@@ -579,7 +668,14 @@ function MinecraftLib:CreateWindow(title, config)
         CloseBtn.BackgroundColor3 = t.CloseBtn
         ThemeBtn.BackgroundColor3 = t.SecondaryBG
         ThemeBtn.TextColor3 = t.TextSecondary
-        Shadow.BackgroundColor3 = t.Shadow
+        
+        -- Обновление тени
+        if self._shadow then
+            for _, child in ipairs(self._shadow:GetChildren()) do
+                child.BackgroundColor3 = t.Shadow
+            end
+        end
+
         for _, tabInfo in ipairs(self._tabs) do
             local isActive = (tabInfo == self._activeTab)
             tabInfo.btn.BackgroundColor3 = isActive and t.TabActive or t.TabInactive
@@ -607,6 +703,7 @@ function MinecraftLib:CreateWindow(title, config)
         })
         PixelText(TabBtn)
         PixelBevel(TabBtn, t, 1)
+        CreateInsetShadow(TabBtn, t, 2)
 
         local ActiveBar = Create("Frame", {
             Size = UDim2.new(0, 3, 1, 0),
@@ -721,6 +818,7 @@ function MinecraftLib:CreateWindow(title, config)
             })
             PixelText(Btn)
             PixelBevel(Btn, t2, 1)
+            CreateInsetShadow(Btn, t2, 2)
 
             Btn.MouseEnter:Connect(function()
                 Tween(Btn, {BackgroundColor3 = t2.AccentHover}, 0.18)
@@ -986,7 +1084,7 @@ function MinecraftLib:CreateWindow(title, config)
             return tb
         end
 
-        -- Исправленный AddDropdown
+        -- Улучшенный AddDropdown - непрозрачный, текст не вылезает
         function Tab:AddDropdown(text, options, callback)
             local t2 = self._theme
             local open = false
@@ -1012,7 +1110,7 @@ function MinecraftLib:CreateWindow(title, config)
                 Size = UDim2.new(0.6, 0, 0, rowH - 12),
                 Position = UDim2.new(0.38, 0, 0.5, -(rowH - 12)/2),
                 BackgroundColor3 = t2.Background,
-                BackgroundTransparency = 0.3,
+                BackgroundTransparency = 0.05, -- Почти непрозрачный
                 Text = selected .. " ▼",
                 TextColor3 = t2.TextPrimary,
                 TextSize = FONT_BODY - 1,
@@ -1020,26 +1118,31 @@ function MinecraftLib:CreateWindow(title, config)
                 BorderSizePixel = 0,
                 ZIndex = 5,
                 Parent = row,
+                ClipsDescendants = true,
+                TextTruncate = Enum.TextTruncate.AtEnd,
             })
             PixelText(DropBtn)
             PixelBevel(DropBtn, t2, 1, true)
+            CreateInsetShadow(DropBtn, t2, 2)
 
-            -- Контейнер списка в корневом ScreenGui
+            -- Непрозрачный контейнер списка в корневом ScreenGui
             local ListFrame = Create("Frame", {
                 Name = "DropdownList_" .. text,
                 Size = UDim2.new(0, 0, 0, 0),
                 BackgroundColor3 = t2.SecondaryBG,
-                BackgroundTransparency = 0.15,
+                BackgroundTransparency = 0.02, -- Почти непрозрачный
                 BorderSizePixel = 0,
                 ZIndex = 100,
                 Visible = false,
                 Parent = self._window._gui,
+                ClipsDescendants = true,
             })
-            PixelBevel(ListFrame, t2, 1)
+            PixelBevel(ListFrame, t2, 2)
 
-            -- ScrollingFrame внутри списка для поддержки большого количества опций
+            -- ScrollingFrame внутри списка
             local ListScroll = Create("ScrollingFrame", {
-                Size = UDim2.new(1, 0, 1, 0),
+                Size = UDim2.new(1, -4, 1, -4),
+                Position = UDim2.new(0, 2, 0, 2),
                 BackgroundTransparency = 1,
                 BorderSizePixel = 0,
                 ScrollBarThickness = 4,
@@ -1050,7 +1153,7 @@ function MinecraftLib:CreateWindow(title, config)
                 ZIndex = 101,
                 Parent = ListFrame,
             })
-            AddPadding(ListScroll, 2, 2, 2, 2)
+            AddPadding(ListScroll, 4, 4, 4, 4)
             Create("UIListLayout", {
                 SortOrder = Enum.SortOrder.LayoutOrder,
                 Padding = UDim.new(0, 2),
@@ -1059,9 +1162,9 @@ function MinecraftLib:CreateWindow(title, config)
 
             for i, opt in ipairs(options) do
                 local OptBtn = Create("TextButton", {
-                    Size = UDim2.new(1, 0, 0, mobile and 26 or 22),
+                    Size = UDim2.new(1, 0, 0, mobile and 28 or 24),
                     BackgroundColor3 = t2.Background,
-                    BackgroundTransparency = 0.25,
+                    BackgroundTransparency = 0.1,
                     Text = opt,
                     TextColor3 = t2.TextSecondary,
                     TextSize = FONT_BODY - 1,
@@ -1070,8 +1173,12 @@ function MinecraftLib:CreateWindow(title, config)
                     LayoutOrder = i,
                     ZIndex = 102,
                     Parent = ListScroll,
+                    ClipsDescendants = true,
+                    TextTruncate = Enum.TextTruncate.AtEnd,
                 })
                 PixelText(OptBtn)
+                AddPadding(OptBtn, 0, 0, 8, 8)
+                
                 OptBtn.MouseEnter:Connect(function()
                     Tween(OptBtn, {BackgroundColor3 = t2.Accent}, 0.14)
                     OptBtn.TextColor3 = t2.TextHover
@@ -1096,22 +1203,29 @@ function MinecraftLib:CreateWindow(title, config)
             local function UpdateListPosition()
                 local absPos = DropBtn.AbsolutePosition
                 local absSize = DropBtn.AbsoluteSize
-                local itemHeight = mobile and 30 or 24
-                local listHeight = math.min(#options * itemHeight + 8, 200)
+                local itemHeight = mobile and 30 or 26
+                local listHeight = math.min(#options * itemHeight + 16, 220)
                 local listWidth = absSize.X
 
                 ListFrame.Size = UDim2.new(0, listWidth, 0, listHeight)
-                ListScroll.Size = UDim2.new(1, 0, 1, 0)
                 
                 local camera = workspace.CurrentCamera
                 local screenHeight = camera and camera.ViewportSize.Y or 600
+                local screenWidth = camera and camera.ViewportSize.X or 800
                 local bottomSpace = screenHeight - (absPos.Y + absSize.Y)
                 
+                -- Позиционирование с учетом границ экрана
+                local targetY
                 if bottomSpace >= listHeight + 4 then
-                    ListFrame.Position = UDim2.new(0, absPos.X, 0, absPos.Y + absSize.Y + 2)
+                    targetY = absPos.Y + absSize.Y + 2
                 else
-                    ListFrame.Position = UDim2.new(0, absPos.X, 0, absPos.Y - listHeight - 2)
+                    targetY = absPos.Y - listHeight - 2
                 end
+                
+                -- Ограничение по X
+                local targetX = math.clamp(absPos.X, 4, screenWidth - listWidth - 4)
+                
+                ListFrame.Position = UDim2.new(0, targetX, 0, targetY)
             end
 
             local function CloseDropdown()
@@ -1178,7 +1292,7 @@ function MinecraftLib:CreateWindow(title, config)
                     end
                 end)
 
-                -- Закрытие при смене видимости вкладки (переключение таба)
+                -- Закрытие при смене видимости вкладки
                 visibilityConnection = self._parent:GetPropertyChangedSignal("Visible"):Connect(function()
                     if not self._parent.Visible then
                         CloseDropdown()
@@ -1322,6 +1436,7 @@ function MinecraftLib:CreateWindow(title, config)
             })
             PixelText(KeyBtn, t2.Accent)
             PixelBevel(KeyBtn, t2, 1, true)
+            CreateInsetShadow(KeyBtn, t2, 2)
 
             KeyBtn.MouseButton1Click:Connect(function()
                 if listening then return end
@@ -1560,6 +1675,7 @@ function MinecraftLib:CreateWindow(title, config)
             PixelText(Header, t2.Accent)
             AddPadding(Header, 0, 0, 10, 10)
             PixelBevel(Header, t2, 1)
+            CreateInsetShadow(Header, t2, 2)
 
             local SectionFrame = Create("Frame", {
                 Size = UDim2.new(1, 0, 0, 0),
@@ -1582,7 +1698,7 @@ function MinecraftLib:CreateWindow(title, config)
             local Sec = {}
             setmetatable(Sec, {__index = Tab})
             Sec._parent = SectionFrame
-            Sec._window = self
+            Sec._window = self._window
             return Sec
         end
 
