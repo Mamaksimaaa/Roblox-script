@@ -198,46 +198,26 @@ local function MakeDraggable(frame, handle)
     end)
 end
 
--- Pixel drop shadow. Only the outside edges are drawn, so it never darkens the window itself.
+-- The source texture is a soft shadow with transparent center. Slice scaling keeps corners sharp.
 local function CreateDropShadow(parent, theme, offset, size)
     offset = offset or 6
     size = size or 14
-    local shadowContainer = Create("Frame", {
+    local shadow = Create("ImageLabel", {
         Name = "DropShadow",
         Size = UDim2.new(1, size * 2, 1, size * 2),
-        Position = UDim2.new(0, -size, 0, -size),
+        Position = UDim2.new(0, -size, 0, -size + offset),
         BackgroundTransparency = 1,
-        BorderSizePixel = 0,
+        Image = "rbxassetid://1316045217",
+        ImageColor3 = theme.Shadow,
+        ImageTransparency = 0.3,
+        ScaleType = Enum.ScaleType.Slice,
+        SliceCenter = Rect.new(10, 10, 118, 118),
+        SliceScale = 1,
         ZIndex = 0,
         Parent = parent,
     })
-
-    local layers = 7
-    for i = 1, layers do
-        local distance = size - i + 1
-        local transparency = math.clamp(0.94 - i * 0.065, 0.35, 0.9)
-        local inset = size - distance
-        local edges = {
-            {"Top", UDim2.new(1, -inset * 2, 0, 1), UDim2.new(0, inset, 0, inset)},
-            {"Left", UDim2.new(0, 1, 1, -inset * 2), UDim2.new(0, inset, 0, inset)},
-            {"Right", UDim2.new(0, 1, 1, -inset * 2), UDim2.new(1, distance - size - 1, 0, inset)},
-            {"Bottom", UDim2.new(1, -inset * 2, 0, 1), UDim2.new(0, inset, 1, distance - size - 1 + offset)},
-        }
-        for _, edge in ipairs(edges) do
-            local shadow = Create("Frame", {
-                Name = "ShadowLayer" .. i .. edge[1],
-                Size = edge[2],
-                Position = edge[3],
-                BackgroundColor3 = theme.Shadow,
-                BackgroundTransparency = transparency,
-                BorderSizePixel = 0,
-                ZIndex = 0,
-                Parent = shadowContainer,
-            })
-            shadow:SetAttribute("BaseTransparency", transparency)
-        end
-    end
-    return shadowContainer
+    shadow:SetAttribute("BaseTransparency", 0.3)
+    return shadow
 end
 
 -- Inset Shadow (внутренняя тень для кнопок)
@@ -552,9 +532,7 @@ function MinecraftLib:CreateWindow(title, config)
     CloseBtn.MouseButton1Click:Connect(function()
         Tween(Main, {Size = UDim2.new(0,0,0,0), Position = UDim2.new(Main.Position.X.Scale, Main.Position.X.Offset+WIN_W/2, Main.Position.Y.Scale, Main.Position.Y.Offset+WIN_H/2)}, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In)
         if self._shadow then
-            for _, child in ipairs(self._shadow:GetChildren()) do
-                Tween(child, {BackgroundTransparency = 1}, 0.25)
-            end
+            Tween(self._shadow, {ImageTransparency = 1}, 0.25)
         end
         task.delay(0.32, function()
             ScreenGui:Destroy()
@@ -595,16 +573,12 @@ function MinecraftLib:CreateWindow(title, config)
             Tween(Main, {Size = UDim2.new(0,WIN_W,0,WIN_H)}, 0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
             if self._shadow then
                 self._shadow.Visible = true
-                for _, child in ipairs(self._shadow:GetChildren()) do
-                    Tween(child, {BackgroundTransparency = child:GetAttribute("BaseTransparency") or 0.7}, 0.3)
-                end
+                Tween(self._shadow, {ImageTransparency = self._shadow:GetAttribute("BaseTransparency") or 0.3}, 0.3)
             end
         else
             Tween(Main, {Size = UDim2.new(0,0,0,0)}, 0.22, Enum.EasingStyle.Back, Enum.EasingDirection.In)
             if self._shadow then
-                for _, child in ipairs(self._shadow:GetChildren()) do
-                    Tween(child, {BackgroundTransparency = 1}, 0.2)
-                end
+                Tween(self._shadow, {ImageTransparency = 1}, 0.2)
             end
             task.delay(0.24, function()
                 if not self._visible then
@@ -687,9 +661,7 @@ function MinecraftLib:CreateWindow(title, config)
         
         -- Обновление тени
         if self._shadow then
-            for _, child in ipairs(self._shadow:GetChildren()) do
-                child.BackgroundColor3 = t.Shadow
-            end
+            self._shadow.ImageColor3 = t.Shadow
         end
 
         for _, tabInfo in ipairs(self._tabs) do
@@ -1427,7 +1399,20 @@ function MinecraftLib:CreateWindow(title, config)
 
         function Tab:AddKeybind(text, defaultKey, callback)
             local t2, row = self._theme, MakeSlot(rowH, self._parent)
+            if type(defaultKey) == "string" then
+                defaultKey = Enum.KeyCode[defaultKey]
+            end
             local key, listening = defaultKey, false
+            local keybinds = self._window._keybinds
+            local binding = {key = key, callback = callback}
+            local registered = false
+
+            local function RegisterBinding()
+                if not registered and binding.key then
+                    table.insert(keybinds, binding)
+                    registered = true
+                end
+            end
 
             local lbl = Create("TextLabel", {
                 Name = "ItemLabel",
@@ -1473,20 +1458,13 @@ function MinecraftLib:CreateWindow(title, config)
                         KeyBtn.Text = inp.KeyCode.Name
                         listening = false
                         con:Disconnect()
-                        for i, kb in ipairs(self._keybinds) do
-                            if kb.id == text then
-                                table.remove(self._keybinds, i)
-                                break
-                            end
-                        end
-                        table.insert(self._keybinds, {id = text, key = key, callback = callback})
+                        binding.key = key
+                        RegisterBinding()
                     end
                 end)
             end)
 
-            if key then
-                table.insert(self._keybinds, {id = text, key = key, callback = callback})
-            end
+            RegisterBinding()
 
             local kb = {}
             function kb:Get()
