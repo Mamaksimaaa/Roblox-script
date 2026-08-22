@@ -4,10 +4,10 @@ MinecraftLib.__index = MinecraftLib
 local TextureURLs = {
     Dirt = "https://i.pinimg.com/564x/2a/b1/c3/2ab1c37cfdff720c6de2ddb07328f145.jpg",
     OakPlanks = "https://art.pixilart.com/thumb/sr26db5fe648aaws3.png",
-    GrassBlock = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT822Jc6Q9s_l2j0pvLPuvieY_A14J9yDLz5RNBLAQtwwh02b3qr1YaVyh_&s=10",
-    OverworldBg = "https://i.ibb.co/WvNMkCQ5/c072441fb834ae7d4f22ef963f0ed94b.jpg",
-    NetherBg = "https://i.ibb.co/PHVb9r7/c1956348a2b69da33a729aeeb6380573.jpg",
-    EndBg = "https://i.ibb.co/PGHx7vWh/0bc2e12262245ea4475113503d00f4d9.jpg",
+    GrassBlock = "https://i.ibb.co/Tx5TwTT8/e32a92fb7956d0d29a8727465e32d62c.jpg",
+    OverworldBg = "https://i.postimg.cc/Zn9sHbmG/RDT-20260822-0904335470895445160711381.png",
+    NetherBg = "https://i.postimg.cc/VvTpPSgV/RDT-20260822-0905361487065582909993087.jpg",
+    EndBg = "https://i.postimg.cc/nzF1RH4G/RDT-20260822-0900332847624353464382258.png",
 }
 
 local Players = game:GetService("Players")
