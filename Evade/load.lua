@@ -54,6 +54,27 @@ local function GetNextbots()
     return nextbots
 end
 
+local function GetNextbotInfo(model)
+    local botType = model:GetAttribute("Type")
+        or model:GetAttribute("BotType")
+        or model:GetAttribute("NextbotType")
+    local botName = model:GetAttribute("DisplayName")
+        or model:GetAttribute("Name")
+
+    for _, child in ipairs(model:GetChildren()) do
+        if not botType and (child.Name == "Type" or child.Name == "BotType" or child.Name == "NextbotType")
+            and child:IsA("StringValue") then
+            botType = child.Value
+        end
+        if not botName and (child.Name == "DisplayName" or child.Name == "Name")
+            and child:IsA("StringValue") then
+            botName = child.Value
+        end
+    end
+
+    return tostring(botType or "Nextbot"), tostring(botName or model.Name)
+end
+
 -- ========== ANTI-AFK ==========
 local vu = game:GetService("VirtualUser")
 lp.Idled:Connect(function()
@@ -64,12 +85,13 @@ lp.Idled:Connect(function()
 end)
 
 -- ========== VARIABLES ==========
-local Speeds            = false   -- переименовано с Speed
+local Speeds            = false   -- РїРµСЂРµРёРјРµРЅРѕРІР°РЅРѕ СЃ Speed
 local Power            = 50
 local JumpEnabled      = false
 local JumpPower        = 50
 local OriginalJumpPower = 50
 local ESP              = false
+local DownedESP        = false
 local NextbotESP       = false
 local Safe             = false
 local AutoRevive       = false
@@ -94,7 +116,7 @@ local HOLD_DURATION    = 3.35
 local REVIVE_INTERVAL  = 0.05
 local RAGDOLL_DELAY    = 1.0
 
--- ★ НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ ИЗБЕГАНИЯ
+-- в… РќРћР’Р«Р• РџР•Р Р•РњР•РќРќР«Р• Р”Р›РЇ РР—Р‘Р•Р“РђРќРРЇ
 local AvoidNextbots = false
 local AvoidDistance = 25
 local AvoidSpeed = 60
@@ -465,7 +487,7 @@ local function IsPlayerDowned(player)
     for _, child in ipairs(char:GetDescendants()) do
         if child:IsA("ProximityPrompt") then
             local text = child.ActionText:lower()
-            if text:find("revive") or text:find("réanimer") or text:find("reanimer") then return true end
+            if text:find("revive") or text:find("rГ©animer") or text:find("reanimer") then return true end
         end
     end
     return false
@@ -878,7 +900,7 @@ task.spawn(function()
     end
 end)
 
--- ========== MOVEMENT (с поддержкой Avoid Nextbots) ==========
+-- ========== MOVEMENT (СЃ РїРѕРґРґРµСЂР¶РєРѕР№ Avoid Nextbots) ==========
 RunService.RenderStepped:Connect(function()
     local char = lp.Character
     if not char then return end
@@ -886,10 +908,10 @@ RunService.RenderStepped:Connect(function()
     local root = char:FindFirstChild("HumanoidRootPart")
     if not hum or not root then return end
 
-    -- Базовое направление (от клавиш)
+    -- Р‘Р°Р·РѕРІРѕРµ РЅР°РїСЂР°РІР»РµРЅРёРµ (РѕС‚ РєР»Р°РІРёС€)
     local moveDir = hum.MoveDirection
 
-    -- ★ Если включено избегание и не мешают другие режимы
+    -- в… Р•СЃР»Рё РІРєР»СЋС‡РµРЅРѕ РёР·Р±РµРіР°РЅРёРµ Рё РЅРµ РјРµС€Р°СЋС‚ РґСЂСѓРіРёРµ СЂРµР¶РёРјС‹
     if AvoidNextbots and not flying and not IsFollowing and not IsRevivingNow and not Safe then
         local pos = root.Position
         local nearest = nil
@@ -905,14 +927,14 @@ RunService.RenderStepped:Connect(function()
             end
         end
         if nearest then
-            local dir = (pos - nearest.Position) * Vector3.new(1,0,1) -- только горизонталь
+            local dir = (pos - nearest.Position) * Vector3.new(1,0,1) -- С‚РѕР»СЊРєРѕ РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊ
             if dir.Magnitude > 0.1 then
                 moveDir = dir.Unit
             end
         end
     end
 
-    -- Применяем движение
+    -- РџСЂРёРјРµРЅСЏРµРј РґРІРёР¶РµРЅРёРµ
     if Speeds then
         if moveDir.Magnitude > 0 then
             speedCurrent = math.min(speedCurrent + speedAcceleration, Power)
@@ -934,7 +956,7 @@ RunService.RenderStepped:Connect(function()
             end
         end
     else
-        -- Если Speed Hack выключен, но избегание включено – двигаемся с фиксированной скоростью
+        -- Р•СЃР»Рё Speed Hack РІС‹РєР»СЋС‡РµРЅ, РЅРѕ РёР·Р±РµРіР°РЅРёРµ РІРєР»СЋС‡РµРЅРѕ вЂ“ РґРІРёРіР°РµРјСЃСЏ СЃ С„РёРєСЃРёСЂРѕРІР°РЅРЅРѕР№ СЃРєРѕСЂРѕСЃС‚СЊСЋ
         if AvoidNextbots and not flying and not IsFollowing and not IsRevivingNow and not Safe then
             if moveDir.Magnitude > 0 then
                 local mv = moveDir * (AvoidSpeed / 45)
@@ -944,7 +966,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- ========== СПИДОМЕТР ==========
+-- ========== РЎРџРР”РћРњР•РўР  ==========
 RunService.Heartbeat:Connect(function(deltaTime)
     if not Speeds then
         lastSpeedPosition = nil
@@ -985,12 +1007,13 @@ end
 
 UIS.JumpRequest:Connect(DoInfiniteJump)
 
--- ========== 2D BOX ESP ДЛЯ NEXTBOT'ов (DRAWING) ==========
+-- ========== 2D BOX ESP Р”Р›РЇ NEXTBOT'РѕРІ (DRAWING) ==========
 local nextbotDrawings = {}
 
 local function ClearNextbotDrawings()
     for _, data in pairs(nextbotDrawings) do
         if data.Square then data.Square:Remove() end
+        if data.Label then data.Label:Remove() end
         if data.Lines then
             for _, line in ipairs(data.Lines) do
                 line:Remove()
@@ -1014,6 +1037,7 @@ local function UpdateNextbotESP_Drawing()
     for model, data in pairs(nextbotDrawings) do
         if not models[model] or not model.Parent then
             if data.Square then data.Square:Remove() end
+            if data.Label then data.Label:Remove() end
             if data.Lines then
                 for _, line in ipairs(data.Lines) do
                     line:Remove()
@@ -1027,11 +1051,30 @@ local function UpdateNextbotESP_Drawing()
         local primary = model.PrimaryPart or model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Root")
         if not primary then continue end
 
-        local pos, onScreen = camera:WorldToViewportPoint(primary.Position)
-        if not onScreen then
+        local boxCFrame, boxSize = model:GetBoundingBox()
+        local half = boxSize * 0.5
+        local minX, minY = math.huge, math.huge
+        local maxX, maxY = -math.huge, -math.huge
+        local visiblePoint = false
+        for _, offset in ipairs({
+            Vector3.new(-half.X, -half.Y, -half.Z), Vector3.new(-half.X, -half.Y, half.Z),
+            Vector3.new(-half.X, half.Y, -half.Z), Vector3.new(-half.X, half.Y, half.Z),
+            Vector3.new(half.X, -half.Y, -half.Z), Vector3.new(half.X, -half.Y, half.Z),
+            Vector3.new(half.X, half.Y, -half.Z), Vector3.new(half.X, half.Y, half.Z)
+        }) do
+            local point, onScreen = camera:WorldToViewportPoint((boxCFrame * CFrame.new(offset)).Position)
+            if onScreen and point.Z > 0 then
+                visiblePoint = true
+                minX, minY = math.min(minX, point.X), math.min(minY, point.Y)
+                maxX, maxY = math.max(maxX, point.X), math.max(maxY, point.Y)
+            end
+        end
+
+        if not visiblePoint then
             local data = nextbotDrawings[model]
             if data then
                 if data.Square then data.Square.Visible = false end
+                if data.Label then data.Label.Visible = false end
                 if data.Lines then
                     for _, line in ipairs(data.Lines) do
                         line.Visible = false
@@ -1041,15 +1084,9 @@ local function UpdateNextbotESP_Drawing()
             continue
         end
 
-        local size = primary.Size
-        local scale = 1.2
-        local width = math.max(size.X, size.Z) * scale * 0.8
-        local height = size.Y * scale * 1.2
-        if height < 30 then height = 60 end
-        if width < 30 then width = 40 end
-
-        local x = pos.X - width / 2
-        local y = pos.Y - height / 2
+        local padding = math.clamp((maxY - minY) * 0.04, 3, 10)
+        local x, y = minX - padding, minY - padding
+        local width, height = (maxX - minX) + padding * 2, (maxY - minY) + padding * 2
 
         local data = nextbotDrawings[model]
         if not data then
@@ -1057,7 +1094,7 @@ local function UpdateNextbotESP_Drawing()
             local sq = Drawing.new("Square")
             sq.Filled = true
             sq.Color = Color3.fromRGB(255, 0, 0)
-            sq.Transparency = 0.5
+            sq.Transparency = 0.18
             sq.Thickness = 0
             local lines = {}
             for i = 1, 4 do
@@ -1067,8 +1104,15 @@ local function UpdateNextbotESP_Drawing()
                 line.Transparency = 1
                 table.insert(lines, line)
             end
+            local label = Drawing.new("Text")
+            label.Center = true
+            label.Outline = true
+            label.Color = Color3.fromRGB(255, 80, 80)
+            label.Font = 2
+            label.Size = 14
             data.Square = sq
             data.Lines = lines
+            data.Label = label
             nextbotDrawings[model] = data
         end
 
@@ -1076,6 +1120,14 @@ local function UpdateNextbotESP_Drawing()
         sq.Position = Vector2.new(x, y)
         sq.Size = Vector2.new(width, height)
         sq.Visible = true
+
+        local distance = (camera.CFrame.Position - primary.Position).Magnitude
+        local botType, botName = GetNextbotInfo(model)
+        local label = data.Label
+        label.Text = string.format("Type: %s\n%s  [%dm]", botType, botName, math.floor(distance))
+        label.Position = Vector2.new(x + width / 2, y - 28)
+        label.Size = 13
+        label.Visible = true
 
         local lines = data.Lines
         lines[1].From = Vector2.new(x, y)
@@ -1103,17 +1155,41 @@ end)
 RunService.RenderStepped:Connect(UpdateNextbotESP_Drawing)
 
 -- ========== ESP PLAYERS ==========
+local function ClearPlayerESP(character)
+    if not character then return end
+    local highlight = character:FindFirstChild("ESP_Highlight")
+    if highlight then highlight:Destroy() end
+    local nameTag = character:FindFirstChild("ESP_Name")
+    if nameTag then nameTag:Destroy() end
+    for _, child in ipairs(character:GetChildren()) do
+        if child:IsA("BasePart") then
+            local cham = child:FindFirstChild("ESP_Cham")
+            if cham then cham:Destroy() end
+        end
+    end
+end
+
+local function ClearDownedESP(character)
+    if not character then return end
+    local highlight = character:FindFirstChild("DownedESP_Highlight")
+    if highlight then highlight:Destroy() end
+    for _, child in ipairs(character:GetChildren()) do
+        if child:IsA("BasePart") then
+            local cham = child:FindFirstChild("DownedESP_Cham")
+            if cham then cham:Destroy() end
+        end
+    end
+    local nameTag = character:FindFirstChild("DownedESP_Name")
+    if nameTag then nameTag:Destroy() end
+end
+
 task.spawn(function()
     while true do
         task.wait(0.2)
         if not ESP then
             for _, v in pairs(Players:GetPlayers()) do
                 if v ~= lp and v.Character then
-                    for _, child in pairs(v.Character:GetChildren()) do
-                        if child:IsA("BasePart") and child:FindFirstChild("ESP_Cham") then
-                            child.ESP_Cham:Destroy()
-                        end
-                    end
+                    ClearPlayerESP(v.Character)
                 end
             end
             continue
@@ -1121,38 +1197,116 @@ task.spawn(function()
         for _, v in pairs(Players:GetPlayers()) do
             if v ~= lp and v.Character then
                 local humT = v.Character:FindFirstChildOfClass("Humanoid")
-                if humT and humT.Health > 0 then
+                if humT and humT.Health > 0 and not IsPlayerDowned(v) then
                     local pct   = humT.Health / humT.MaxHealth
                     local color = pct < 0.3 and Color3.fromRGB(255,165,0) or Color3.fromRGB(0,255,0)
-                    for _, part in pairs(v.Character:GetChildren()) do
-                        if part:IsA("BasePart") then
-                            local cham = part:FindFirstChild("ESP_Cham")
-                            if not cham then
-                                cham = Instance.new("BoxHandleAdornment")
-                                cham.Name         = "ESP_Cham"
-                                cham.AlwaysOnTop  = true
-                                cham.ZIndex       = 10
-                                cham.Transparency = 0.3
-                                cham.Adornee      = part
-                                cham.Parent       = part
-                            end
-                            cham.Color3 = color
-                            cham.Size   = part.Size + Vector3.new(0.2, 0.2, 0.2)
+                    local highlight = v.Character:FindFirstChild("ESP_Highlight")
+                    if not highlight then
+                        highlight = Instance.new("Highlight")
+                        highlight.Name = "ESP_Highlight"
+                        highlight.Adornee = v.Character
+                        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                        highlight.OutlineTransparency = 0
+                        highlight.FillTransparency = 0.8
+                        highlight.Parent = v.Character
+                    end
+                    highlight.FillColor = color
+                    highlight.OutlineColor = color
+                    local root = v.Character:FindFirstChild("HumanoidRootPart")
+                    if root then
+                        local tag = v.Character:FindFirstChild("ESP_Name")
+                        if not tag then
+                            tag = Instance.new("BillboardGui")
+                            tag.Name = "ESP_Name"
+                            tag.Adornee = root
+                            tag.AlwaysOnTop = true
+                            tag.MaxDistance = 2000
+                            tag.Size = UDim2.new(0, 145, 0, 34)
+                            tag.StudsOffset = Vector3.new(0, 3.35, 0)
+                            tag.Parent = v.Character
+                            local label = Instance.new("TextLabel")
+                            label.Name = "Label"
+                            label.Size = UDim2.fromScale(1, 1)
+                            label.BackgroundTransparency = 1
+                            label.Font = Enum.Font.GothamBold
+                            label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+                            label.TextStrokeTransparency = 0
+                            label.TextSize = 12
+                            label.Parent = tag
+                        end
+                        local label = tag:FindFirstChild("Label")
+                        local distance = (Camera.CFrame.Position - root.Position).Magnitude
+                        if label then
+                            label.TextColor3 = color
+                            label.Text = string.format("Status: LIVE\n%s  [%dm]", v.DisplayName, math.floor(distance))
                         end
                     end
                 else
-                    for _, child in pairs(v.Character:GetChildren()) do
-                        if child:IsA("BasePart") and child:FindFirstChild("ESP_Cham") then
-                            child.ESP_Cham:Destroy()
-                        end
-                    end
+                    ClearPlayerESP(v.Character)
                 end
             end
         end
     end
 end)
 
--- ========== MINECRAFT UI — WINDOW & TABS ==========
+-- ========== DOWNED PLAYER ESP ==========
+task.spawn(function()
+    while true do
+        task.wait(0.2)
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= lp and player.Character then
+                local character = player.Character
+                if DownedESP and IsPlayerDowned(player) then
+                    local root = character:FindFirstChild("HumanoidRootPart")
+                    if root then
+                        local highlight = character:FindFirstChild("DownedESP_Highlight")
+                        if not highlight then
+                            highlight = Instance.new("Highlight")
+                            highlight.Name = "DownedESP_Highlight"
+                            highlight.Adornee = character
+                            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                            highlight.FillTransparency = 0.68
+                            highlight.OutlineTransparency = 0
+                            highlight.Parent = character
+                        end
+                        highlight.FillColor = Color3.fromRGB(255, 0, 0)
+                        highlight.OutlineColor = Color3.fromRGB(255, 70, 70)
+
+                        local nameTag = character:FindFirstChild("DownedESP_Name")
+                        if not nameTag then
+                            nameTag = Instance.new("BillboardGui")
+                            nameTag.Name = "DownedESP_Name"
+                            nameTag.Adornee = root
+                            nameTag.AlwaysOnTop = true
+                            nameTag.MaxDistance = 2000
+                            nameTag.Size = UDim2.new(0, 155, 0, 34)
+                            nameTag.StudsOffset = Vector3.new(0, 3.65, 0)
+                            nameTag.Parent = character
+
+                            local label = Instance.new("TextLabel")
+                            label.Name = "Label"
+                            label.Size = UDim2.fromScale(1, 1)
+                            label.BackgroundTransparency = 1
+                            label.Font = Enum.Font.GothamBold
+                            label.TextColor3 = Color3.fromRGB(255, 0, 0)
+                            label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+                            label.TextStrokeTransparency = 0
+                            label.TextSize = 12
+                            label.Parent = nameTag
+                        end
+                        local label = nameTag:FindFirstChild("Label")
+                        local distance = (Camera.CFrame.Position - root.Position).Magnitude
+                        if label then label.Text = string.format("Status: DOWNED\n%s  [%dm]", player.DisplayName, math.floor(distance)) end
+                    end
+                else
+                    ClearDownedESP(character)
+                end
+            end
+        end
+    end
+end)
+
+-- ========== MINECRAFT UI вЂ” WINDOW & TABS ==========
 local Window = MinecraftLib:CreateWindow("inlawry | Evade", {Theme = "Nether"})
 
 local MainTab   = Window:AddTab("Main")
@@ -1269,8 +1423,8 @@ end)
 
 MainTab:AddButton("Beta Message", function()
     Window:Notify(
-        "Auto Revive — Beta",
-        "Not 100% AFK. E may fire multiple times — this is normal and helps complete the revive. Still in development.",
+        "Auto Revive вЂ” Beta",
+        "Not 100% AFK. E may fire multiple times вЂ” this is normal and helps complete the revive. Still in development.",
         12
     )
 end)
@@ -1291,7 +1445,7 @@ MainTab:AddKeybind("Safe Zone Key", "V", function()
     if safeZoneToggle then safeZoneToggle:Set(Safe) end
 end)
 
--- ★ НОВАЯ СЕКЦИЯ: ИЗБЕГАНИЕ НЕКСТБОТОВ
+-- в… РќРћР’РђРЇ РЎР•РљР¦РРЇ: РР—Р‘Р•Р“РђРќРР• РќР•РљРЎРўР‘РћРўРћР’
 MainTab:AddSeparator("Avoid Nextbots")
 local avoidToggle = MainTab:AddToggle("Avoid Nextbots", false, function(value)
     AvoidNextbots = value
@@ -1314,13 +1468,16 @@ VisualTab:AddToggle("ESP Players", false, function(value)
     ESP = value
     if not value then
         for _, x in pairs(Players:GetPlayers()) do
-            if x.Character then
-                for _, child in pairs(x.Character:GetChildren()) do
-                    if child:IsA("BasePart") and child:FindFirstChild("ESP_Cham") then
-                        child.ESP_Cham:Destroy()
-                    end
-                end
-            end
+            ClearPlayerESP(x.Character)
+        end
+    end
+end)
+
+VisualTab:AddToggle("Downed Player ESP", false, function(value)
+    DownedESP = value
+    if not value then
+        for _, player in ipairs(Players:GetPlayers()) do
+            ClearDownedESP(player.Character)
         end
     end
 end)
@@ -1360,12 +1517,12 @@ AboutTab:AddButton("Mod Detector (Auto-Leave)", function()
     Players.PlayerAdded:Connect(function(plr)
         if plr.UserId == game.CreatorId then lp:Kick("Moderator Joined") end
     end)
-    Window:Notify("Mod Detector", "Active — auto-leave if moderator joins", 3)
+    Window:Notify("Mod Detector", "Active вЂ” auto-leave if moderator joins", 3)
 end)
 
 AboutTab:AddSeparator("Info")
 AboutTab:AddLabel("Anti AFK active in background")
-AboutTab:AddLabel("inlawry | Evade — Minecraft UI Port")
+AboutTab:AddLabel("inlawry | Evade вЂ” Minecraft UI Port")
 
 -- UI TOGGLE (R key)
 UIS.InputBegan:Connect(function(input, gp)
@@ -1377,7 +1534,7 @@ end)
 
 -- STARTUP
 task.delay(1, function()
-    Window:Notify("inlawry | Evade", "Loaded! RightShift / R — toggle UI", 4)
+    Window:Notify("inlawry | Evade", "Loaded! RightShift / R вЂ” toggle UI", 4)
 end)
 
-print("[inlawry] ✅ Evade Loaded — Nextbot ESP по атрибуту Team, Infinite Jump работает всегда")
+print("[inlawry] вњ… Evade Loaded вЂ” Nextbot ESP РїРѕ Р°С‚СЂРёР±СѓС‚Сѓ Team, Infinite Jump СЂР°Р±РѕС‚Р°РµС‚ РІСЃРµРіРґР°")
