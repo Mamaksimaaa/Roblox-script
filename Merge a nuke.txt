@@ -231,5 +231,5 @@ end)
 
 -- ─── СТАРТОВОЕ УВЕДОМЛЕНИЕ ──────────────────────────────────────────────
 task.delay(1, function()
-    Window:Notify("Nuke Auto Upgrade", "Скрипт загружен. Выбери цели → Start.", 4)
+    Window:Notify("IRY HUB", "MERGE A NUKE", 4)
 end)
