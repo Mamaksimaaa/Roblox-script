@@ -7,7 +7,7 @@ local TextureURLs = {
     OakPlanks = "https://art.pixilart.com/thumb/sr26db5fe648aaws3.png",
     GrassBlock = "https://i.postimg.cc/wv2hpwyM/Bez-nazvania8-20260824103816.png",
     OverworldBg = "https://i.postimg.cc/Zn9sHbmG/RDT-20260822-0904335470895445160711381.png",
-    NetherBg = "https://i.postimg.cc/s2X9d3HB/RDT-20260822-0952347405749891946601445.png",
+    NetherBg = "https://i.postimg.cc/fTJg89px/RDT-20260824-1051291490594943564732101.png",
     EndBg = "https://i.postimg.cc/nzF1RH4G/RDT-20260822-0900332847624353464382258.png",
 }
 
