@@ -1,4 +1,3 @@
--- inlawry | Evade (Minecraft UI v3)
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local MinecraftLib = loadstring(game:HttpGet(
@@ -16,8 +15,6 @@ local Workspace        = game:GetService("Workspace")
 local Camera           = Workspace.CurrentCamera
 local lp               = Players.LocalPlayer
 
--- ========== NEXTBOT DETECTION ==========
--- Evade stores bots only under Workspace.Players with Team = "Nextbot".
 local NextbotFolders = {"Players"}
 
 local function IsInsideNextbotFolder(instance)
@@ -75,7 +72,6 @@ local function GetNextbotInfo(model)
     return tostring(botType or "Nextbot"), tostring(botName or model.Name)
 end
 
--- ========== ANTI-AFK ==========
 local vu = game:GetService("VirtualUser")
 lp.Idled:Connect(function()
     pcall(function()
@@ -84,8 +80,7 @@ lp.Idled:Connect(function()
     end)
 end)
 
--- ========== VARIABLES ==========
-local Speeds            = false   -- РїРµСЂРµРёРјРµРЅРѕРІР°РЅРѕ СЃ Speed
+local Speeds            = false
 local Power            = 50
 local JumpEnabled      = false
 local JumpPower        = 50
@@ -102,6 +97,26 @@ local safeZoneToggle   = nil
 local flyToggle        = nil
 local autoReviveToggle = nil
 local autoFollowToggle = nil
+local speedToggle      = nil
+local jumpToggle       = nil
+local avoidToggle      = nil
+local playerESPToggle  = nil
+local downedESPToggle  = nil
+local nextbotESPToggle = nil
+local fpsToggle        = nil
+local fogToggle        = nil
+local skyToggle        = nil
+local speedSlider      = nil
+local jumpSlider       = nil
+local flySpeedSlider   = nil
+local avoidDistanceSlider = nil
+local avoidSpeedSlider = nil
+local AutoFarm         = false
+local autoFarmToggle   = nil
+local farmDelay        = 0.1
+local FarmMode         = 1       -- 1=Pull Models  2=Remote Hitbox  3=WorldPilot
+local RemoteHitbox     = nil
+local farmModeDropdown = nil
 local ignoreTeleport   = false
 local ignoreTeleportTimer = nil
 local IsRevivingNow    = false
@@ -111,12 +126,13 @@ local followBodyGyro   = nil
 local followConnection = nil
 local followNoclipConn = nil
 local SkyEnabled       = false
+local FPSBoosted       = false
+local FogDisabled      = false
 local REVIVE_HEIGHT    = -4.2
 local HOLD_DURATION    = 3.35
 local REVIVE_INTERVAL  = 0.05
 local RAGDOLL_DELAY    = 1.0
 
--- в… РќРћР’Р«Р• РџР•Р Р•РњР•РќРќР«Р• Р”Р›РЇ РР—Р‘Р•Р“РђРќРРЇ
 local AvoidNextbots = false
 local AvoidDistance = 25
 local AvoidSpeed = 60
@@ -160,7 +176,6 @@ local function RestoreSpeedometer()
     lastSpeedPosition = nil
 end
 
--- ========== GRAPHICS ==========
 local Original = {
     Brightness    = Lighting.Brightness,
     FogStart      = Lighting.FogStart,
@@ -213,7 +228,6 @@ local function DisableFog(state)
     end
 end
 
--- ========== CAMERA ==========
 lp.CharacterAdded:Connect(function(character)
     task.wait(0.2)
     local hum    = character:WaitForChild("Humanoid", 5)
@@ -232,7 +246,6 @@ lp.CharacterAdded:Connect(function(character)
     table.clear(ReviveBlacklistTime)
 end)
 
--- ========== FLY ==========
 local flying        = false
 local flySpeed      = 150
 local flyMaxSpeed   = 150
@@ -408,7 +421,6 @@ local function stopFly()
     end
 end
 
--- ========== SAFE ZONE ==========
 local function DisableSafeZone()
     if Plate then Plate:Destroy() Plate = nil end
     local char = lp.Character
@@ -453,7 +465,6 @@ local function ignoreTeleportFor(ms)
     end)
 end
 
--- ========== DETECTION ==========
 local function IsNextbotNear(position, radius)
     radius = radius or 40
     for model in pairs(GetNextbots()) do
@@ -487,13 +498,12 @@ local function IsPlayerDowned(player)
     for _, child in ipairs(char:GetDescendants()) do
         if child:IsA("ProximityPrompt") then
             local text = child.ActionText:lower()
-            if text:find("revive") or text:find("rГ©animer") or text:find("reanimer") then return true end
+            if text:find("revive") or text:find("réanimer") or text:find("reanimer") then return true end
         end
     end
     return false
 end
 
--- Blacklist cleanup
 task.spawn(function()
     while true do
         task.wait(1)
@@ -509,7 +519,6 @@ task.spawn(function()
     end
 end)
 
--- ========== DOWNED CACHE ==========
 local DownedCache     = {}
 local DownedCacheTime = {}
 
@@ -586,10 +595,8 @@ local function GetClosestAliveTeammate()
     return closest
 end
 
--- ========== FORWARD DECLARATION ==========
 local StopFollowing
 
--- ========== AUTO FOLLOW ==========
 local function StartFollowing()
     if IsFollowing or flying or IsRevivingNow then return end
     local char = lp.Character
@@ -677,7 +684,6 @@ StopFollowing = function()
     GoToSafeZone()
 end
 
--- ========== REVIVE ==========
 local function PerformRevive(targetPlayer)
     if not targetPlayer or not targetPlayer.Parent or not targetPlayer.Character then return end
     if IsRevivingNow then return end
@@ -801,7 +807,6 @@ local function PerformRevive(targetPlayer)
     GoToSafeZone()
 end
 
--- ========== MAIN LOOP ==========
 task.spawn(function()
     while true do
         task.wait(0.05)
@@ -837,7 +842,6 @@ task.spawn(function()
     end
 end)
 
--- ========== WARM SKY ==========
 local function ApplyWarmSky()
     if not SkyEnabled then return end
     for _, obj in pairs(Lighting:GetChildren()) do
@@ -900,7 +904,6 @@ task.spawn(function()
     end
 end)
 
--- ========== MOVEMENT (СЃ РїРѕРґРґРµСЂР¶РєРѕР№ Avoid Nextbots) ==========
 RunService.RenderStepped:Connect(function()
     local char = lp.Character
     if not char then return end
@@ -908,10 +911,8 @@ RunService.RenderStepped:Connect(function()
     local root = char:FindFirstChild("HumanoidRootPart")
     if not hum or not root then return end
 
-    -- Р‘Р°Р·РѕРІРѕРµ РЅР°РїСЂР°РІР»РµРЅРёРµ (РѕС‚ РєР»Р°РІРёС€)
     local moveDir = hum.MoveDirection
 
-    -- в… Р•СЃР»Рё РІРєР»СЋС‡РµРЅРѕ РёР·Р±РµРіР°РЅРёРµ Рё РЅРµ РјРµС€Р°СЋС‚ РґСЂСѓРіРёРµ СЂРµР¶РёРјС‹
     if AvoidNextbots and not flying and not IsFollowing and not IsRevivingNow and not Safe then
         local pos = root.Position
         local nearest = nil
@@ -927,14 +928,13 @@ RunService.RenderStepped:Connect(function()
             end
         end
         if nearest then
-            local dir = (pos - nearest.Position) * Vector3.new(1,0,1) -- С‚РѕР»СЊРєРѕ РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊ
+            local dir = (pos - nearest.Position) * Vector3.new(1,0,1)
             if dir.Magnitude > 0.1 then
                 moveDir = dir.Unit
             end
         end
     end
 
-    -- РџСЂРёРјРµРЅСЏРµРј РґРІРёР¶РµРЅРёРµ
     if Speeds then
         if moveDir.Magnitude > 0 then
             speedCurrent = math.min(speedCurrent + speedAcceleration, Power)
@@ -956,7 +956,6 @@ RunService.RenderStepped:Connect(function()
             end
         end
     else
-        -- Р•СЃР»Рё Speed Hack РІС‹РєР»СЋС‡РµРЅ, РЅРѕ РёР·Р±РµРіР°РЅРёРµ РІРєР»СЋС‡РµРЅРѕ вЂ“ РґРІРёРіР°РµРјСЃСЏ СЃ С„РёРєСЃРёСЂРѕРІР°РЅРЅРѕР№ СЃРєРѕСЂРѕСЃС‚СЊСЋ
         if AvoidNextbots and not flying and not IsFollowing and not IsRevivingNow and not Safe then
             if moveDir.Magnitude > 0 then
                 local mv = moveDir * (AvoidSpeed / 45)
@@ -966,7 +965,6 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- ========== РЎРџРР”РћРњР•РўР  ==========
 RunService.Heartbeat:Connect(function(deltaTime)
     if not Speeds then
         lastSpeedPosition = nil
@@ -990,7 +988,6 @@ RunService.Heartbeat:Connect(function(deltaTime)
     lastSpeedPosition = root.Position
 end)
 
--- ========== INFINITE JUMP ==========
 local lastInfiniteJump = 0
 
 local function DoInfiniteJump()
@@ -1007,7 +1004,6 @@ end
 
 UIS.JumpRequest:Connect(DoInfiniteJump)
 
--- ========== 2D BOX ESP Р”Р›РЇ NEXTBOT'РѕРІ (DRAWING) ==========
 local nextbotDrawings = {}
 
 local function ClearNextbotDrawings()
@@ -1154,7 +1150,6 @@ end)
 
 RunService.RenderStepped:Connect(UpdateNextbotESP_Drawing)
 
--- ========== ESP PLAYERS ==========
 local function ClearPlayerESP(character)
     if not character then return end
     local highlight = character:FindFirstChild("ESP_Highlight")
@@ -1249,7 +1244,6 @@ task.spawn(function()
     end
 end)
 
--- ========== DOWNED PLAYER ESP ==========
 task.spawn(function()
     while true do
         task.wait(0.2)
@@ -1306,18 +1300,206 @@ task.spawn(function()
     end
 end)
 
--- ========== MINECRAFT UI вЂ” WINDOW & TABS ==========
+-- ========== AUTO FARM (TICKETS / VISUAL) ==========
+
+local function GetTicketVisuals()
+    local found = {}
+    local effects = Workspace:FindFirstChild("Effects")
+    local tickets = effects and effects:FindFirstChild("Tickets")
+    if not tickets then return found end
+    for _, obj in ipairs(tickets:GetDescendants()) do
+        if obj.Name == "Visual" then
+            table.insert(found, obj)
+        end
+    end
+    return found
+end
+
+local function GetObjectCFrame(obj)
+    if not obj or not obj.Parent then return nil end
+    if obj:IsA("Model") then
+        if obj.PrimaryPart then return obj.PrimaryPart.CFrame end
+        local cf = obj:GetBoundingBox()
+        return cf
+    elseif obj:IsA("BasePart") then
+        return obj.CFrame
+    end
+    return nil
+end
+
+-- ── Режим 1: модели телепортируются к игроку ──────────────────────────────
+local function FarmPullMode()
+    local char = lp.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    local targetCF = root.CFrame
+
+    for _, visual in ipairs(GetTicketVisuals()) do
+        pcall(function()
+            if not visual or not visual.Parent then return end
+            if visual:IsA("Model") then
+                if visual.PrimaryPart then
+                    visual:PivotTo(targetCF)
+                else
+                    for _, p in ipairs(visual:GetDescendants()) do
+                        if p:IsA("BasePart") then p.CFrame = targetCF end
+                    end
+                end
+            elseif visual:IsA("BasePart") then
+                visual.CFrame = targetCF
+            end
+        end)
+    end
+end
+
+-- ── Режим 2: невидимый хитбокс ездит к моделям, игрок стоит на месте ─────
+local function DestroyRemoteHitbox()
+    RemoteHitbox = nil  -- stub, хитбокс больше не создаётся
+end
+
+-- ── Режим 2: быстрый свап CFrame ─────────────────────────────────────────
+-- Игрок на доли секунды телепортируется к каждому тикету и сразу возвращается.
+-- Камера заморожена — движение визуально незаметно.
+-- Сначала пробует firetouchinterest (совсем без движения).
+local function FarmFastSwapMode()
+    local char = lp.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    local hum  = char:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then return end
+
+    local visuals = GetTicketVisuals()
+    if #visuals == 0 then return end
+
+    local savedCF      = root.CFrame
+    local savedCamCF   = Camera.CFrame
+    local savedCamType = Camera.CameraType
+
+    -- Замораживаем камеру и обнуляем физику
+    Camera.CameraType = Enum.CameraType.Scriptable
+    Camera.CFrame     = savedCamCF
+    hum.PlatformStand = true
+    for _, p in ipairs(char:GetDescendants()) do
+        if p:IsA("BasePart") then
+            p.AssemblyLinearVelocity  = Vector3.zero
+            p.AssemblyAngularVelocity = Vector3.zero
+        end
+    end
+
+    for _, visual in ipairs(visuals) do
+        if not AutoFarm then break end
+        if not visual or not visual.Parent then continue end
+        local cf = GetObjectCFrame(visual)
+        if not cf then continue end
+
+        -- Попытка 1: firetouchinterest (игрок не двигается вообще)
+        local touchFired = false
+        pcall(function()
+            local parts = visual:IsA("BasePart") and {visual}
+                       or visual:GetDescendants()
+            for _, p in ipairs(parts) do
+                if p:IsA("BasePart") then
+                    firetouchinterest(root, p, 0)
+                    firetouchinterest(root, p, 1)
+                    touchFired = true
+                end
+            end
+        end)
+
+        if not touchFired then
+            -- Попытка 2: физически переносим root на 0.04 сек и возвращаем
+            root.CFrame = cf * CFrame.new(0, 2, 0)
+            root.AssemblyLinearVelocity = Vector3.zero
+            task.wait(0.04)
+            root.CFrame = savedCF
+            root.AssemblyLinearVelocity = Vector3.zero
+        end
+    end
+
+    -- Финальный возврат и восстановление состояния
+    root.CFrame = savedCF
+    root.AssemblyLinearVelocity = Vector3.zero
+    for _, p in ipairs(char:GetDescendants()) do
+        if p:IsA("BasePart") then
+            p.AssemblyLinearVelocity  = Vector3.zero
+            p.AssemblyAngularVelocity = Vector3.zero
+        end
+    end
+    hum.PlatformStand = false
+
+    task.wait(0.05)
+    Camera.CameraType = savedCamType
+end
+
+-- ── Режим 3: WorldPilot — игрок сам телепортируется ───────────────────────
+local function FarmWorldPilotMode()
+    local char = lp.Character
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    for _, visual in ipairs(GetTicketVisuals()) do
+        if not AutoFarm then break end
+        local cf = GetObjectCFrame(visual)
+        if cf then
+            local targetPos = cf.Position + Vector3.new(0, 3, 0)
+            local piloted = false
+            pcall(function()
+                if WorldPilot then
+                    WorldPilot:Navigate(targetPos)
+                    piloted = true
+                end
+            end)
+            if not piloted then
+                root.CFrame = CFrame.new(targetPos)
+            end
+            task.wait(farmDelay)
+        end
+    end
+end
+
+-- ── Главный цикл фарма ────────────────────────────────────────────────────
+task.spawn(function()
+    while true do
+        task.wait(farmDelay)
+        pcall(function()
+            if not AutoFarm then return end
+            if IsRevivingNow or Safe or flying then return end
+            local char = lp.Character
+            if not char then return end
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if not hum or hum.Health <= 0 then return end
+
+            if FarmMode == 1 then
+                FarmPullMode()
+            elseif FarmMode == 2 then
+                FarmFastSwapMode()
+            elseif FarmMode == 3 then
+                FarmWorldPilotMode()
+            end
+        end)
+    end
+end)
+
+-- Убираем хитбокс при респавне
+lp.CharacterAdded:Connect(function()
+    task.wait(0.1)
+    DestroyRemoteHitbox()
+end)
+
 local Window = MinecraftLib:CreateWindow("inlawry | Evade", {Theme = "Nether"})
 
 local MainTab   = Window:AddTab("Main")
 local VisualTab = Window:AddTab("Visual")
 local OptTab    = Window:AddTab("Optim")
+local ConfigTab = Window:AddTab("Configs")
 local AboutTab  = Window:AddTab("inlawry")
 
--- MAIN TAB
 MainTab:AddSeparator("Movement")
 
-MainTab:AddToggle("Speed Hack", false, function(value)
+speedToggle = MainTab:AddToggle("Speed Hack", false, function(value)
     Speeds = value
     if not value then
         speedCurrent = 0
@@ -1328,11 +1510,11 @@ MainTab:AddToggle("Speed Hack", false, function(value)
     end
 end)
 
-MainTab:AddSlider("Speed Value", 16, 105, 50, function(value)
+speedSlider = MainTab:AddSlider("Speed Value", 16, 105, 50, function(value)
     Power = value
 end)
 
-MainTab:AddToggle("Infinite Jump", false, function(value)
+jumpToggle = MainTab:AddToggle("Infinite Jump", false, function(value)
     JumpEnabled = value
     local Hum = lp.Character and lp.Character:FindFirstChild("Humanoid")
     if Hum then
@@ -1346,7 +1528,7 @@ MainTab:AddToggle("Infinite Jump", false, function(value)
     end
 end)
 
-MainTab:AddSlider("Jump Power", 1, 100, 50, function(value)
+jumpSlider = MainTab:AddSlider("Jump Power", 1, 100, 50, function(value)
     JumpPower = value
     if JumpEnabled then
         local Hum = lp.Character and lp.Character:FindFirstChild("Humanoid")
@@ -1361,7 +1543,7 @@ flyToggle = MainTab:AddToggle("Fly", false, function(value)
     if value then startFly() else stopFly() end
 end)
 
-MainTab:AddSlider("Fly Speed", 50, 175, 150, function(value)
+flySpeedSlider = MainTab:AddSlider("Fly Speed", 50, 175, 150, function(value)
     flySpeed    = value
     flyMaxSpeed = value
 end)
@@ -1423,8 +1605,8 @@ end)
 
 MainTab:AddButton("Beta Message", function()
     Window:Notify(
-        "Auto Revive вЂ” Beta",
-        "Not 100% AFK. E may fire multiple times вЂ” this is normal and helps complete the revive. Still in development.",
+        "Auto Revive — Beta",
+        "Not 100% AFK. E may fire multiple times — this is normal and helps complete the revive. Still in development.",
         12
     )
 end)
@@ -1445,26 +1627,69 @@ MainTab:AddKeybind("Safe Zone Key", "V", function()
     if safeZoneToggle then safeZoneToggle:Set(Safe) end
 end)
 
--- в… РќРћР’РђРЇ РЎР•РљР¦РРЇ: РР—Р‘Р•Р“РђРќРР• РќР•РљРЎРўР‘РћРўРћР’
 MainTab:AddSeparator("Avoid Nextbots")
-local avoidToggle = MainTab:AddToggle("Avoid Nextbots", false, function(value)
+avoidToggle = MainTab:AddToggle("Avoid Nextbots", false, function(value)
     AvoidNextbots = value
 end)
-MainTab:AddSlider("Avoid Distance", 10, 50, 25, function(value)
+avoidDistanceSlider = MainTab:AddSlider("Avoid Distance", 10, 50, 25, function(value)
     AvoidDistance = value
 end)
-MainTab:AddSlider("Avoid Speed", 30, 150, 60, function(value)
+avoidSpeedSlider = MainTab:AddSlider("Avoid Speed", 30, 150, 60, function(value)
     AvoidSpeed = value
 end)
 
--- VISUAL TAB
+VisualTab:AddSeparator("Auto Farm")
+
+farmModeDropdown = VisualTab:AddDropdown("Режим фарма", {
+    "1: Models to Player (DONT WORK) ",
+    "2: Quick swap  (DONT WORK)",
+    "3: TELEPORT (recommended)",
+}, function(value)
+    if value:sub(1,1) == "1" then FarmMode = 1
+    elseif value:sub(1,1) == "2" then FarmMode = 2
+    else FarmMode = 3 end
+    -- сбрасываем хитбокс при смене режима
+    if FarmMode ~= 2 then DestroyRemoteHitbox() end
+end)
+
+autoFarmToggle = VisualTab:AddToggle("Auto Farm [EVENT COINS]", false, function(value)
+    AutoFarm = value
+    if value then
+        local count = #GetTicketVisuals()
+        local modeStr = FarmMode == 1 and "Pull Models"
+                     or FarmMode == 2 and "Fast Swap"
+                     or "WorldPilot"
+        Window:Notify(
+            "Auto Farm",
+            "Режим: " .. modeStr .. " | Visual: " .. count,
+            4
+        )
+    else
+        if FarmMode == 2 then DestroyRemoteHitbox() end
+    end
+end)
+
+VisualTab:AddButton("Проверить Visual модели", function()
+    local count = #GetTicketVisuals()
+    Window:Notify(
+        "Auto Farm",
+        "Найдено Visual: " .. count .. " (Workspace.Effects.Tickets)",
+        4
+    )
+end)
+
+VisualTab:AddButton("Удалить хитбокс", function()
+    DestroyRemoteHitbox()
+    Window:Notify("Auto Farm", "Хитбокс удалён.", 2)
+end)
+
 VisualTab:AddSeparator("Environment")
-VisualTab:AddToggle("Sky Mode + FullBright", false, function(value)
+skyToggle = VisualTab:AddToggle("Sky Mode + FullBright", false, function(value)
     ToggleSky(value)
 end)
 
 VisualTab:AddSeparator("ESP")
-VisualTab:AddToggle("ESP Players", false, function(value)
+playerESPToggle = VisualTab:AddToggle("ESP Players", false, function(value)
     ESP = value
     if not value then
         for _, x in pairs(Players:GetPlayers()) do
@@ -1473,7 +1698,7 @@ VisualTab:AddToggle("ESP Players", false, function(value)
     end
 end)
 
-VisualTab:AddToggle("Downed Player ESP", false, function(value)
+downedESPToggle = VisualTab:AddToggle("Downed Player ESP", false, function(value)
     DownedESP = value
     if not value then
         for _, player in ipairs(Players:GetPlayers()) do
@@ -1482,19 +1707,186 @@ VisualTab:AddToggle("Downed Player ESP", false, function(value)
     end
 end)
 
-VisualTab:AddToggle("Nextbot ESP (Drawing)", false, function(value)
+nextbotESPToggle = VisualTab:AddToggle("Nextbot ESP (Drawing)", false, function(value)
     NextbotESP = value
     if not value then
         ClearNextbotDrawings()
     end
 end)
 
--- OPTIM TAB
+local ConfigFolder = "inlawry_Evade/configs"
+local AutoloadPath = "inlawry_Evade/autoload.json"
+local configNameBox, configDropdown, autoloadToggle
+local selectedConfig = ""
+
+local function EnsureConfigFolder()
+    if not isfolder or not makefolder or not writefile or not readfile or not isfile then return false end
+    if not isfolder("inlawry_Evade") then makefolder("inlawry_Evade") end
+    if not isfolder(ConfigFolder) then makefolder(ConfigFolder) end
+    return true
+end
+
+local function NormalizeConfigName(name)
+    name = tostring(name or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
+    name = name:gsub("[^%w_-]", "_")
+    return name:sub(1, 32)
+end
+
+local function GetConfigNames()
+    local ok, names = pcall(function()
+        if not EnsureConfigFolder() or not listfiles then return {} end
+        local found = {}
+        for _, path in ipairs(listfiles(ConfigFolder)) do
+            local name = path:match("([^/]+)%.json$")
+            if name then table.insert(found, name) end
+        end
+        table.sort(found)
+        return found
+    end)
+    return ok and names or {}
+end
+
+local function CurrentConfigName()
+    local name = configNameBox and configNameBox:Get() or selectedConfig
+    return NormalizeConfigName(name ~= "" and name or selectedConfig)
+end
+
+local function SaveConfig(name)
+    if not EnsureConfigFolder() then
+        Window:Notify("Configs", "Executor does not support file saving.", 4)
+        return
+    end
+    name = NormalizeConfigName(name)
+    if name == "" then Window:Notify("Configs", "Enter a config name first.", 3) return end
+    local config = {
+        version = 1, Speeds = Speeds, Power = Power, JumpEnabled = JumpEnabled, JumpPower = JumpPower,
+        flying = flying, flySpeed = flySpeed, Safe = Safe, AutoFollow = AutoFollow, AutoRevive = AutoRevive,
+        AvoidNextbots = AvoidNextbots, AvoidDistance = AvoidDistance, AvoidSpeed = AvoidSpeed,
+        SkyEnabled = SkyEnabled, ESP = ESP, DownedESP = DownedESP, NextbotESP = NextbotESP,
+        FPSBoosted = FPSBoosted, FogDisabled = FogDisabled, AutoFarm = AutoFarm
+    }
+    local ok, encoded = pcall(function() return game:GetService("HttpService"):JSONEncode(config) end)
+    if not ok then Window:Notify("Configs", "Could not encode config.", 4) return end
+    writefile(ConfigFolder .. "/" .. name .. ".json", encoded)
+    selectedConfig = name
+    if configNameBox then configNameBox:Set(name) end
+    Window:Notify("Configs", "Saved: " .. name, 3)
+end
+
+local function LoadConfig(name, silent)
+    if not EnsureConfigFolder() then
+        if not silent then Window:Notify("Configs", "Executor does not support file loading.", 4) end
+        return
+    end
+    name = NormalizeConfigName(name)
+    if name == "" then if not silent then Window:Notify("Configs", "Choose a config first.", 3) end return end
+    local path = ConfigFolder .. "/" .. name .. ".json"
+    if not isfile(path) then if not silent then Window:Notify("Configs", "Config not found: " .. name, 3) end return end
+    local ok, config = pcall(function() return game:GetService("HttpService"):JSONDecode(readfile(path)) end)
+    if not ok or type(config) ~= "table" then if not silent then Window:Notify("Configs", "Invalid config file.", 4) end return end
+
+    if config.Power and speedSlider then speedSlider:Set(config.Power) end
+    if config.JumpPower and jumpSlider then jumpSlider:Set(config.JumpPower) end
+    if config.flySpeed and flySpeedSlider then flySpeedSlider:Set(config.flySpeed) end
+    if config.AvoidDistance and avoidDistanceSlider then avoidDistanceSlider:Set(config.AvoidDistance) end
+    if config.AvoidSpeed and avoidSpeedSlider then avoidSpeedSlider:Set(config.AvoidSpeed) end
+    if speedToggle then speedToggle:Set(config.Speeds == true) end
+    if jumpToggle then jumpToggle:Set(config.JumpEnabled == true) end
+    if flyToggle then flyToggle:Set(config.flying == true) end
+    if safeZoneToggle then safeZoneToggle:Set(config.Safe == true) end
+    if autoFollowToggle then autoFollowToggle:Set(config.AutoFollow ~= false) end
+    if autoReviveToggle then autoReviveToggle:Set(config.AutoRevive == true) end
+    if avoidToggle then avoidToggle:Set(config.AvoidNextbots == true) end
+    if skyToggle then skyToggle:Set(config.SkyEnabled == true) end
+    if playerESPToggle then playerESPToggle:Set(config.ESP == true) end
+    if downedESPToggle then downedESPToggle:Set(config.DownedESP == true) end
+    if nextbotESPToggle then nextbotESPToggle:Set(config.NextbotESP == true) end
+    if fpsToggle then fpsToggle:Set(config.FPSBoosted == true) end
+    if fogToggle then fogToggle:Set(config.FogDisabled == true) end
+    if autoFarmToggle then autoFarmToggle:Set(config.AutoFarm == true) end
+    selectedConfig = name
+    if configNameBox then configNameBox:Set(name) end
+    if not silent then Window:Notify("Configs", "Loaded: " .. name, 3) end
+end
+
+local function DeleteConfig(name)
+    name = NormalizeConfigName(name)
+    local path = ConfigFolder .. "/" .. name .. ".json"
+    if delfile and isfile and isfile(path) then
+        delfile(path)
+        if isfile(AutoloadPath) then
+            local ok, data = pcall(function() return game:GetService("HttpService"):JSONDecode(readfile(AutoloadPath)) end)
+            if ok and data and data.name == name then delfile(AutoloadPath) end
+        end
+        selectedConfig = ""
+        if configNameBox then configNameBox:Set("") end
+        Window:Notify("Configs", "Deleted: " .. name, 3)
+    else
+        Window:Notify("Configs", "Config not found: " .. name, 3)
+    end
+end
+
+local configOptions = GetConfigNames()
+if #configOptions == 0 then configOptions = {"No saved configs"} end
+
+ConfigTab:AddSeparator("Configuration Manager")
+configNameBox = ConfigTab:AddTextbox("Config Name", "example: legit", function(value)
+    selectedConfig = NormalizeConfigName(value)
+end)
+configDropdown = ConfigTab:AddDropdown("Saved Configs", configOptions, function(name)
+    if name ~= "No saved configs" then
+        selectedConfig = name
+        configNameBox:Set(name)
+    end
+end)
+ConfigTab:AddButton("Save Config", function() SaveConfig(CurrentConfigName()) end)
+ConfigTab:AddButton("Load Config", function() LoadConfig(CurrentConfigName()) end)
+ConfigTab:AddButton("Delete Config", function() DeleteConfig(CurrentConfigName()) end)
+
+ConfigTab:AddSeparator("Autoload")
+autoloadToggle = ConfigTab:AddToggle("Autoload on Startup", false, function(value)
+    if not EnsureConfigFolder() then Window:Notify("Configs", "Executor does not support file saving.", 4) return end
+    if value then
+        local name = CurrentConfigName()
+        if name == "" or not isfile(ConfigFolder .. "/" .. name .. ".json") then
+            Window:Notify("Configs", "Save or choose a config first.", 3)
+            autoloadToggle:Set(false)
+            return
+        end
+        writefile(AutoloadPath, game:GetService("HttpService"):JSONEncode({name = name}))
+        Window:Notify("Configs", "Autoload set: " .. name, 3)
+    elseif delfile and isfile(AutoloadPath) then
+        delfile(AutoloadPath)
+        Window:Notify("Configs", "Autoload disabled.", 3)
+    end
+end)
+ConfigTab:AddButton("Load Autoload Config", function()
+    if not isfile or not isfile(AutoloadPath) then Window:Notify("Configs", "Autoload is not configured.", 3) return end
+    local ok, data = pcall(function() return game:GetService("HttpService"):JSONDecode(readfile(AutoloadPath)) end)
+    if ok and data and data.name then LoadConfig(data.name) else Window:Notify("Configs", "Autoload file is invalid.", 3) end
+end)
+
+task.defer(function()
+    pcall(function()
+        if not isfile or not isfile(AutoloadPath) then return end
+        local ok, data = pcall(function() return game:GetService("HttpService"):JSONDecode(readfile(AutoloadPath)) end)
+        if ok and data and data.name and isfile(ConfigFolder .. "/" .. data.name .. ".json") then
+            selectedConfig = data.name
+            configNameBox:Set(data.name)
+            autoloadToggle:Set(true)
+            LoadConfig(data.name, true)
+            Window:Notify("Configs", "Autoloaded: " .. data.name, 3)
+        end
+    end)
+end)
+
 OptTab:AddSeparator("Performance")
-OptTab:AddToggle("FPS Booster", false, function(value)
+fpsToggle = OptTab:AddToggle("FPS Booster", false, function(value)
+    FPSBoosted = value
     FPSBooster(value)
 end)
-OptTab:AddToggle("Disable Fog", false, function(value)
+fogToggle = OptTab:AddToggle("Disable Fog", false, function(value)
+    FogDisabled = value
     DisableFog(value)
 end)
 OptTab:AddButton("Anti GamePaused", function()
@@ -1505,7 +1897,6 @@ OptTab:AddButton("Anti GamePaused", function()
     end)
 end)
 
--- ABOUT TAB
 AboutTab:AddSeparator("Community")
 AboutTab:AddButton("Copy Telegram", function()
     setclipboard("https://t.me/inlawryDEV")
@@ -1517,14 +1908,13 @@ AboutTab:AddButton("Mod Detector (Auto-Leave)", function()
     Players.PlayerAdded:Connect(function(plr)
         if plr.UserId == game.CreatorId then lp:Kick("Moderator Joined") end
     end)
-    Window:Notify("Mod Detector", "Active вЂ” auto-leave if moderator joins", 3)
+    Window:Notify("Mod Detector", "Active — auto-leave if moderator joins", 3)
 end)
 
 AboutTab:AddSeparator("Info")
 AboutTab:AddLabel("Anti AFK active in background")
-AboutTab:AddLabel("inlawry | Evade вЂ” Minecraft UI Port")
+AboutTab:AddLabel("inlawry | Evade — Minecraft UI Port")
 
--- UI TOGGLE (R key)
 UIS.InputBegan:Connect(function(input, gp)
     if gp then return end
     if input.KeyCode == Enum.KeyCode.R then
@@ -1532,9 +1922,8 @@ UIS.InputBegan:Connect(function(input, gp)
     end
 end)
 
--- STARTUP
 task.delay(1, function()
-    Window:Notify("inlawry | Evade", "Loaded! RightShift / R вЂ” toggle UI", 4)
+    Window:Notify("inlawry | Evade", "Loaded! RightShift / R — toggle UI", 4)
 end)
 
-print("[inlawry] вњ… Evade Loaded вЂ” Nextbot ESP РїРѕ Р°С‚СЂРёР±СѓС‚Сѓ Team, Infinite Jump СЂР°Р±РѕС‚Р°РµС‚ РІСЃРµРіРґР°")
+print("[inlawry] Evade Loaded have a good use ")
