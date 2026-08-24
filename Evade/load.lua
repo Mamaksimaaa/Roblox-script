@@ -1489,7 +1489,7 @@ lp.CharacterAdded:Connect(function()
     DestroyRemoteHitbox()
 end)
 
-local Window = MinecraftLib:CreateWindow("inlawry | Evade", {Theme = "Nether"})
+local Window = MinecraftLib:CreateWindow("IRY HUB | Evade", {Theme = "Nether"})
 
 local MainTab   = Window:AddTab("Main")
 local VisualTab = Window:AddTab("Visual")
@@ -1913,7 +1913,7 @@ end)
 
 AboutTab:AddSeparator("Info")
 AboutTab:AddLabel("Anti AFK active in background")
-AboutTab:AddLabel("inlawry | Evade — Minecraft UI Port")
+AboutTab:AddLabel("IRY HUB | Evade — Minecraft UI Port")
 
 UIS.InputBegan:Connect(function(input, gp)
     if gp then return end
@@ -1923,7 +1923,7 @@ UIS.InputBegan:Connect(function(input, gp)
 end)
 
 task.delay(1, function()
-    Window:Notify("inlawry | Evade", "Loaded! RightShift / R — toggle UI", 4)
+    Window:Notify("IRY HUB | Evade", "Loaded! RightShift / R — toggle UI", 4)
 end)
 
-print("[inlawry] Evade Loaded have a good use ")
+print("[IRY HUB] Evade Loaded have a good use ")
