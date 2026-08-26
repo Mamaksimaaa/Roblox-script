@@ -17,10 +17,9 @@ local Camera           = Workspace.CurrentCamera
 local lp               = Players.LocalPlayer
 
 -- ===== ОТЛАДКА =====
+-- Теперь все print видны в консоли (F9) всегда
 local function DebugPrint(...)
-    if RunService:IsStudio() then
-        print(...)
-    end
+    print(...)
 end
 
 local NextbotFolders = {"Players"}
@@ -355,35 +354,90 @@ local function ToggleRoundTimer(enabled)
 end
 
 -- ============================================================
---  🔧 ИСПРАВЛЕННЫЕ ФУНКЦИИ ДЛЯ HTTP (HttpService:RequestAsync)
+--  УНИВЕРСАЛЬНЫЙ HTTP-ЗАПРОС (с отладкой)
 -- ============================================================
 
-local function GetPresenceRequest()
-    return function(options)
-        local http = game:GetService("HttpService")
-        local method = options.Method or "GET"
-        local url = options.Url
-        local headers = options.Headers or {}
-        local body = options.Body
+local function HttpRequest(options)
+    local method = options.Method or "GET"
+    local url = options.Url
+    local headers = options.Headers or {}
+    local body = options.Body
 
-        local requestData = {
-            Url = url,
-            Method = method,
-            Headers = headers,
-        }
-        if body and method ~= "GET" then
-            requestData.Body = body
+    print("[IRY] Requesting", method, url)
+
+    local sendFunctions = {
+        -- Способ 1: HttpService:RequestAsync (встроенный)
+        function()
+            local http = game:GetService("HttpService")
+            local req = {
+                Url = url,
+                Method = method,
+                Headers = headers,
+            }
+            if body and method ~= "GET" then
+                req.Body = body
+            end
+            local response = http:RequestAsync(req)
+            return {
+                StatusCode = response.StatusCode,
+                Body = response.Body,
+            }
+        end,
+        -- Способ 2: syn.request (если есть)
+        function()
+            if syn and syn.request then
+                local response = syn.request({
+                    Url = url,
+                    Method = method,
+                    Headers = headers,
+                    Body = body,
+                })
+                return {
+                    StatusCode = response.StatusCode,
+                    Body = response.Body,
+                }
+            end
+            return nil
+        end,
+        -- Способ 3: http_request (если есть)
+        function()
+            if http_request then
+                local response = http_request({
+                    Url = url,
+                    Method = method,
+                    Headers = headers,
+                    Body = body,
+                })
+                return {
+                    StatusCode = response.StatusCode,
+                    Body = response.Body,
+                }
+            end
+            return nil
+        end,
+        -- Способ 4: game:HttpGet (только GET)
+        function()
+            if method == "GET" then
+                local body = game:HttpGet(url)
+                return {
+                    StatusCode = 200,
+                    Body = body,
+                }
+            end
+            return nil
+        end,
+    }
+
+    for _, fn in ipairs(sendFunctions) do
+        local ok, result = pcall(fn)
+        if ok and result and result.Body then
+            print("[IRY] Response status", result.StatusCode)
+            print("[IRY] Response body", result.Body:sub(1, 500)) -- обрезаем, чтобы не засорять
+            return result
         end
-
-        local ok, response = pcall(function()
-            return http:RequestAsync(requestData)
-        end)
-        if not ok then return nil end
-        return {
-            StatusCode = response.StatusCode,
-            Body = response.Body,
-        }
     end
+    print("[IRY] All request methods failed")
+    return nil
 end
 
 local function IsPresenceConfigured()
@@ -391,18 +445,18 @@ local function IsPresenceConfigured()
 end
 
 local function PresenceRequest(method, path, body)
-    local sendRequest = GetPresenceRequest()
-    if not sendRequest or not IsPresenceConfigured() then return nil end
+    if not IsPresenceConfigured() then
+        print("[IRY] URL not configured")
+        return nil
+    end
     local fullUrl = IRY_HUB_PRESENCE_URL .. path
-    local ok, response = pcall(sendRequest, {
+    print("[IRY] Sending", method, fullUrl)
+    local response = HttpRequest({
         Url = fullUrl,
         Method = method,
         Headers = { ["Content-Type"] = "application/json" },
         Body = body,
     })
-    if not ok or not response or (response.StatusCode and response.StatusCode >= 400) then
-        return nil
-    end
     return response
 end
 
@@ -413,25 +467,30 @@ end
 local function DrawIRYHubTag(player)
     if player == lp then return end
     local character = player.Character
-    if not character then return end
+    if not character then
+        print("[IRY] No character for", player.Name)
+        return
+    end
 
-    -- Удаляем старый тег, если есть
     local oldTag = character:FindFirstChild(IRY_HUB_TAG_NAME)
     if oldTag then oldTag:Destroy() end
 
-    -- Выбираем корневую часть (HumanoidRootPart) или голову
     local adornee = character:FindFirstChild("HumanoidRootPart")
     if not adornee then
         adornee = character:FindFirstChild("Head")
     end
-    if not adornee then return end
+    if not adornee then
+        print("[IRY] No adornee for", player.Name)
+        return
+    end
 
     local tag = Instance.new("BillboardGui")
     tag.Name = IRY_HUB_TAG_NAME
     tag.Adornee = adornee
-    tag.Size = UDim2.new(0, 120, 0, 28)
-    tag.StudsOffset = Vector3.new(0, 3.6, 0)
+    tag.Size = UDim2.new(0, 140, 0, 32)
+    tag.StudsOffset = Vector3.new(0, 4, 0)
     tag.AlwaysOnTop = true
+    tag.MaxDistance = 1000
     tag.Parent = character
 
     local label = Instance.new("TextLabel")
@@ -444,7 +503,7 @@ local function DrawIRYHubTag(player)
     label.TextScaled = true
     label.Parent = tag
 
-    DebugPrint("IRY HUB tag added for", player.Name)
+    print("[IRY] Tag added for", player.Name)
 end
 
 local function RemoveIRYHubTag(character)
@@ -464,37 +523,43 @@ end
 -- ============================================================
 
 local function SendIRYHubPresence()
-    if game.JobId == "" then return end
+    if game.JobId == "" then
+        print("[IRY] JobId empty, skipping send")
+        return
+    end
     local payload = HttpService:JSONEncode({
         user_id = lp.UserId,
         username = lp.Name,
         place_id = game.PlaceId,
         job_id = game.JobId,
     })
-    local result = PresenceRequest("POST", "/presence", payload)
-    if result then
-        DebugPrint("IRY HUB: presence sent")
-    else
-        DebugPrint("IRY HUB: presence send failed")
-    end
+    print("[IRY] Sending presence for", lp.Name)
+    PresenceRequest("POST", "/presence", payload)
 end
 
 local function RefreshIRYHubTags()
-    if not IRYHubUsersESP or game.JobId == "" then return end
+    if not IRYHubUsersESP then
+        print("[IRY] ESP disabled, skipping refresh")
+        return
+    end
+    if game.JobId == "" then
+        print("[IRY] JobId empty, skipping refresh")
+        return
+    end
     local path = "/presence?place_id=" .. game.PlaceId .. "&job_id=" .. HttpService:UrlEncode(game.JobId)
     local response = PresenceRequest("GET", path)
     if not response or not response.Body then
-        DebugPrint("IRY HUB: no response from server")
+        print("[IRY] No response from server")
         return
     end
-    DebugPrint("IRY HUB raw response:", response.Body)
 
     local ok, data = pcall(function() return HttpService:JSONDecode(response.Body) end)
     if not ok or type(data) ~= "table" or type(data.users) ~= "table" then
-        DebugPrint("IRY HUB: invalid JSON")
+        print("[IRY] Invalid JSON:", response.Body)
         return
     end
 
+    print("[IRY] Active users:", #data.users)
     local activeUsers = {}
     for _, user in ipairs(data.users) do
         if type(user) == "table" and type(user.user_id) == "number" then
@@ -513,7 +578,7 @@ local function RefreshIRYHubTags()
     end
 end
 
--- Запускаем цикл отправки/обновления
+-- Запускаем цикл
 task.spawn(function()
     while true do
         pcall(function()
@@ -524,7 +589,7 @@ task.spawn(function()
     end
 end)
 
--- Очищаем теги при смене персонажа у других игроков
+-- Обновляем при появлении новых игроков
 Players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function(character)
         task.wait(0.5)
