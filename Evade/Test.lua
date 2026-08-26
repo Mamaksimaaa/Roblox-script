@@ -16,12 +16,6 @@ local HttpService      = game:GetService("HttpService")
 local Camera           = Workspace.CurrentCamera
 local lp               = Players.LocalPlayer
 
--- ===== ОТЛАДКА =====
--- Теперь все print видны в консоли (F9) всегда
-local function DebugPrint(...)
-    print(...)
-end
-
 local NextbotFolders = {"Players"}
 
 local function IsInsideNextbotFolder(instance)
@@ -432,7 +426,7 @@ local function HttpRequest(options)
         local ok, result = pcall(fn)
         if ok and result and result.Body then
             print("[IRY] Response status", result.StatusCode)
-            print("[IRY] Response body", result.Body:sub(1, 500)) -- обрезаем, чтобы не засорять
+            print("[IRY] Response body", result.Body:sub(1, 500))
             return result
         end
     end
@@ -449,7 +443,9 @@ local function PresenceRequest(method, path, body)
         print("[IRY] URL not configured")
         return nil
     end
-    local fullUrl = IRY_HUB_PRESENCE_URL .. path
+    -- Убираем лишние слеши
+    local base = IRY_HUB_PRESENCE_URL:gsub("/$", "")
+    local fullUrl = base .. "/" .. path:gsub("^/", "")
     print("[IRY] Sending", method, fullUrl)
     local response = HttpRequest({
         Url = fullUrl,
