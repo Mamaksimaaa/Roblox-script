@@ -12,9 +12,16 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 local UIS              = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace        = game:GetService("Workspace")
-local HttpService       = game:GetService("HttpService")
+local HttpService      = game:GetService("HttpService")
 local Camera           = Workspace.CurrentCamera
 local lp               = Players.LocalPlayer
+
+-- ===== ОТЛАДКА =====
+local function DebugPrint(...)
+    if RunService:IsStudio() then
+        print(...)
+    end
+end
 
 local NextbotFolders = {"Players"}
 
@@ -117,7 +124,7 @@ local avoidSpeedSlider = nil
 local AutoFarm         = false
 local autoFarmToggle   = nil
 local farmDelay        = 0.1
-local FarmMode         = 1       -- 1=Pull Models  2=Remote Hitbox  3=WorldPilot
+local FarmMode         = 1
 local RemoteHitbox     = nil
 local farmModeDropdown = nil
 local ignoreTeleport   = false
@@ -348,11 +355,10 @@ local function ToggleRoundTimer(enabled)
 end
 
 -- ============================================================
--- 🔧 ИСПРАВЛЕННЫЕ ФУНКЦИИ ДЛЯ HTTP-ЗАПРОСОВ (HttpService:RequestAsync)
+--  🔧 ИСПРАВЛЕННЫЕ ФУНКЦИИ ДЛЯ HTTP (HttpService:RequestAsync)
 -- ============================================================
 
 local function GetPresenceRequest()
-    -- Возвращаем функцию-обёртку, использующую встроенный HttpService
     return function(options)
         local http = game:GetService("HttpService")
         local method = options.Method or "GET"
@@ -373,7 +379,6 @@ local function GetPresenceRequest()
             return http:RequestAsync(requestData)
         end)
         if not ok then return nil end
-        -- Приводим к формату, который ожидает остальной код
         return {
             StatusCode = response.StatusCode,
             Body = response.Body,
@@ -402,11 +407,49 @@ local function PresenceRequest(method, path, body)
 end
 
 -- ============================================================
--- КОНЕЦ ИСПРАВЛЕННЫХ ФУНКЦИЙ
+--  IRY HUB TAG (улучшенная отрисовка)
 -- ============================================================
 
+local function DrawIRYHubTag(player)
+    if player == lp then return end
+    local character = player.Character
+    if not character then return end
+
+    -- Удаляем старый тег, если есть
+    local oldTag = character:FindFirstChild(IRY_HUB_TAG_NAME)
+    if oldTag then oldTag:Destroy() end
+
+    -- Выбираем корневую часть (HumanoidRootPart) или голову
+    local adornee = character:FindFirstChild("HumanoidRootPart")
+    if not adornee then
+        adornee = character:FindFirstChild("Head")
+    end
+    if not adornee then return end
+
+    local tag = Instance.new("BillboardGui")
+    tag.Name = IRY_HUB_TAG_NAME
+    tag.Adornee = adornee
+    tag.Size = UDim2.new(0, 120, 0, 28)
+    tag.StudsOffset = Vector3.new(0, 3.6, 0)
+    tag.AlwaysOnTop = true
+    tag.Parent = character
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.fromScale(1, 1)
+    label.BackgroundTransparency = 1
+    label.Text = "🔹 IRY HUB"
+    label.TextColor3 = Color3.fromRGB(90, 210, 255)
+    label.TextStrokeTransparency = 0.25
+    label.Font = Enum.Font.GothamBold
+    label.TextScaled = true
+    label.Parent = tag
+
+    DebugPrint("IRY HUB tag added for", player.Name)
+end
+
 local function RemoveIRYHubTag(character)
-    local tag = character and character:FindFirstChild(IRY_HUB_TAG_NAME)
+    if not character then return end
+    local tag = character:FindFirstChild(IRY_HUB_TAG_NAME)
     if tag then tag:Destroy() end
 end
 
@@ -416,30 +459,9 @@ local function ClearIRYHubTags()
     end
 end
 
-local function DrawIRYHubTag(player)
-    if player == lp then return end
-    local character = player.Character
-    local head = character and character:FindFirstChild("Head")
-    if not head or character:FindFirstChild(IRY_HUB_TAG_NAME) then return end
-
-    local tag = Instance.new("BillboardGui")
-    tag.Name = IRY_HUB_TAG_NAME
-    tag.Adornee = head
-    tag.Size = UDim2.new(0, 110, 0, 24)
-    tag.StudsOffset = Vector3.new(0, 3.4, 0)
-    tag.AlwaysOnTop = true
-    tag.Parent = character
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.fromScale(1, 1)
-    label.BackgroundTransparency = 1
-    label.Text = "IRY HUB"
-    label.TextColor3 = Color3.fromRGB(90, 210, 255)
-    label.TextStrokeTransparency = 0.25
-    label.Font = Enum.Font.GothamBold
-    label.TextScaled = true
-    label.Parent = tag
-end
+-- ============================================================
+--  ОТПРАВКА И ПОЛУЧЕНИЕ ПРИСУТСТВИЯ
+-- ============================================================
 
 local function SendIRYHubPresence()
     if game.JobId == "" then return end
@@ -449,17 +471,29 @@ local function SendIRYHubPresence()
         place_id = game.PlaceId,
         job_id = game.JobId,
     })
-    PresenceRequest("POST", "/presence", payload)
+    local result = PresenceRequest("POST", "/presence", payload)
+    if result then
+        DebugPrint("IRY HUB: presence sent")
+    else
+        DebugPrint("IRY HUB: presence send failed")
+    end
 end
 
 local function RefreshIRYHubTags()
     if not IRYHubUsersESP or game.JobId == "" then return end
     local path = "/presence?place_id=" .. game.PlaceId .. "&job_id=" .. HttpService:UrlEncode(game.JobId)
     local response = PresenceRequest("GET", path)
-    if not response or not response.Body then return end
+    if not response or not response.Body then
+        DebugPrint("IRY HUB: no response from server")
+        return
+    end
+    DebugPrint("IRY HUB raw response:", response.Body)
 
     local ok, data = pcall(function() return HttpService:JSONDecode(response.Body) end)
-    if not ok or type(data) ~= "table" or type(data.users) ~= "table" then return end
+    if not ok or type(data) ~= "table" or type(data.users) ~= "table" then
+        DebugPrint("IRY HUB: invalid JSON")
+        return
+    end
 
     local activeUsers = {}
     for _, user in ipairs(data.users) do
@@ -470,18 +504,39 @@ local function RefreshIRYHubTags()
 
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= lp then
-            if activeUsers[player.UserId] then DrawIRYHubTag(player) else RemoveIRYHubTag(player.Character) end
+            if activeUsers[player.UserId] then
+                DrawIRYHubTag(player)
+            else
+                RemoveIRYHubTag(player.Character)
+            end
         end
     end
 end
 
+-- Запускаем цикл отправки/обновления
 task.spawn(function()
     while true do
-        pcall(SendIRYHubPresence)
-        pcall(RefreshIRYHubTags)
+        pcall(function()
+            SendIRYHubPresence()
+            RefreshIRYHubTags()
+        end)
         task.wait(20)
     end
 end)
+
+-- Очищаем теги при смене персонажа у других игроков
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function(character)
+        task.wait(0.5)
+        if IRYHubUsersESP then
+            RefreshIRYHubTags()
+        end
+    end)
+end)
+
+-- ============================================================
+--  ОСТАЛЬНАЯ ЧАСТЬ СКРИПТА (без изменений)
+-- ============================================================
 
 lp.CharacterAdded:Connect(function(character)
     task.wait(0.2)
@@ -1555,7 +1610,7 @@ task.spawn(function()
     end
 end)
 
--- ========== AUTO FARM (TICKETS / VISUAL) ==========
+-- ========== AUTO FARM ==========
 
 local function GetTicketVisuals()
     local found = {}
@@ -1582,7 +1637,6 @@ local function GetObjectCFrame(obj)
     return nil
 end
 
--- ── Режим 1: модели телепортируются к игроку ──────────────────────────────
 local function FarmPullMode()
     local char = lp.Character
     if not char then return end
@@ -1608,15 +1662,10 @@ local function FarmPullMode()
     end
 end
 
--- ── Режим 2: невидимый хитбокс ездит к моделям, игрок стоит на месте ─────
 local function DestroyRemoteHitbox()
-    RemoteHitbox = nil  -- stub, хитбокс больше не создаётся
+    RemoteHitbox = nil
 end
 
--- ── Режим 2: быстрый свап CFrame ─────────────────────────────────────────
--- Игрок на доли секунды телепортируется к каждому тикету и сразу возвращается.
--- Камера заморожена — движение визуально незаметно.
--- Сначала пробует firetouchinterest (совсем без движения).
 local function FarmFastSwapMode()
     local char = lp.Character
     if not char then return end
@@ -1632,7 +1681,6 @@ local function FarmFastSwapMode()
     local savedCamCF   = Camera.CFrame
     local savedCamType = Camera.CameraType
 
-    -- Замораживаем камеру и обнуляем физику
     Camera.CameraType = Enum.CameraType.Scriptable
     Camera.CFrame     = savedCamCF
     hum.PlatformStand = true
@@ -1649,7 +1697,6 @@ local function FarmFastSwapMode()
         local cf = GetObjectCFrame(visual)
         if not cf then continue end
 
-        -- Попытка 1: firetouchinterest (игрок не двигается вообще)
         local touchFired = false
         pcall(function()
             local parts = visual:IsA("BasePart") and {visual}
@@ -1664,7 +1711,6 @@ local function FarmFastSwapMode()
         end)
 
         if not touchFired then
-            -- Попытка 2: физически переносим root на 0.04 сек и возвращаем
             root.CFrame = cf * CFrame.new(0, 2, 0)
             root.AssemblyLinearVelocity = Vector3.zero
             task.wait(0.04)
@@ -1673,7 +1719,6 @@ local function FarmFastSwapMode()
         end
     end
 
-    -- Финальный возврат и восстановление состояния
     root.CFrame = savedCF
     root.AssemblyLinearVelocity = Vector3.zero
     for _, p in ipairs(char:GetDescendants()) do
@@ -1688,7 +1733,6 @@ local function FarmFastSwapMode()
     Camera.CameraType = savedCamType
 end
 
--- ── Режим 3: WorldPilot — игрок сам телепортируется ───────────────────────
 local function FarmWorldPilotMode()
     local char = lp.Character
     if not char then return end
@@ -1715,7 +1759,6 @@ local function FarmWorldPilotMode()
     end
 end
 
--- ── Главный цикл фарма ────────────────────────────────────────────────────
 task.spawn(function()
     while true do
         task.wait(farmDelay)
@@ -1738,11 +1781,12 @@ task.spawn(function()
     end
 end)
 
--- Убираем хитбокс при респавне
 lp.CharacterAdded:Connect(function()
     task.wait(0.1)
     DestroyRemoteHitbox()
 end)
+
+-- ========== UI ==========
 
 local Window = MinecraftLib:CreateWindow("IRY HUB | Evade", {Theme = "Nether"})
 
@@ -1903,7 +1947,6 @@ farmModeDropdown = VisualTab:AddDropdown("Режим фарма", {
     if value:sub(1,1) == "1" then FarmMode = 1
     elseif value:sub(1,1) == "2" then FarmMode = 2
     else FarmMode = 3 end
-    -- сбрасываем хитбокс при смене режима
     if FarmMode ~= 2 then DestroyRemoteHitbox() end
 end)
 
@@ -1983,6 +2026,8 @@ iryHubUsersToggle = VisualTab:AddToggle("IRY HUB Users", false, function(value)
         ClearIRYHubTags()
     end
 end)
+
+-- ========== Конфиги ==========
 
 local ConfigFolder = "inlawry_Evade/configs"
 local AutoloadPath = "inlawry_Evade/autoload.json"
