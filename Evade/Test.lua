@@ -347,8 +347,38 @@ local function ToggleRoundTimer(enabled)
     end)
 end
 
+-- ============================================================
+-- 🔧 ИСПРАВЛЕННЫЕ ФУНКЦИИ ДЛЯ HTTP-ЗАПРОСОВ (HttpService:RequestAsync)
+-- ============================================================
+
 local function GetPresenceRequest()
-    return request or http_request or (syn and syn.request)
+    -- Возвращаем функцию-обёртку, использующую встроенный HttpService
+    return function(options)
+        local http = game:GetService("HttpService")
+        local method = options.Method or "GET"
+        local url = options.Url
+        local headers = options.Headers or {}
+        local body = options.Body
+
+        local requestData = {
+            Url = url,
+            Method = method,
+            Headers = headers,
+        }
+        if body and method ~= "GET" then
+            requestData.Body = body
+        end
+
+        local ok, response = pcall(function()
+            return http:RequestAsync(requestData)
+        end)
+        if not ok then return nil end
+        -- Приводим к формату, который ожидает остальной код
+        return {
+            StatusCode = response.StatusCode,
+            Body = response.Body,
+        }
+    end
 end
 
 local function IsPresenceConfigured()
@@ -358,15 +388,22 @@ end
 local function PresenceRequest(method, path, body)
     local sendRequest = GetPresenceRequest()
     if not sendRequest or not IsPresenceConfigured() then return nil end
+    local fullUrl = IRY_HUB_PRESENCE_URL .. path
     local ok, response = pcall(sendRequest, {
-        Url = IRY_HUB_PRESENCE_URL .. path,
+        Url = fullUrl,
         Method = method,
         Headers = { ["Content-Type"] = "application/json" },
         Body = body,
     })
-    if not ok or not response or (response.StatusCode and response.StatusCode >= 400) then return nil end
+    if not ok or not response or (response.StatusCode and response.StatusCode >= 400) then
+        return nil
+    end
     return response
 end
+
+-- ============================================================
+-- КОНЕЦ ИСПРАВЛЕННЫХ ФУНКЦИЙ
+-- ============================================================
 
 local function RemoveIRYHubTag(character)
     local tag = character and character:FindFirstChild(IRY_HUB_TAG_NAME)
