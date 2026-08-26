@@ -136,6 +136,8 @@ local roundTimerGui    = nil
 local roundTimerConnection = nil
 local roundTimerGeneration = 0
 local ROUND_TIMER_LOGO_URL = "https://i.postimg.cc/wv2hpwyM/Bez-nazvania8-20260824103816.png"
+
+local IRY_LOGO_URL = "https://i.postimg.cc/wv2hpwyM/Bez-nazvania8-20260824103816.png"
 local IRY_HUB_PRESENCE_URL = "https://hajinertym-serverlogic.hf.space/"
 local IRYHubUsersESP = false
 local IRY_HUB_TAG_NAME = "IRY_HUB_USER_TAG"
@@ -457,7 +459,7 @@ local function PresenceRequest(method, path, body)
 end
 
 -- ============================================================
---  IRY HUB TAG (улучшенная отрисовка)
+--  IRY HUB TAG
 -- ============================================================
 
 local function DrawIRYHubTag(player)
@@ -513,10 +515,6 @@ local function ClearIRYHubTags()
         RemoveIRYHubTag(player.Character)
     end
 end
-
--- ============================================================
---  ОТПРАВКА И ПОЛУЧЕНИЕ ПРИСУТСТВИЯ
--- ============================================================
 
 local function SendIRYHubPresence()
     if game.JobId == "" then
@@ -574,7 +572,6 @@ local function RefreshIRYHubTags()
     end
 end
 
--- Запускаем цикл
 task.spawn(function()
     while true do
         pcall(function()
@@ -585,7 +582,6 @@ task.spawn(function()
     end
 end)
 
--- Обновляем при появлении новых игроков
 Players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function(character)
         task.wait(0.5)
@@ -596,7 +592,7 @@ Players.PlayerAdded:Connect(function(player)
 end)
 
 -- ============================================================
---  ОСТАЛЬНАЯ ЧАСТЬ СКРИПТА (без изменений)
+--  ОСТАЛЬНОЙ КОД (движение, флай, ревайв, ESP, автофарм)
 -- ============================================================
 
 lp.CharacterAdded:Connect(function(character)
@@ -1491,7 +1487,8 @@ local function UpdateNextbotESP_Drawing()
         local distance = (camera.CFrame.Position - primary.Position).Magnitude
         local botType, botName = GetNextbotInfo(model)
         local label = data.Label
-        label.Text = string.format("Type: %s\n%s  [%dm]", botType, botName, math.floor(distance))
+        label.Text = string.format("Type: %s
+%s  [%dm]", botType, botName, math.floor(distance))
         label.Position = Vector2.new(x + width / 2, y - 28)
         label.Size = 13
         label.Visible = true
@@ -1521,37 +1518,21 @@ end)
 
 RunService.RenderStepped:Connect(UpdateNextbotESP_Drawing)
 
+-- ========== УЛУЧШЕННЫЙ PLAYER ESP ==========
+
+local IRY_LOGO_URL = "https://i.postimg.cc/wv2hpwyM/Bez-nazvania8-20260824103816.png"
+
 local function ClearPlayerESP(character)
     if not character then return end
     local highlight = character:FindFirstChild("ESP_Highlight")
     if highlight then highlight:Destroy() end
     local nameTag = character:FindFirstChild("ESP_Name")
     if nameTag then nameTag:Destroy() end
-    for _, child in ipairs(character:GetChildren()) do
-        if child:IsA("BasePart") then
-            local cham = child:FindFirstChild("ESP_Cham")
-            if cham then cham:Destroy() end
-        end
-    end
-end
-
-local function ClearDownedESP(character)
-    if not character then return end
-    local highlight = character:FindFirstChild("DownedESP_Highlight")
-    if highlight then highlight:Destroy() end
-    for _, child in ipairs(character:GetChildren()) do
-        if child:IsA("BasePart") then
-            local cham = child:FindFirstChild("DownedESP_Cham")
-            if cham then cham:Destroy() end
-        end
-    end
-    local nameTag = character:FindFirstChild("DownedESP_Name")
-    if nameTag then nameTag:Destroy() end
 end
 
 task.spawn(function()
     while true do
-        task.wait(0.2)
+        task.wait(0.15)
         if not ESP then
             for _, v in pairs(Players:GetPlayers()) do
                 if v ~= lp and v.Character then
@@ -1562,51 +1543,159 @@ task.spawn(function()
         end
         for _, v in pairs(Players:GetPlayers()) do
             if v ~= lp and v.Character then
-                local humT = v.Character:FindFirstChildOfClass("Humanoid")
-                if humT and humT.Health > 0 and not IsPlayerDowned(v) then
-                    local pct   = humT.Health / humT.MaxHealth
-                    local color = pct < 0.3 and Color3.fromRGB(255,165,0) or Color3.fromRGB(0,255,0)
-                    local highlight = v.Character:FindFirstChild("ESP_Highlight")
+                local char   = v.Character
+                local humT   = char:FindFirstChildOfClass("Humanoid")
+                local root   = char:FindFirstChild("HumanoidRootPart")
+
+                if humT and root and humT.Health > 0 and not IsPlayerDowned(v) then
+                    local pct = math.clamp(humT.Health / humT.MaxHealth, 0, 1)
+
+                    -- Цвет: зелёный -> оранжевый -> красный
+                    local color
+                    if pct > 0.5 then
+                        local t = (pct - 0.5) * 2
+                        color = Color3.fromRGB(
+                            math.floor(255 * (1 - t)),
+                            255,
+                            0
+                        )
+                    else
+                        local t = pct * 2
+                        color = Color3.fromRGB(
+                            255,
+                            math.floor(255 * t),
+                            0
+                        )
+                    end
+
+                    -- Highlight
+                    local highlight = char:FindFirstChild("ESP_Highlight")
                     if not highlight then
                         highlight = Instance.new("Highlight")
                         highlight.Name = "ESP_Highlight"
-                        highlight.Adornee = v.Character
+                        highlight.Adornee = char
                         highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
                         highlight.OutlineTransparency = 0
-                        highlight.FillTransparency = 0.8
-                        highlight.Parent = v.Character
+                        highlight.FillTransparency = 0.72
+                        highlight.Parent = char
                     end
-                    highlight.FillColor = color
+                    highlight.FillColor    = color
                     highlight.OutlineColor = color
-                    local root = v.Character:FindFirstChild("HumanoidRootPart")
-                    if root then
-                        local tag = v.Character:FindFirstChild("ESP_Name")
-                        if not tag then
-                            tag = Instance.new("BillboardGui")
-                            tag.Name = "ESP_Name"
-                            tag.Adornee = root
-                            tag.AlwaysOnTop = true
-                            tag.MaxDistance = 2000
-                            tag.Size = UDim2.new(0, 145, 0, 34)
-                            tag.StudsOffset = Vector3.new(0, 3.35, 0)
-                            tag.Parent = v.Character
-                            local label = Instance.new("TextLabel")
-                            label.Name = "Label"
-                            label.Size = UDim2.fromScale(1, 1)
-                            label.BackgroundTransparency = 1
-                            label.Font = Enum.Font.GothamBold
-                            label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-                            label.TextStrokeTransparency = 0
-                            label.TextSize = 12
-                            label.Parent = tag
-                        end
-                        local label = tag:FindFirstChild("Label")
-                        local distance = (Camera.CFrame.Position - root.Position).Magnitude
-                        if label then
-                            label.TextColor3 = color
-                            label.Text = string.format("Status: LIVE\n%s  [%dm]", v.DisplayName, math.floor(distance))
-                        end
+
+                    -- BillboardGui тег
+                    local tag = char:FindFirstChild("ESP_Name")
+                    if not tag then
+                        tag = Instance.new("BillboardGui")
+                        tag.Name            = "ESP_Name"
+                        tag.Adornee         = root
+                        tag.AlwaysOnTop     = true
+                        tag.MaxDistance     = 2000
+                        tag.Size            = UDim2.new(0, 200, 0, 58)
+                        tag.StudsOffset     = Vector3.new(0, 3.6, 0)
+                        tag.Parent          = char
+
+                        -- Фон
+                        local bg = Instance.new("Frame")
+                        bg.Name                  = "BG"
+                        bg.Size                  = UDim2.fromScale(1, 1)
+                        bg.BackgroundColor3      = Color3.fromRGB(10, 10, 15)
+                        bg.BackgroundTransparency = 0.38
+                        bg.BorderSizePixel        = 0
+                        bg.Parent                 = tag
+                        local bgCorner = Instance.new("UICorner")
+                        bgCorner.CornerRadius = UDim.new(0, 8)
+                        bgCorner.Parent = bg
+
+                        -- Логотип IRY HUB
+                        local logo = Instance.new("ImageLabel")
+                        logo.Name                = "Logo"
+                        logo.Size                = UDim2.new(0, 36, 0, 36)
+                        logo.Position            = UDim2.new(0, 6, 0.5, -18)
+                        logo.BackgroundTransparency = 1
+                        logo.Image               = IRY_LOGO_URL
+                        logo.ScaleType           = Enum.ScaleType.Fit
+                        logo.Parent              = bg
+
+                        -- Имя игрока
+                        local nameLabel = Instance.new("TextLabel")
+                        nameLabel.Name               = "NameLabel"
+                        nameLabel.Size               = UDim2.new(1, -52, 0, 20)
+                        nameLabel.Position           = UDim2.new(0, 48, 0, 5)
+                        nameLabel.BackgroundTransparency = 1
+                        nameLabel.Font               = Enum.Font.GothamBold
+                        nameLabel.TextSize           = 13
+                        nameLabel.TextXAlignment     = Enum.TextXAlignment.Left
+                        nameLabel.TextStrokeTransparency = 0.4
+                        nameLabel.TextStrokeColor3   = Color3.fromRGB(0, 0, 0)
+                        nameLabel.Parent             = bg
+
+                        -- Статус / дистанция
+                        local statusLabel = Instance.new("TextLabel")
+                        statusLabel.Name               = "StatusLabel"
+                        statusLabel.Size               = UDim2.new(1, -52, 0, 14)
+                        statusLabel.Position           = UDim2.new(0, 48, 0, 26)
+                        statusLabel.BackgroundTransparency = 1
+                        statusLabel.Font               = Enum.Font.Gotham
+                        statusLabel.TextSize           = 11
+                        statusLabel.TextXAlignment     = Enum.TextXAlignment.Left
+                        statusLabel.TextColor3         = Color3.fromRGB(200, 200, 200)
+                        statusLabel.TextStrokeTransparency = 0.5
+                        statusLabel.TextStrokeColor3   = Color3.fromRGB(0, 0, 0)
+                        statusLabel.Parent             = bg
+
+                        -- HP бар (фон)
+                        local hpBarBG = Instance.new("Frame")
+                        hpBarBG.Name                  = "HPBarBG"
+                        hpBarBG.Size                  = UDim2.new(1, -54, 0, 6)
+                        hpBarBG.Position              = UDim2.new(0, 48, 1, -12)
+                        hpBarBG.BackgroundColor3      = Color3.fromRGB(40, 40, 40)
+                        hpBarBG.BackgroundTransparency = 0.3
+                        hpBarBG.BorderSizePixel        = 0
+                        hpBarBG.Parent                 = bg
+                        Instance.new("UICorner", hpBarBG).CornerRadius = UDim.new(1, 0)
+
+                        -- HP бар (заполнение)
+                        local hpBar = Instance.new("Frame")
+                        hpBar.Name                 = "HPBar"
+                        hpBar.Size                 = UDim2.new(1, 0, 1, 0)
+                        hpBar.BackgroundColor3     = Color3.fromRGB(0, 255, 80)
+                        hpBar.BorderSizePixel       = 0
+                        hpBar.Parent               = hpBarBG
+                        Instance.new("UICorner", hpBar).CornerRadius = UDim.new(1, 0)
+
+                        -- Боковая цветная полоска
+                        local accent = Instance.new("Frame")
+                        accent.Name                = "Accent"
+                        accent.Size                = UDim2.new(0, 3, 1, -10)
+                        accent.Position            = UDim2.new(0, 2, 0, 5)
+                        accent.BorderSizePixel      = 0
+                        accent.Parent              = bg
+                        Instance.new("UICorner", accent).CornerRadius = UDim.new(1, 0)
                     end
+
+                    -- Обновляем данные каждый тик
+                    local bg          = tag:FindFirstChild("BG")
+                    local nameLabel   = bg and bg:FindFirstChild("NameLabel")
+                    local statusLabel = bg and bg:FindFirstChild("StatusLabel")
+                    local hpBar       = bg and bg:FindFirstChild("HPBarBG") and bg.HPBarBG:FindFirstChild("HPBar")
+                    local accent      = bg and bg:FindFirstChild("Accent")
+                    local distance    = math.floor((Camera.CFrame.Position - root.Position).Magnitude)
+
+                    if nameLabel then
+                        nameLabel.Text       = v.DisplayName
+                        nameLabel.TextColor3 = color
+                    end
+                    if statusLabel then
+                        statusLabel.Text = string.format("● ALIVE  |  %dm  |  %d%%", distance, math.floor(pct * 100))
+                    end
+                    if hpBar then
+                        hpBar.Size           = UDim2.new(pct, 0, 1, 0)
+                        hpBar.BackgroundColor3 = color
+                    end
+                    if accent then
+                        accent.BackgroundColor3 = color
+                    end
+
                 else
                     ClearPlayerESP(v.Character)
                 end
@@ -1615,694 +1704,174 @@ task.spawn(function()
     end
 end)
 
-task.spawn(function()
-    while true do
-        task.wait(0.2)
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= lp and player.Character then
-                local character = player.Character
-                if DownedESP and IsPlayerDowned(player) then
-                    local root = character:FindFirstChild("HumanoidRootPart")
-                    if root then
-                        local highlight = character:FindFirstChild("DownedESP_Highlight")
-                        if not highlight then
-                            highlight = Instance.new("Highlight")
-                            highlight.Name = "DownedESP_Highlight"
-                            highlight.Adornee = character
-                            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                            highlight.FillTransparency = 0.68
-                            highlight.OutlineTransparency = 0
-                            highlight.Parent = character
-                        end
-                        highlight.FillColor = Color3.fromRGB(255, 0, 0)
-                        highlight.OutlineColor = Color3.fromRGB(255, 70, 70)
 
-                        local nameTag = character:FindFirstChild("DownedESP_Name")
-                        if not nameTag then
-                            nameTag = Instance.new("BillboardGui")
-                            nameTag.Name = "DownedESP_Name"
-                            nameTag.Adornee = root
-                            nameTag.AlwaysOnTop = true
-                            nameTag.MaxDistance = 2000
-                            nameTag.Size = UDim2.new(0, 155, 0, 34)
-                            nameTag.StudsOffset = Vector3.new(0, 3.65, 0)
-                            nameTag.Parent = character
+-- ========== УЛУЧШЕННЫЙ DOWNED ESP ==========
 
-                            local label = Instance.new("TextLabel")
-                            label.Name = "Label"
-                            label.Size = UDim2.fromScale(1, 1)
-                            label.BackgroundTransparency = 1
-                            label.Font = Enum.Font.GothamBold
-                            label.TextColor3 = Color3.fromRGB(255, 0, 0)
-                            label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-                            label.TextStrokeTransparency = 0
-                            label.TextSize = 12
-                            label.Parent = nameTag
-                        end
-                        local label = nameTag:FindFirstChild("Label")
-                        local distance = (Camera.CFrame.Position - root.Position).Magnitude
-                        if label then label.Text = string.format("Status: DOWNED\n%s  [%dm]", player.DisplayName, math.floor(distance)) end
-                    end
-                else
-                    ClearDownedESP(character)
-                end
-            end
-        end
-    end
-end)
-
--- ========== AUTO FARM ==========
-
-local function GetTicketVisuals()
-    local found = {}
-    local effects = Workspace:FindFirstChild("Effects")
-    local tickets = effects and effects:FindFirstChild("Tickets")
-    if not tickets then return found end
-    for _, obj in ipairs(tickets:GetDescendants()) do
-        if obj.Name == "Visual" then
-            table.insert(found, obj)
-        end
-    end
-    return found
-end
-
-local function GetObjectCFrame(obj)
-    if not obj or not obj.Parent then return nil end
-    if obj:IsA("Model") then
-        if obj.PrimaryPart then return obj.PrimaryPart.CFrame end
-        local cf = obj:GetBoundingBox()
-        return cf
-    elseif obj:IsA("BasePart") then
-        return obj.CFrame
-    end
-    return nil
-end
-
-local function FarmPullMode()
-    local char = lp.Character
-    if not char then return end
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-    local targetCF = root.CFrame
-
-    for _, visual in ipairs(GetTicketVisuals()) do
-        pcall(function()
-            if not visual or not visual.Parent then return end
-            if visual:IsA("Model") then
-                if visual.PrimaryPart then
-                    visual:PivotTo(targetCF)
-                else
-                    for _, p in ipairs(visual:GetDescendants()) do
-                        if p:IsA("BasePart") then p.CFrame = targetCF end
-                    end
-                end
-            elseif visual:IsA("BasePart") then
-                visual.CFrame = targetCF
-            end
-        end)
-    end
-end
-
-local function DestroyRemoteHitbox()
-    RemoteHitbox = nil
-end
-
-local function FarmFastSwapMode()
-    local char = lp.Character
-    if not char then return end
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-    local hum  = char:FindFirstChildOfClass("Humanoid")
-    if not hum or hum.Health <= 0 then return end
-
-    local visuals = GetTicketVisuals()
-    if #visuals == 0 then return end
-
-    local savedCF      = root.CFrame
-    local savedCamCF   = Camera.CFrame
-    local savedCamType = Camera.CameraType
-
-    Camera.CameraType = Enum.CameraType.Scriptable
-    Camera.CFrame     = savedCamCF
-    hum.PlatformStand = true
-    for _, p in ipairs(char:GetDescendants()) do
-        if p:IsA("BasePart") then
-            p.AssemblyLinearVelocity  = Vector3.zero
-            p.AssemblyAngularVelocity = Vector3.zero
-        end
-    end
-
-    for _, visual in ipairs(visuals) do
-        if not AutoFarm then break end
-        if not visual or not visual.Parent then continue end
-        local cf = GetObjectCFrame(visual)
-        if not cf then continue end
-
-        local touchFired = false
-        pcall(function()
-            local parts = visual:IsA("BasePart") and {visual}
-                       or visual:GetDescendants()
-            for _, p in ipairs(parts) do
-                if p:IsA("BasePart") then
-                    firetouchinterest(root, p, 0)
-                    firetouchinterest(root, p, 1)
-                    touchFired = true
-                end
-            end
-        end)
-
-        if not touchFired then
-            root.CFrame = cf * CFrame.new(0, 2, 0)
-            root.AssemblyLinearVelocity = Vector3.zero
-            task.wait(0.04)
-            root.CFrame = savedCF
-            root.AssemblyLinearVelocity = Vector3.zero
-        end
-    end
-
-    root.CFrame = savedCF
-    root.AssemblyLinearVelocity = Vector3.zero
-    for _, p in ipairs(char:GetDescendants()) do
-        if p:IsA("BasePart") then
-            p.AssemblyLinearVelocity  = Vector3.zero
-            p.AssemblyAngularVelocity = Vector3.zero
-        end
-    end
-    hum.PlatformStand = false
-
-    task.wait(0.05)
-    Camera.CameraType = savedCamType
-end
-
-local function FarmWorldPilotMode()
-    local char = lp.Character
-    if not char then return end
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-
-    for _, visual in ipairs(GetTicketVisuals()) do
-        if not AutoFarm then break end
-        local cf = GetObjectCFrame(visual)
-        if cf then
-            local targetPos = cf.Position + Vector3.new(0, 3, 0)
-            local piloted = false
-            pcall(function()
-                if WorldPilot then
-                    WorldPilot:Navigate(targetPos)
-                    piloted = true
-                end
-            end)
-            if not piloted then
-                root.CFrame = CFrame.new(targetPos)
-            end
-            task.wait(farmDelay)
-        end
-    end
+local function ClearDownedESP(character)
+    if not character then return end
+    local highlight = character:FindFirstChild("DownedESP_Highlight")
+    if highlight then highlight:Destroy() end
+    local nameTag = character:FindFirstChild("DownedESP_Name")
+    if nameTag then nameTag:Destroy() end
 end
 
 task.spawn(function()
     while true do
-        task.wait(farmDelay)
-        pcall(function()
-            if not AutoFarm then return end
-            if IsRevivingNow or Safe or flying then return end
-            local char = lp.Character
-            if not char then return end
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            if not hum or hum.Health <= 0 then return end
-
-            if FarmMode == 1 then
-                FarmPullMode()
-            elseif FarmMode == 2 then
-                FarmFastSwapMode()
-            elseif FarmMode == 3 then
-                FarmWorldPilotMode()
-            end
-        end)
-    end
-end)
-
-lp.CharacterAdded:Connect(function()
-    task.wait(0.1)
-    DestroyRemoteHitbox()
-end)
-
--- ========== UI ==========
-
-local Window = MinecraftLib:CreateWindow("IRY HUB | Evade", {Theme = "Nether"})
-
-local MainTab   = Window:AddTab("Main")
-local VisualTab = Window:AddTab("Visual")
-local OptTab    = Window:AddTab("Optim")
-local ConfigTab = Window:AddTab("Configs")
-local AboutTab  = Window:AddTab("inlawry")
-
-MainTab:AddSeparator("Movement")
-
-speedToggle = MainTab:AddToggle("Speed Hack", false, function(value)
-    Speeds = value
-    if not value then
-        speedCurrent = 0
-        RestoreSpeedometer()
-    else
-        lastSpeedPosition = nil
-        GetSpeedometerLabel()
-    end
-end)
-
-speedSlider = MainTab:AddSlider("Speed Value", 16, 105, 50, function(value)
-    Power = value
-end)
-
-jumpToggle = MainTab:AddToggle("Infinite Jump", false, function(value)
-    JumpEnabled = value
-    local Hum = lp.Character and lp.Character:FindFirstChild("Humanoid")
-    if Hum then
-        if value then
-            OriginalJumpPower = Hum.JumpPower
-            Hum.UseJumpPower = true
-            Hum.JumpPower = JumpPower
-        else
-            Hum.JumpPower = OriginalJumpPower
-        end
-    end
-end)
-
-jumpSlider = MainTab:AddSlider("Jump Power", 1, 100, 50, function(value)
-    JumpPower = value
-    if JumpEnabled then
-        local Hum = lp.Character and lp.Character:FindFirstChild("Humanoid")
-        if Hum then Hum.JumpPower = value end
-    end
-end)
-
-MainTab:AddSeparator("Fly")
-
-flyToggle = MainTab:AddToggle("Fly", false, function(value)
-    flying = value
-    if value then startFly() else stopFly() end
-end)
-
-flySpeedSlider = MainTab:AddSlider("Fly Speed", 50, 175, 150, function(value)
-    flySpeed    = value
-    flyMaxSpeed = value
-end)
-
-MainTab:AddKeybind("Fly Key", "X", function()
-    flying = not flying
-    if flying then startFly() else stopFly() end
-    if flyToggle then flyToggle:Set(flying) end
-end)
-
-MainTab:AddSeparator("Safety & Auto")
-
-safeZoneToggle = MainTab:AddToggle("Safe Zone", false, function(value)
-    Safe = value
-    if value then
-        if flying then
-            flying = false
-            if flyToggle then flyToggle:Set(false) end
-            stopFly()
-        end
-        ignoreTeleportFor(500)
-        EnableSafeZone()
-    else
-        DisableSafeZone()
-    end
-end)
-
-autoFollowToggle = MainTab:AddToggle("Auto Follow [Beta]", true, function(value)
-    AutoFollow = value
-    if not value and IsFollowing then StopFollowing() end
-end)
-
-autoReviveToggle = MainTab:AddToggle("Auto Revive [Beta]", false, function(value)
-    AutoRevive = value
-    if not value then
-        IsRevivingNow = false
-        table.clear(DownedCache)
-        table.clear(DownedCacheTime)
-        table.clear(ReviveBlacklist)
-        table.clear(ReviveBlacklistTime)
-        pcall(function()
-            local char = lp.Character
-            if char then
-                local hum = char:FindFirstChildOfClass("Humanoid")
-                if hum then
-                    hum.PlatformStand = false
-                    hum:SetStateEnabled(Enum.HumanoidStateType.GettingUp, true)
-                    hum:SetStateEnabled(Enum.HumanoidStateType.Running,   true)
-                    hum:SetStateEnabled(Enum.HumanoidStateType.Jumping,   true)
-                end
-                for _, v in pairs(char:GetDescendants()) do
-                    if v:IsA("BasePart") then v.CanCollide = true end
+        task.wait(0.15)
+        if not DownedESP then
+            for _, v in pairs(Players:GetPlayers()) do
+                if v ~= lp and v.Character then
+                    ClearDownedESP(v.Character)
                 end
             end
-        end)
-        DisableSafeZone()
-    end
-end)
-
-MainTab:AddButton("Beta Message", function()
-    Window:Notify(
-        "Auto Revive — Beta",
-        "Not 100% AFK. E may fire multiple times — this is normal and helps complete the revive. Still in development.",
-        12
-    )
-end)
-
-MainTab:AddKeybind("Safe Zone Key", "V", function()
-    Safe = not Safe
-    if Safe then
-        if flying then
-            flying = false
-            if flyToggle then flyToggle:Set(false) end
-            stopFly()
+            continue
         end
-        ignoreTeleportFor(500)
-        EnableSafeZone()
-    else
-        DisableSafeZone()
-    end
-    if safeZoneToggle then safeZoneToggle:Set(Safe) end
-end)
+        for _, v in pairs(Players:GetPlayers()) do
+            if v ~= lp and v.Character then
+                local char   = v.Character
+                local humT   = char:FindFirstChildOfClass("Humanoid")
+                local root   = char:FindFirstChild("HumanoidRootPart")
 
-MainTab:AddSeparator("Avoid Nextbots")
-avoidToggle = MainTab:AddToggle("Avoid Nextbots", false, function(value)
-    AvoidNextbots = value
-end)
-avoidDistanceSlider = MainTab:AddSlider("Avoid Distance", 10, 50, 25, function(value)
-    AvoidDistance = value
-end)
-avoidSpeedSlider = MainTab:AddSlider("Avoid Speed", 30, 150, 60, function(value)
-    AvoidSpeed = value
-end)
+                if humT and root and IsPlayerDowned(v) then
+                    local pct = 0
+                    if humT.MaxHealth > 0 then
+                        pct = math.clamp(humT.Health / humT.MaxHealth, 0, 1)
+                    end
+                    local color = Color3.fromRGB(255, 0, 0)
 
-VisualTab:AddSeparator("Auto Farm")
+                    -- Highlight
+                    local highlight = char:FindFirstChild("DownedESP_Highlight")
+                    if not highlight then
+                        highlight = Instance.new("Highlight")
+                        highlight.Name = "DownedESP_Highlight"
+                        highlight.Adornee = char
+                        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                        highlight.OutlineTransparency = 0
+                        highlight.FillTransparency = 0.72
+                        highlight.Parent = char
+                    end
+                    highlight.FillColor    = color
+                    highlight.OutlineColor = color
 
-farmModeDropdown = VisualTab:AddDropdown("Режим фарма", {
-    "1: Models to Player (DONT WORK) ",
-    "2: Quick swap  (DONT WORK)",
-    "3: TELEPORT (recommended)",
-}, function(value)
-    if value:sub(1,1) == "1" then FarmMode = 1
-    elseif value:sub(1,1) == "2" then FarmMode = 2
-    else FarmMode = 3 end
-    if FarmMode ~= 2 then DestroyRemoteHitbox() end
-end)
+                    -- BillboardGui тег
+                    local tag = char:FindFirstChild("DownedESP_Name")
+                    if not tag then
+                        tag = Instance.new("BillboardGui")
+                        tag.Name            = "DownedESP_Name"
+                        tag.Adornee         = root
+                        tag.AlwaysOnTop     = true
+                        tag.MaxDistance     = 2000
+                        tag.Size            = UDim2.new(0, 200, 0, 58)
+                        tag.StudsOffset     = Vector3.new(0, 3.6, 0)
+                        tag.Parent          = char
 
-autoFarmToggle = VisualTab:AddToggle("Auto Farm [EVENT COINS]", false, function(value)
-    AutoFarm = value
-    if value then
-        local count = #GetTicketVisuals()
-        local modeStr = FarmMode == 1 and "Pull Models"
-                     or FarmMode == 2 and "Fast Swap"
-                     or "WorldPilot"
-        Window:Notify(
-            "Auto Farm",
-            "Режим: " .. modeStr .. " | Visual: " .. count,
-            4
-        )
-    else
-        if FarmMode == 2 then DestroyRemoteHitbox() end
-    end
-end)
+                        -- Фон
+                        local bg = Instance.new("Frame")
+                        bg.Name                  = "BG"
+                        bg.Size                  = UDim2.fromScale(1, 1)
+                        bg.BackgroundColor3      = Color3.fromRGB(10, 10, 15)
+                        bg.BackgroundTransparency = 0.38
+                        bg.BorderSizePixel        = 0
+                        bg.Parent                 = tag
+                        local bgCorner = Instance.new("UICorner")
+                        bgCorner.CornerRadius = UDim.new(0, 8)
+                        bgCorner.Parent = bg
 
-VisualTab:AddButton("Проверить Visual модели", function()
-    local count = #GetTicketVisuals()
-    Window:Notify(
-        "Auto Farm",
-        "Найдено Visual: " .. count .. " (Workspace.Effects.Tickets)",
-        4
-    )
-end)
+                        -- Логотип IRY HUB
+                        local logo = Instance.new("ImageLabel")
+                        logo.Name                = "Logo"
+                        logo.Size                = UDim2.new(0, 36, 0, 36)
+                        logo.Position            = UDim2.new(0, 6, 0.5, -18)
+                        logo.BackgroundTransparency = 1
+                        logo.Image               = IRY_LOGO_URL
+                        logo.ScaleType           = Enum.ScaleType.Fit
+                        logo.Parent              = bg
 
-VisualTab:AddButton("Удалить хитбокс", function()
-    DestroyRemoteHitbox()
-    Window:Notify("Auto Farm", "Хитбокс удалён.", 2)
-end)
+                        -- Имя игрока
+                        local nameLabel = Instance.new("TextLabel")
+                        nameLabel.Name               = "NameLabel"
+                        nameLabel.Size               = UDim2.new(1, -52, 0, 20)
+                        nameLabel.Position           = UDim2.new(0, 48, 0, 5)
+                        nameLabel.BackgroundTransparency = 1
+                        nameLabel.Font               = Enum.Font.GothamBold
+                        nameLabel.TextSize           = 13
+                        nameLabel.TextXAlignment     = Enum.TextXAlignment.Left
+                        nameLabel.TextStrokeTransparency = 0.4
+                        nameLabel.TextStrokeColor3   = Color3.fromRGB(0, 0, 0)
+                        nameLabel.Parent             = bg
 
-VisualTab:AddSeparator("Environment")
-skyToggle = VisualTab:AddToggle("Sky Mode + FullBright", false, function(value)
-    ToggleSky(value)
-end)
-roundTimerToggle = VisualTab:AddToggle("Round Timer", false, function(value)
-    ToggleRoundTimer(value)
-end)
+                        -- Статус / дистанция
+                        local statusLabel = Instance.new("TextLabel")
+                        statusLabel.Name               = "StatusLabel"
+                        statusLabel.Size               = UDim2.new(1, -52, 0, 14)
+                        statusLabel.Position           = UDim2.new(0, 48, 0, 26)
+                        statusLabel.BackgroundTransparency = 1
+                        statusLabel.Font               = Enum.Font.Gotham
+                        statusLabel.TextSize           = 11
+                        statusLabel.TextXAlignment     = Enum.TextXAlignment.Left
+                        statusLabel.TextColor3         = Color3.fromRGB(200, 200, 200)
+                        statusLabel.TextStrokeTransparency = 0.5
+                        statusLabel.TextStrokeColor3   = Color3.fromRGB(0, 0, 0)
+                        statusLabel.Parent             = bg
 
-VisualTab:AddSeparator("ESP")
-playerESPToggle = VisualTab:AddToggle("ESP Players", false, function(value)
-    ESP = value
-    if not value then
-        for _, x in pairs(Players:GetPlayers()) do
-            ClearPlayerESP(x.Character)
+                        -- HP бар (фон)
+                        local hpBarBG = Instance.new("Frame")
+                        hpBarBG.Name                  = "HPBarBG"
+                        hpBarBG.Size                  = UDim2.new(1, -54, 0, 6)
+                        hpBarBG.Position              = UDim2.new(0, 48, 1, -12)
+                        hpBarBG.BackgroundColor3      = Color3.fromRGB(40, 40, 40)
+                        hpBarBG.BackgroundTransparency = 0.3
+                        hpBarBG.BorderSizePixel        = 0
+                        hpBarBG.Parent                 = bg
+                        Instance.new("UICorner", hpBarBG).CornerRadius = UDim.new(1, 0)
+
+                        -- HP бар (заполнение)
+                        local hpBar = Instance.new("Frame")
+                        hpBar.Name                 = "HPBar"
+                        hpBar.Size                 = UDim2.new(1, 0, 1, 0)
+                        hpBar.BackgroundColor3     = Color3.fromRGB(255, 0, 0)
+                        hpBar.BorderSizePixel       = 0
+                        hpBar.Parent               = hpBarBG
+                        Instance.new("UICorner", hpBar).CornerRadius = UDim.new(1, 0)
+
+                        -- Боковая цветная полоска
+                        local accent = Instance.new("Frame")
+                        accent.Name                = "Accent"
+                        accent.Size                = UDim2.new(0, 3, 1, -10)
+                        accent.Position            = UDim2.new(0, 2, 0, 5)
+                        accent.BorderSizePixel      = 0
+                        accent.Parent              = bg
+                        Instance.new("UICorner", accent).CornerRadius = UDim.new(1, 0)
+                    end
+
+                    -- Обновляем данные каждый тик
+                    local bg          = tag:FindFirstChild("BG")
+                    local nameLabel   = bg and bg:FindFirstChild("NameLabel")
+                    local statusLabel = bg and bg:FindFirstChild("StatusLabel")
+                    local hpBar       = bg and bg:FindFirstChild("HPBarBG") and bg.HPBarBG:FindFirstChild("HPBar")
+                    local accent      = bg and bg:FindFirstChild("Accent")
+                    local distance    = math.floor((Camera.CFrame.Position - root.Position).Magnitude)
+
+                    if nameLabel then
+                        nameLabel.Text       = v.DisplayName
+                        nameLabel.TextColor3 = color
+                    end
+                    if statusLabel then
+                        statusLabel.Text = string.format("● DOWNED  |  %dm  |  %d%%", distance, math.floor(pct * 100))
+                    end
+                    if hpBar then
+                        hpBar.Size           = UDim2.new(pct, 0, 1, 0)
+                        hpBar.BackgroundColor3 = color
+                    end
+                    if accent then
+                        accent.BackgroundColor3 = color
+                    end
+
+                else
+                    ClearDownedESP(v.Character)
+                end
+            end
         end
     end
 end)
 
-downedESPToggle = VisualTab:AddToggle("Downed Player ESP", false, function(value)
-    DownedESP = value
-    if not value then
-        for _, player in ipairs(Players:GetPlayers()) do
-            ClearDownedESP(player.Character)
-        end
-    end
-end)
-
-nextbotESPToggle = VisualTab:AddToggle("Nextbot ESP (Drawing)", false, function(value)
-    NextbotESP = value
-    if not value then
-        ClearNextbotDrawings()
-    end
-end)
-
-iryHubUsersToggle = VisualTab:AddToggle("IRY HUB Users", false, function(value)
-    IRYHubUsersESP = value
-    if value then
-        task.spawn(function()
-            pcall(SendIRYHubPresence)
-            pcall(RefreshIRYHubTags)
-        end)
-    else
-        ClearIRYHubTags()
-    end
-end)
-
--- ========== Конфиги ==========
-
-local ConfigFolder = "inlawry_Evade/configs"
-local AutoloadPath = "inlawry_Evade/autoload.json"
-local configNameBox, configDropdown, autoloadToggle
-local selectedConfig = ""
-
-local function EnsureConfigFolder()
-    if not isfolder or not makefolder or not writefile or not readfile or not isfile then return false end
-    if not isfolder("inlawry_Evade") then makefolder("inlawry_Evade") end
-    if not isfolder(ConfigFolder) then makefolder(ConfigFolder) end
-    return true
-end
-
-local function NormalizeConfigName(name)
-    name = tostring(name or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
-    name = name:gsub("[^%w_-]", "_")
-    return name:sub(1, 32)
-end
-
-local function GetConfigNames()
-    local ok, names = pcall(function()
-        if not EnsureConfigFolder() or not listfiles then return {} end
-        local found = {}
-        for _, path in ipairs(listfiles(ConfigFolder)) do
-            local name = path:match("([^/]+)%.json$")
-            if name then table.insert(found, name) end
-        end
-        table.sort(found)
-        return found
-    end)
-    return ok and names or {}
-end
-
-local function CurrentConfigName()
-    local name = configNameBox and configNameBox:Get() or selectedConfig
-    return NormalizeConfigName(name ~= "" and name or selectedConfig)
-end
-
-local function SaveConfig(name)
-    if not EnsureConfigFolder() then
-        Window:Notify("Configs", "Executor does not support file saving.", 4)
-        return
-    end
-    name = NormalizeConfigName(name)
-    if name == "" then Window:Notify("Configs", "Enter a config name first.", 3) return end
-    local config = {
-        version = 2, Speeds = Speeds, Power = Power, JumpEnabled = JumpEnabled, JumpPower = JumpPower,
-        flying = flying, flySpeed = flySpeed, Safe = Safe, AutoFollow = AutoFollow, AutoRevive = AutoRevive,
-        AvoidNextbots = AvoidNextbots, AvoidDistance = AvoidDistance, AvoidSpeed = AvoidSpeed,
-        SkyEnabled = SkyEnabled, RoundTimerEnabled = RoundTimerEnabled,
-        ESP = ESP, DownedESP = DownedESP, NextbotESP = NextbotESP, IRYHubUsersESP = IRYHubUsersESP,
-        FPSBoosted = FPSBoosted, FogDisabled = FogDisabled, AutoFarm = AutoFarm
-    }
-    local ok, encoded = pcall(function() return game:GetService("HttpService"):JSONEncode(config) end)
-    if not ok then Window:Notify("Configs", "Could not encode config.", 4) return end
-    writefile(ConfigFolder .. "/" .. name .. ".json", encoded)
-    selectedConfig = name
-    if configNameBox then configNameBox:Set(name) end
-    Window:Notify("Configs", "Saved: " .. name, 3)
-end
-
-local function LoadConfig(name, silent)
-    if not EnsureConfigFolder() then
-        if not silent then Window:Notify("Configs", "Executor does not support file loading.", 4) end
-        return
-    end
-    name = NormalizeConfigName(name)
-    if name == "" then if not silent then Window:Notify("Configs", "Choose a config first.", 3) end return end
-    local path = ConfigFolder .. "/" .. name .. ".json"
-    if not isfile(path) then if not silent then Window:Notify("Configs", "Config not found: " .. name, 3) end return end
-    local ok, config = pcall(function() return game:GetService("HttpService"):JSONDecode(readfile(path)) end)
-    if not ok or type(config) ~= "table" then if not silent then Window:Notify("Configs", "Invalid config file.", 4) end return end
-
-    if config.Power and speedSlider then speedSlider:Set(config.Power) end
-    if config.JumpPower and jumpSlider then jumpSlider:Set(config.JumpPower) end
-    if config.flySpeed and flySpeedSlider then flySpeedSlider:Set(config.flySpeed) end
-    if config.AvoidDistance and avoidDistanceSlider then avoidDistanceSlider:Set(config.AvoidDistance) end
-    if config.AvoidSpeed and avoidSpeedSlider then avoidSpeedSlider:Set(config.AvoidSpeed) end
-    if speedToggle then speedToggle:Set(config.Speeds == true) end
-    if jumpToggle then jumpToggle:Set(config.JumpEnabled == true) end
-    if flyToggle then flyToggle:Set(config.flying == true) end
-    if safeZoneToggle then safeZoneToggle:Set(config.Safe == true) end
-    if autoFollowToggle then autoFollowToggle:Set(config.AutoFollow ~= false) end
-    if autoReviveToggle then autoReviveToggle:Set(config.AutoRevive == true) end
-    if avoidToggle then avoidToggle:Set(config.AvoidNextbots == true) end
-    if skyToggle then skyToggle:Set(config.SkyEnabled == true) end
-    if roundTimerToggle then roundTimerToggle:Set(config.RoundTimerEnabled == true) end
-    if playerESPToggle then playerESPToggle:Set(config.ESP == true) end
-    if downedESPToggle then downedESPToggle:Set(config.DownedESP == true) end
-    if nextbotESPToggle then nextbotESPToggle:Set(config.NextbotESP == true) end
-    if iryHubUsersToggle then iryHubUsersToggle:Set(config.IRYHubUsersESP == true) end
-    if fpsToggle then fpsToggle:Set(config.FPSBoosted == true) end
-    if fogToggle then fogToggle:Set(config.FogDisabled == true) end
-    if autoFarmToggle then autoFarmToggle:Set(config.AutoFarm == true) end
-    selectedConfig = name
-    if configNameBox then configNameBox:Set(name) end
-    if not silent then Window:Notify("Configs", "Loaded: " .. name, 3) end
-end
-
-local function DeleteConfig(name)
-    name = NormalizeConfigName(name)
-    local path = ConfigFolder .. "/" .. name .. ".json"
-    if delfile and isfile and isfile(path) then
-        delfile(path)
-        if isfile(AutoloadPath) then
-            local ok, data = pcall(function() return game:GetService("HttpService"):JSONDecode(readfile(AutoloadPath)) end)
-            if ok and data and data.name == name then delfile(AutoloadPath) end
-        end
-        selectedConfig = ""
-        if configNameBox then configNameBox:Set("") end
-        Window:Notify("Configs", "Deleted: " .. name, 3)
-    else
-        Window:Notify("Configs", "Config not found: " .. name, 3)
-    end
-end
-
-local configOptions = GetConfigNames()
-if #configOptions == 0 then configOptions = {"No saved configs"} end
-
-ConfigTab:AddSeparator("Configuration Manager")
-configNameBox = ConfigTab:AddTextbox("Config Name", "example: legit", function(value)
-    selectedConfig = NormalizeConfigName(value)
-end)
-configDropdown = ConfigTab:AddDropdown("Saved Configs", configOptions, function(name)
-    if name ~= "No saved configs" then
-        selectedConfig = name
-        configNameBox:Set(name)
-    end
-end)
-ConfigTab:AddButton("Save Config", function() SaveConfig(CurrentConfigName()) end)
-ConfigTab:AddButton("Load Config", function() LoadConfig(CurrentConfigName()) end)
-ConfigTab:AddButton("Delete Config", function() DeleteConfig(CurrentConfigName()) end)
-
-ConfigTab:AddSeparator("Autoload")
-autoloadToggle = ConfigTab:AddToggle("Autoload on Startup", false, function(value)
-    if not EnsureConfigFolder() then Window:Notify("Configs", "Executor does not support file saving.", 4) return end
-    if value then
-        local name = CurrentConfigName()
-        if name == "" or not isfile(ConfigFolder .. "/" .. name .. ".json") then
-            Window:Notify("Configs", "Save or choose a config first.", 3)
-            autoloadToggle:Set(false)
-            return
-        end
-        writefile(AutoloadPath, game:GetService("HttpService"):JSONEncode({name = name}))
-        Window:Notify("Configs", "Autoload set: " .. name, 3)
-    elseif delfile and isfile(AutoloadPath) then
-        delfile(AutoloadPath)
-        Window:Notify("Configs", "Autoload disabled.", 3)
-    end
-end)
-ConfigTab:AddButton("Load Autoload Config", function()
-    if not isfile or not isfile(AutoloadPath) then Window:Notify("Configs", "Autoload is not configured.", 3) return end
-    local ok, data = pcall(function() return game:GetService("HttpService"):JSONDecode(readfile(AutoloadPath)) end)
-    if ok and data and data.name then LoadConfig(data.name) else Window:Notify("Configs", "Autoload file is invalid.", 3) end
-end)
-
-task.defer(function()
-    pcall(function()
-        if not isfile or not isfile(AutoloadPath) then return end
-        local ok, data = pcall(function() return game:GetService("HttpService"):JSONDecode(readfile(AutoloadPath)) end)
-        if ok and data and data.name and isfile(ConfigFolder .. "/" .. data.name .. ".json") then
-            selectedConfig = data.name
-            configNameBox:Set(data.name)
-            autoloadToggle:Set(true)
-            LoadConfig(data.name, true)
-            Window:Notify("Configs", "Autoloaded: " .. data.name, 3)
-        end
-    end)
-end)
-
-OptTab:AddSeparator("Performance")
-fpsToggle = OptTab:AddToggle("FPS Booster", false, function(value)
-    FPSBoosted = value
-    FPSBooster(value)
-end)
-fogToggle = OptTab:AddToggle("Disable Fog", false, function(value)
-    FogDisabled = value
-    DisableFog(value)
-end)
-OptTab:AddButton("Anti GamePaused", function()
-    task.spawn(function()
-        Window:Notify("Anti GamePaused", "Unlocking game...", 2)
-        repeat task.wait() until lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
-        Window:Notify("Anti GamePaused", "Done!", 3)
-    end)
-end)
-
-AboutTab:AddSeparator("Community")
-AboutTab:AddButton("Copy Telegram", function()
-    setclipboard("https://t.me/inlawryDEV")
-    Window:Notify("Telegram", "Link copied to clipboard!", 2)
-end)
-
-AboutTab:AddSeparator("Security")
-AboutTab:AddButton("Mod Detector (Auto-Leave)", function()
-    Players.PlayerAdded:Connect(function(plr)
-        if plr.UserId == game.CreatorId then lp:Kick("Moderator Joined") end
-    end)
-    Window:Notify("Mod Detector", "Active — auto-leave if moderator joins", 3)
-end)
-
-AboutTab:AddSeparator("Info")
-AboutTab:AddLabel("Anti AFK active in background")
-AboutTab:AddLabel("IRY HUB | Evade — Minecraft UI Port")
-
-UIS.InputBegan:Connect(function(input, gp)
-    if gp then return end
-    if input.KeyCode == Enum.KeyCode.R then
-        Window:ToggleVisible()
-    end
-end)
-
-task.delay(1, function()
-    Window:Notify("IRY HUB | Evade", "Loaded! RightShift / R — toggle UI", 4)
-end)
-
-print("[IRY HUB] Evade Loaded have a good use ")
