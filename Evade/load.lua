@@ -114,7 +114,7 @@ local avoidSpeedSlider = nil
 local AutoFarm         = false
 local autoFarmToggle   = nil
 local farmDelay        = 0.1
-local FarmMode         = 1       -- 1=Pull Models  2=Remote Hitbox  3=WorldPilot
+local FarmMode         = 1
 local RemoteHitbox     = nil
 local farmModeDropdown = nil
 local ignoreTeleport   = false
@@ -1150,37 +1150,21 @@ end)
 
 RunService.RenderStepped:Connect(UpdateNextbotESP_Drawing)
 
+-- ========== УЛУЧШЕННЫЙ PLAYER ESP ==========
+
+local IRY_LOGO_URL = "https://i.postimg.cc/wv2hpwyM/Bez-nazvania8-20260824103816.png"
+
 local function ClearPlayerESP(character)
     if not character then return end
     local highlight = character:FindFirstChild("ESP_Highlight")
     if highlight then highlight:Destroy() end
     local nameTag = character:FindFirstChild("ESP_Name")
     if nameTag then nameTag:Destroy() end
-    for _, child in ipairs(character:GetChildren()) do
-        if child:IsA("BasePart") then
-            local cham = child:FindFirstChild("ESP_Cham")
-            if cham then cham:Destroy() end
-        end
-    end
-end
-
-local function ClearDownedESP(character)
-    if not character then return end
-    local highlight = character:FindFirstChild("DownedESP_Highlight")
-    if highlight then highlight:Destroy() end
-    for _, child in ipairs(character:GetChildren()) do
-        if child:IsA("BasePart") then
-            local cham = child:FindFirstChild("DownedESP_Cham")
-            if cham then cham:Destroy() end
-        end
-    end
-    local nameTag = character:FindFirstChild("DownedESP_Name")
-    if nameTag then nameTag:Destroy() end
 end
 
 task.spawn(function()
     while true do
-        task.wait(0.2)
+        task.wait(0.15)
         if not ESP then
             for _, v in pairs(Players:GetPlayers()) do
                 if v ~= lp and v.Character then
@@ -1191,51 +1175,159 @@ task.spawn(function()
         end
         for _, v in pairs(Players:GetPlayers()) do
             if v ~= lp and v.Character then
-                local humT = v.Character:FindFirstChildOfClass("Humanoid")
-                if humT and humT.Health > 0 and not IsPlayerDowned(v) then
-                    local pct   = humT.Health / humT.MaxHealth
-                    local color = pct < 0.3 and Color3.fromRGB(255,165,0) or Color3.fromRGB(0,255,0)
-                    local highlight = v.Character:FindFirstChild("ESP_Highlight")
+                local char   = v.Character
+                local humT   = char:FindFirstChildOfClass("Humanoid")
+                local root   = char:FindFirstChild("HumanoidRootPart")
+
+                if humT and root and humT.Health > 0 and not IsPlayerDowned(v) then
+                    local pct = math.clamp(humT.Health / humT.MaxHealth, 0, 1)
+
+                    -- Цвет: зелёный -> оранжевый -> красный
+                    local color
+                    if pct > 0.5 then
+                        local t = (pct - 0.5) * 2
+                        color = Color3.fromRGB(
+                            math.floor(255 * (1 - t)),
+                            255,
+                            0
+                        )
+                    else
+                        local t = pct * 2
+                        color = Color3.fromRGB(
+                            255,
+                            math.floor(255 * t),
+                            0
+                        )
+                    end
+
+                    -- Highlight
+                    local highlight = char:FindFirstChild("ESP_Highlight")
                     if not highlight then
                         highlight = Instance.new("Highlight")
                         highlight.Name = "ESP_Highlight"
-                        highlight.Adornee = v.Character
+                        highlight.Adornee = char
                         highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
                         highlight.OutlineTransparency = 0
-                        highlight.FillTransparency = 0.8
-                        highlight.Parent = v.Character
+                        highlight.FillTransparency = 0.72
+                        highlight.Parent = char
                     end
-                    highlight.FillColor = color
+                    highlight.FillColor    = color
                     highlight.OutlineColor = color
-                    local root = v.Character:FindFirstChild("HumanoidRootPart")
-                    if root then
-                        local tag = v.Character:FindFirstChild("ESP_Name")
-                        if not tag then
-                            tag = Instance.new("BillboardGui")
-                            tag.Name = "ESP_Name"
-                            tag.Adornee = root
-                            tag.AlwaysOnTop = true
-                            tag.MaxDistance = 2000
-                            tag.Size = UDim2.new(0, 145, 0, 34)
-                            tag.StudsOffset = Vector3.new(0, 3.35, 0)
-                            tag.Parent = v.Character
-                            local label = Instance.new("TextLabel")
-                            label.Name = "Label"
-                            label.Size = UDim2.fromScale(1, 1)
-                            label.BackgroundTransparency = 1
-                            label.Font = Enum.Font.GothamBold
-                            label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-                            label.TextStrokeTransparency = 0
-                            label.TextSize = 12
-                            label.Parent = tag
-                        end
-                        local label = tag:FindFirstChild("Label")
-                        local distance = (Camera.CFrame.Position - root.Position).Magnitude
-                        if label then
-                            label.TextColor3 = color
-                            label.Text = string.format("Status: LIVE\n%s  [%dm]", v.DisplayName, math.floor(distance))
-                        end
+
+                    -- BillboardGui тег
+                    local tag = char:FindFirstChild("ESP_Name")
+                    if not tag then
+                        tag = Instance.new("BillboardGui")
+                        tag.Name            = "ESP_Name"
+                        tag.Adornee         = root
+                        tag.AlwaysOnTop     = true
+                        tag.MaxDistance     = 2000
+                        tag.Size            = UDim2.new(0, 100, 0, 40)
+                        tag.StudsOffset     = Vector3.new(0, 3.0, 0)
+                        tag.Parent          = char
+
+                        -- Фон
+                        local bg = Instance.new("Frame")
+                        bg.Name                  = "BG"
+                        bg.Size                  = UDim2.fromScale(1, 1)
+                        bg.BackgroundColor3      = Color3.fromRGB(10, 10, 15)
+                        bg.BackgroundTransparency = 0.38
+                        bg.BorderSizePixel        = 0
+                        bg.Parent                 = tag
+                        local bgCorner = Instance.new("UICorner")
+                        bgCorner.CornerRadius = UDim.new(0, 8)
+                        bgCorner.Parent = bg
+
+                        -- Логотип IRY HUB
+                        local logo = Instance.new("ImageLabel")
+                        logo.Name                = "Logo"
+                        logo.Size                = UDim2.new(0, 18, 0, 18)
+                        logo.Position            = UDim2.new(0, 3, 0.5, -9)
+                        logo.BackgroundTransparency = 1
+                        logo.Image               = IRY_LOGO_URL
+                        logo.ScaleType           = Enum.ScaleType.Fit
+                        logo.Parent              = bg
+
+                        -- Имя игрока
+                        local nameLabel = Instance.new("TextLabel")
+                        nameLabel.Name               = "NameLabel"
+                        nameLabel.Size               = UDim2.new(1, -26, 0, 14)
+                        nameLabel.Position           = UDim2.new(0, 24, 0, 2)
+                        nameLabel.BackgroundTransparency = 1
+                        nameLabel.Font               = Enum.Font.GothamBold
+                        nameLabel.TextSize           = 9
+                        nameLabel.TextXAlignment     = Enum.TextXAlignment.Left
+                        nameLabel.TextStrokeTransparency = 0.4
+                        nameLabel.TextStrokeColor3   = Color3.fromRGB(0, 0, 0)
+                        nameLabel.Parent             = bg
+
+                        -- Статус / дистанция
+                        local statusLabel = Instance.new("TextLabel")
+                        statusLabel.Name               = "StatusLabel"
+                        statusLabel.Size               = UDim2.new(1, -26, 0, 10)
+                        statusLabel.Position           = UDim2.new(0, 24, 0, 16)
+                        statusLabel.BackgroundTransparency = 1
+                        statusLabel.Font               = Enum.Font.Gotham
+                        statusLabel.TextSize           = 7
+                        statusLabel.TextXAlignment     = Enum.TextXAlignment.Left
+                        statusLabel.TextColor3         = Color3.fromRGB(200, 200, 200)
+                        statusLabel.TextStrokeTransparency = 0.5
+                        statusLabel.TextStrokeColor3   = Color3.fromRGB(0, 0, 0)
+                        statusLabel.Parent             = bg
+
+                        -- HP бар (фон)
+                        local hpBarBG = Instance.new("Frame")
+                        hpBarBG.Name                  = "HPBarBG"
+                        hpBarBG.Size                  = UDim2.new(1, -48, 0, 4)
+                        hpBarBG.Position              = UDim2.new(0, 48, 1, -12)
+                        hpBarBG.BackgroundColor3      = Color3.fromRGB(40, 40, 40)
+                        hpBarBG.BackgroundTransparency = 0.3
+                        hpBarBG.BorderSizePixel        = 0
+                        hpBarBG.Parent                 = bg
+                        Instance.new("UICorner", hpBarBG).CornerRadius = UDim.new(1, 0)
+
+                        -- HP бар (заполнение)
+                        local hpBar = Instance.new("Frame")
+                        hpBar.Name                 = "HPBar"
+                        hpBar.Size                 = UDim2.new(1, 0, 1, 0)
+                        hpBar.BackgroundColor3     = Color3.fromRGB(0, 255, 80)
+                        hpBar.BorderSizePixel       = 0
+                        hpBar.Parent               = hpBarBG
+                        Instance.new("UICorner", hpBar).CornerRadius = UDim.new(1, 0)
+
+                        -- Боковая цветная полоска
+                        local accent = Instance.new("Frame")
+                        accent.Name                = "Accent"
+                        accent.Size                = UDim2.new(0, 2, 1, -6)
+                        accent.Position            = UDim2.new(0, 1, 0, 3) 
+                        accent.BorderSizePixel      = 0
+                        accent.Parent              = bg
+                        Instance.new("UICorner", accent).CornerRadius = UDim.new(1, 0)
                     end
+
+                    -- Обновляем данные каждый тик
+                    local bg          = tag:FindFirstChild("BG")
+                    local nameLabel   = bg and bg:FindFirstChild("NameLabel")
+                    local statusLabel = bg and bg:FindFirstChild("StatusLabel")
+                    local hpBar       = bg and bg:FindFirstChild("HPBarBG") and bg.HPBarBG:FindFirstChild("HPBar")
+                    local accent      = bg and bg:FindFirstChild("Accent")
+                    local distance    = math.floor((Camera.CFrame.Position - root.Position).Magnitude)
+
+                    if nameLabel then
+                        nameLabel.Text       = v.DisplayName
+                        nameLabel.TextColor3 = color
+                    end
+                    if statusLabel then
+                        statusLabel.Text = string.format("● ALIVE  |  %dm  |  %d%%", distance, math.floor(pct * 100))
+                    end
+                    if hpBar then
+                        hpBar.Size           = UDim2.new(pct, 0, 1, 0)
+                        hpBar.BackgroundColor3 = color
+                    end
+                    if accent then
+                        accent.BackgroundColor3 = color
+                    end
+
                 else
                     ClearPlayerESP(v.Character)
                 end
@@ -1244,54 +1336,173 @@ task.spawn(function()
     end
 end)
 
+-- ========== УЛУЧШЕННЫЙ DOWNED ESP ==========
+
+local IRY_LOGO_URL_DOWNED = "https://i.postimg.cc/wv2hpwyM/Bez-nazvania8-20260824103816.png"
+
+local function ClearDownedESP(character)
+    if not character then return end
+    local highlight = character:FindFirstChild("DownedESP_Highlight")
+    if highlight then highlight:Destroy() end
+    local nameTag = character:FindFirstChild("DownedESP_Name")
+    if nameTag then nameTag:Destroy() end
+end
+
 task.spawn(function()
     while true do
-        task.wait(0.2)
+        task.wait(0.15)
+        if not DownedESP then
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= lp and player.Character then
+                    ClearDownedESP(player.Character)
+                end
+            end
+            continue
+        end
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= lp and player.Character then
                 local character = player.Character
-                if DownedESP and IsPlayerDowned(player) then
-                    local root = character:FindFirstChild("HumanoidRootPart")
-                    if root then
-                        local highlight = character:FindFirstChild("DownedESP_Highlight")
-                        if not highlight then
-                            highlight = Instance.new("Highlight")
-                            highlight.Name = "DownedESP_Highlight"
-                            highlight.Adornee = character
-                            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                            highlight.FillTransparency = 0.68
-                            highlight.OutlineTransparency = 0
-                            highlight.Parent = character
-                        end
-                        highlight.FillColor = Color3.fromRGB(255, 0, 0)
-                        highlight.OutlineColor = Color3.fromRGB(255, 70, 70)
+                local root = character:FindFirstChild("HumanoidRootPart")
+                local humT = character:FindFirstChildOfClass("Humanoid")
 
-                        local nameTag = character:FindFirstChild("DownedESP_Name")
-                        if not nameTag then
-                            nameTag = Instance.new("BillboardGui")
-                            nameTag.Name = "DownedESP_Name"
-                            nameTag.Adornee = root
-                            nameTag.AlwaysOnTop = true
-                            nameTag.MaxDistance = 2000
-                            nameTag.Size = UDim2.new(0, 155, 0, 34)
-                            nameTag.StudsOffset = Vector3.new(0, 3.65, 0)
-                            nameTag.Parent = character
+                if root and humT and IsPlayerDowned(player) then
+                    local pct = math.clamp(humT.Health / humT.MaxHealth, 0, 1)
 
-                            local label = Instance.new("TextLabel")
-                            label.Name = "Label"
-                            label.Size = UDim2.fromScale(1, 1)
-                            label.BackgroundTransparency = 1
-                            label.Font = Enum.Font.GothamBold
-                            label.TextColor3 = Color3.fromRGB(255, 0, 0)
-                            label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-                            label.TextStrokeTransparency = 0
-                            label.TextSize = 12
-                            label.Parent = nameTag
-                        end
-                        local label = nameTag:FindFirstChild("Label")
-                        local distance = (Camera.CFrame.Position - root.Position).Magnitude
-                        if label then label.Text = string.format("Status: DOWNED\n%s  [%dm]", player.DisplayName, math.floor(distance)) end
+                    -- Красный градиент для downed (ярко-красный -> тёмно-красный)
+                    local color = Color3.fromRGB(
+                        255,
+                        math.floor(70 * pct),
+                        math.floor(70 * pct)
+                    )
+
+                    -- Highlight
+                    local highlight = character:FindFirstChild("DownedESP_Highlight")
+                    if not highlight then
+                        highlight = Instance.new("Highlight")
+                        highlight.Name = "DownedESP_Highlight"
+                        highlight.Adornee = character
+                        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                        highlight.FillTransparency = 0.72
+                        highlight.OutlineTransparency = 0
+                        highlight.Parent = character
                     end
+                    highlight.FillColor    = color
+                    highlight.OutlineColor = color
+
+                    -- BillboardGui тег
+                    local tag = character:FindFirstChild("DownedESP_Name")
+                    if not tag then
+                        tag = Instance.new("BillboardGui")
+                        tag.Name            = "DownedESP_Name"
+                        tag.Adornee         = root
+                        tag.AlwaysOnTop     = true
+                        tag.MaxDistance     = 2000
+                        tag.Size            = UDim2.new(0, 100, 0, 40)
+                        tag.StudsOffset     = Vector3.new(0, 3.0, 0)
+                        tag.Parent          = character
+
+                        -- Фон
+                        local bg = Instance.new("Frame")
+                        bg.Name                  = "BG"
+                        bg.Size                  = UDim2.fromScale(1, 1)
+                        bg.BackgroundColor3      = Color3.fromRGB(25, 5, 5)
+                        bg.BackgroundTransparency = 0.38
+                        bg.BorderSizePixel        = 0
+                        bg.Parent                 = tag
+                        local bgCorner = Instance.new("UICorner")
+                        bgCorner.CornerRadius = UDim.new(0, 8)
+                        bgCorner.Parent = bg
+
+                        -- Логотип IRY HUB
+                        local logo = Instance.new("ImageLabel")
+                        logo.Name                = "Logo"
+                        logo.Size                = UDim2.new(0, 18, 0, 18)
+                        logo.Position            = UDim2.new(0, 3, 0.5, -9)
+                        logo.BackgroundTransparency = 1
+                        logo.Image               = IRY_LOGO_URL_DOWNED
+                        logo.ScaleType           = Enum.ScaleType.Fit
+                        logo.Parent              = bg
+
+                        -- Имя игрока
+                        local nameLabel = Instance.new("TextLabel")
+                        nameLabel.Name               = "NameLabel"
+                        nameLabel.Size               = UDim2.new(1, -26, 0, 14)
+                        nameLabel.Position           = UDim2.new(0, 24, 0, 2)
+                        nameLabel.BackgroundTransparency = 1
+                        nameLabel.Font               = Enum.Font.GothamBold
+                        nameLabel.TextSize           = 9
+                        nameLabel.TextXAlignment     = Enum.TextXAlignment.Left
+                        nameLabel.TextStrokeTransparency = 0.4
+                        nameLabel.TextStrokeColor3   = Color3.fromRGB(0, 0, 0)
+                        nameLabel.Parent             = bg
+
+                        -- Статус / дистанция
+                        local statusLabel = Instance.new("TextLabel")
+                        statusLabel.Name               = "StatusLabel"
+                        statusLabel.Size               = UDim2.new(1, -26, 0, 10)
+                        statusLabel.Position           = UDim2.new(0, 24, 0, 16)
+                        statusLabel.BackgroundTransparency = 1
+                        statusLabel.Font               = Enum.Font.Gotham
+                        statusLabel.TextSize           = 7
+                        statusLabel.TextXAlignment     = Enum.TextXAlignment.Left
+                        statusLabel.TextColor3         = Color3.fromRGB(255, 180, 180)
+                        statusLabel.TextStrokeTransparency = 0.5
+                        statusLabel.TextStrokeColor3   = Color3.fromRGB(0, 0, 0)
+                        statusLabel.Parent             = bg
+
+                        -- HP бар (фон)
+                        local hpBarBG = Instance.new("Frame")
+                        hpBarBG.Name                  = "HPBarBG"
+                        hpBarBG.Size                  = UDim2.new(1, -48, 0, 4)
+                        hpBarBG.Position              = UDim2.new(0, 48, 1, -12)
+                        hpBarBG.BackgroundColor3      = Color3.fromRGB(60, 20, 20)
+                        hpBarBG.BackgroundTransparency = 0.3
+                        hpBarBG.BorderSizePixel        = 0
+                        hpBarBG.Parent                 = bg
+                        Instance.new("UICorner", hpBarBG).CornerRadius = UDim.new(1, 0)
+
+                        -- HP бар (заполнение)
+                        local hpBar = Instance.new("Frame")
+                        hpBar.Name                 = "HPBar"
+                        hpBar.Size                 = UDim2.new(1, 0, 1, 0)
+                        hpBar.BackgroundColor3     = Color3.fromRGB(255, 50, 50)
+                        hpBar.BorderSizePixel       = 0
+                        hpBar.Parent               = hpBarBG
+                        Instance.new("UICorner", hpBar).CornerRadius = UDim.new(1, 0)
+
+                        -- Боковая цветная полоска
+                        local accent = Instance.new("Frame")
+                        accent.Name                = "Accent"
+                        accent.Size                = UDim2.new(0, 2, 1, -6)
+                        accent.Position            = UDim2.new(0, 1, 0, 3) 
+                        accent.BorderSizePixel      = 0
+                        accent.Parent              = bg
+                        Instance.new("UICorner", accent).CornerRadius = UDim.new(1, 0)
+                    end
+
+                    -- Обновляем данные каждый тик
+                    local bg          = tag:FindFirstChild("BG")
+                    local nameLabel   = bg and bg:FindFirstChild("NameLabel")
+                    local statusLabel = bg and bg:FindFirstChild("StatusLabel")
+                    local hpBar       = bg and bg:FindFirstChild("HPBarBG") and bg.HPBarBG:FindFirstChild("HPBar")
+                    local accent      = bg and bg:FindFirstChild("Accent")
+                    local distance    = math.floor((Camera.CFrame.Position - root.Position).Magnitude)
+
+                    if nameLabel then
+                        nameLabel.Text       = player.DisplayName
+                        nameLabel.TextColor3 = color
+                    end
+                    if statusLabel then
+                        statusLabel.Text = string.format("● DOWNED  |  %dm  |  %d%%", distance, math.floor(pct * 100))
+                    end
+                    if hpBar then
+                        hpBar.Size           = UDim2.new(pct, 0, 1, 0)
+                        hpBar.BackgroundColor3 = color
+                    end
+                    if accent then
+                        accent.BackgroundColor3 = color
+                    end
+
                 else
                     ClearDownedESP(character)
                 end
@@ -1327,7 +1538,6 @@ local function GetObjectCFrame(obj)
     return nil
 end
 
--- ── Режим 1: модели телепортируются к игроку ──────────────────────────────
 local function FarmPullMode()
     local char = lp.Character
     if not char then return end
@@ -1353,15 +1563,10 @@ local function FarmPullMode()
     end
 end
 
--- ── Режим 2: невидимый хитбокс ездит к моделям, игрок стоит на месте ─────
 local function DestroyRemoteHitbox()
-    RemoteHitbox = nil  -- stub, хитбокс больше не создаётся
+    RemoteHitbox = nil
 end
 
--- ── Режим 2: быстрый свап CFrame ─────────────────────────────────────────
--- Игрок на доли секунды телепортируется к каждому тикету и сразу возвращается.
--- Камера заморожена — движение визуально незаметно.
--- Сначала пробует firetouchinterest (совсем без движения).
 local function FarmFastSwapMode()
     local char = lp.Character
     if not char then return end
@@ -1377,7 +1582,6 @@ local function FarmFastSwapMode()
     local savedCamCF   = Camera.CFrame
     local savedCamType = Camera.CameraType
 
-    -- Замораживаем камеру и обнуляем физику
     Camera.CameraType = Enum.CameraType.Scriptable
     Camera.CFrame     = savedCamCF
     hum.PlatformStand = true
@@ -1394,7 +1598,6 @@ local function FarmFastSwapMode()
         local cf = GetObjectCFrame(visual)
         if not cf then continue end
 
-        -- Попытка 1: firetouchinterest (игрок не двигается вообще)
         local touchFired = false
         pcall(function()
             local parts = visual:IsA("BasePart") and {visual}
@@ -1409,7 +1612,6 @@ local function FarmFastSwapMode()
         end)
 
         if not touchFired then
-            -- Попытка 2: физически переносим root на 0.04 сек и возвращаем
             root.CFrame = cf * CFrame.new(0, 2, 0)
             root.AssemblyLinearVelocity = Vector3.zero
             task.wait(0.04)
@@ -1418,7 +1620,6 @@ local function FarmFastSwapMode()
         end
     end
 
-    -- Финальный возврат и восстановление состояния
     root.CFrame = savedCF
     root.AssemblyLinearVelocity = Vector3.zero
     for _, p in ipairs(char:GetDescendants()) do
@@ -1433,7 +1634,6 @@ local function FarmFastSwapMode()
     Camera.CameraType = savedCamType
 end
 
--- ── Режим 3: WorldPilot — игрок сам телепортируется ───────────────────────
 local function FarmWorldPilotMode()
     local char = lp.Character
     if not char then return end
@@ -1460,7 +1660,6 @@ local function FarmWorldPilotMode()
     end
 end
 
--- ── Главный цикл фарма ────────────────────────────────────────────────────
 task.spawn(function()
     while true do
         task.wait(farmDelay)
@@ -1483,7 +1682,6 @@ task.spawn(function()
     end
 end)
 
--- Убираем хитбокс при респавне
 lp.CharacterAdded:Connect(function()
     task.wait(0.1)
     DestroyRemoteHitbox()
@@ -1648,7 +1846,6 @@ farmModeDropdown = VisualTab:AddDropdown("Режим фарма", {
     if value:sub(1,1) == "1" then FarmMode = 1
     elseif value:sub(1,1) == "2" then FarmMode = 2
     else FarmMode = 3 end
-    -- сбрасываем хитбокс при смене режима
     if FarmMode ~= 2 then DestroyRemoteHitbox() end
 end)
 
