@@ -1,5 +1,7 @@
 if not game:IsLoaded() then game.Loaded:Wait() end
 
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Mamaksimaaa/Roblox-script/refs/heads/main/Evade/Round%20timer.lua"))()
+
 local MinecraftLib = loadstring(game:HttpGet(
     "https://raw.githubusercontent.com/Mamaksimaaa/Roblox-script/refs/heads/main/Lib/load.lua"
 ))()
