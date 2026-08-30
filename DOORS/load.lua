@@ -1,6 +1,6 @@
 local MinecraftLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/Mamaksimaaa/Roblox-script/refs/heads/main/Lib/load.lua"))()
 
-local Window = MinecraftLib:CreateWindow("KuromiX Doors", {
+local Window = MinecraftLib:CreateWindow("IRY HUB", {
     Theme = "Overworld",
     Size = UDim2.fromOffset(570, 370),
     Transparency = 0.2,
@@ -58,9 +58,9 @@ local function esp(target, color, labelPart, labelText)
 
     local function highlightInst(inst)
         if not inst or not inst.Parent then return end
-        if inst:FindFirstChild("_KuromiESP_H") then return end
+        if inst:FindFirstChild("_IRYESP_H") then return end
         local h = Instance.new("Highlight")
-        h.Name = "_KuromiESP_H"
+        h.Name = "_IRYESP_H"
         h.Adornee = inst
         h.FillColor = color
         h.OutlineColor = color
@@ -77,9 +77,9 @@ local function esp(target, color, labelPart, labelText)
     end
 
     if labelPart and labelPart.Parent then
-        if not labelPart:FindFirstChild("_KuromiESP_BB") then
+        if not labelPart:FindFirstChild("_IRYESP_BB") then
             local bb = Instance.new("BillboardGui")
-            bb.Name = "_KuromiESP_BB"
+            bb.Name = "_IRYESP_BB"
             bb.Adornee = labelPart
             bb.Size = UDim2.fromScale(5, 2)
             bb.StudsOffset = Vector3.new(0, 3, 0)
@@ -115,9 +115,9 @@ local doorTextRefs = {}
 local function removeAllDoorESP()
     for door, t in pairs(doorTransparencyBackup) do
         if door and door.Parent then door.Transparency = t end
-        local h = door:FindFirstChild("_KuromiESP_H")
+        local h = door:FindFirstChild("_IRYESP_H")
         if h then h:Destroy() end
-        local bb = door:FindFirstChild("_KuromiESP_BB")
+        local bb = door:FindFirstChild("_IRYESP_BB")
         if bb then bb:Destroy() end
     end
     table.clear(doorTransparencyBackup)
@@ -136,9 +136,9 @@ task.spawn(function()
                             doorTransparencyBackup[door] = door.Transparency
                         end
                         door.Transparency = 0
-                        if not door:FindFirstChild("_KuromiESP_H") then
+                        if not door:FindFirstChild("_IRYESP_H") then
                             local h = Instance.new("Highlight")
-                            h.Name = "_KuromiESP_H"
+                            h.Name = "_IRYESP_H"
                             h.Adornee = door
                             h.FillColor = Color3.fromRGB(0, 255, 0)
                             h.OutlineColor = Color3.fromRGB(0, 255, 0)
@@ -150,7 +150,7 @@ task.spawn(function()
                             local roomNum = tonumber(room.Name)
                             if roomNum then
                                 local bb = Instance.new("BillboardGui")
-                                bb.Name = "_KuromiESP_BB"
+                                bb.Name = "_IRYESP_BB"
                                 bb.Adornee = door
                                 bb.Size = UDim2.fromScale(4, 2)
                                 bb.StudsOffset = Vector3.new(0, 3, 0)
@@ -363,7 +363,7 @@ ESPTab:AddToggle("ESP Figure (Figure)", false, function(Value)
                         if FigureSetup then
                             local FigureRig = FigureSetup:FindFirstChild("FigureRig")
                             if FigureRig then
-                                if not FigureRig:FindFirstChild("_KuromiESP_H") then
+                                if not FigureRig:FindFirstChild("_IRYESP_H") then
                                     local h = esp(FigureRig, Color3.fromRGB(255, 25, 25), FigureRig, "Figure")
                                     table.insert(esptable.figure, h)
                                 end
@@ -677,11 +677,11 @@ end)
 
 local InfoTab = Window:AddTab("Info")
 
-InfoTab:AddLabel("KuromiX Doors")
+InfoTab:AddLabel("IRY HUB")
 InfoTab:AddLabel("Hi.. I hope you're enjoying this Script I made.")
 InfoTab:AddLabel("Join my Discord for updates: discord.gg/uG5wXsFHjk")
 InfoTab:AddLabel("Give my GitHub Repo a star or contribute:")
-InfoTab:AddLabel("https://github.com/nucax/KuromiX")
+InfoTab:AddLabel("https://github.com/nucax/IRY-HUB")
 InfoTab:AddLabel("")
 InfoTab:AddLabel("Last Updated: 24th July 2026")
 InfoTab:AddLabel("")
@@ -692,5 +692,5 @@ InfoTab:AddLabel("To Do List:")
 InfoTab:AddLabel("Toolshed ESP: add highlight to Toolshed_Small in Room 89 ?")
 InfoTab:AddLabel("Snare ESP: add highlight to each snare")
 
-Window:Notify("KuromiX Doors", "Loaded! Press K to toggle.", 5)
-print("[KuromiX Doors] Script loaded")
+Window:Notify("IRY HUB", "Loaded! Press K to toggle.", 5)
+print("[IRY HUB] Script loaded")
