@@ -54,13 +54,13 @@ watermark.Size = UDim2.new(0, 200, 0, 20)
 watermark.Position = UDim2.new(1, -210, 1, -30)
 watermark.BackgroundTransparency = 1
 watermark.Text = "cracked by @inlawry"
-watermark.TextColor3 = Color3.fromRGB(50, 50, 50)
+watermark.TextColor3 = Color3.fromRGB(255, 41, 0)
 watermark.TextSize = 12
 watermark.Font = Enum.Font.Gotham
 watermark.TextXAlignment = Enum.TextXAlignment.Right
 watermark.TextYAlignment = Enum.TextYAlignment.Bottom
-watermark.TextTransparency = 0.6
-watermark.ZIndex = 0
+watermark.TextTransparency = 0
+watermark.ZIndex = 999999
 -- ================================================
 
 -- Эффект размытия фона
