@@ -1,0 +1,31 @@
+local placeId = game.PlaceId
+
+
+if placeId == 93978595733734 then
+
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Mamaksimaaa/Roblox-script/refs/heads/main/KysHub%20Crack.txt"))():
+    
+    print("VD")
+
+elseif placeId == 121864768012064 then
+
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Mamaksimaaa/Roblox-script/refs/heads/main/Fish%20it/load.lua"))()
+    
+    print("Fish it")
+
+elseif placeId == 97598239454123 then
+
+   loadstring(game:HttpGet("https://raw.githubusercontent.com/Mamaksimaaa/Roblox-script/refs/heads/main/Grow%20a%20garden%202/load.lua"))()
+   
+    print("GAG2")
+
+elseif placeId == 89469502395769 then
+
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Mamaksimaaa/Roblox-script/refs/heads/main/Kick%20a%20lucky%20block/load.lua"))()
+    
+    print("Kick a luckyblock")
+
+else
+
+    print("KysHub crack game not found (ID: " .. placeId .. ")")
+end
