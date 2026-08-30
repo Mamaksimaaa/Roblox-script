@@ -1,0 +1,396 @@
+--[[
+  Восстановленный скрипт nibum HUB без системы ключей.
+  Ссылка на основной скрипт: buildaboatfortreasure
+  Добавлен водяной знак "cracked by @inlawry".
+]]
+
+-- Получаем окружение и сервисы
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local Lighting = game:GetService("Lighting")
+local CoreGui = game:GetService("CoreGui")
+local LocalPlayer = Players.LocalPlayer
+
+-- Настройки цветов (из оригинальной палитры)
+local Colors = {
+    bg0 = Color3.fromRGB(8, 9, 11),
+    bg1 = Color3.fromRGB(13, 14, 17),
+    bg2 = Color3.fromRGB(18, 20, 24),
+    bg3 = Color3.fromRGB(24, 26, 32),
+    bg4 = Color3.fromRGB(30, 33, 40),
+    brd = Color3.fromRGB(36, 39, 48),
+    brd2 = Color3.fromRGB(48, 52, 64),
+    acc = Color3.fromRGB(215, 55, 55),
+    accDark = Color3.fromRGB(155, 30, 30),
+    accGlow = Color3.fromRGB(235, 80, 80),
+    grn = Color3.fromRGB(65, 195, 115),
+    txt = Color3.fromRGB(198, 201, 215),
+    txt2 = Color3.fromRGB(140, 144, 162),
+    txt3 = Color3.fromRGB(80, 83, 100),
+    white = Color3.fromRGB(255, 255, 255),
+    black = Color3.fromRGB(0, 0, 0),
+    gold = Color3.fromRGB(235, 175, 35),
+    goldDk = Color3.fromRGB(175, 128, 18),
+    dcBlue = Color3.fromRGB(114, 137, 218),
+}
+
+-- Определяем размеры в зависимости от устройства (мобильное/ПК)
+local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+local windowWidth = isMobile and math.min(330, workspace.CurrentCamera.ViewportSize.X - 16) or 490
+local windowHeight = isMobile and 500 or 430
+
+-- Создаём основной GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "nibum_HUB_Loader"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.IgnoreGuiInset = true
+screenGui.Parent = CoreGui
+
+-- === ВОДЯНОЙ ЗНАК (незаметная надпись) ===
+local watermark = Instance.new("TextLabel", screenGui)
+watermark.Size = UDim2.new(0, 200, 0, 20)
+watermark.Position = UDim2.new(1, -210, 1, -30)
+watermark.BackgroundTransparency = 1
+watermark.Text = "cracked by @inlawry"
+watermark.TextColor3 = Color3.fromRGB(50, 50, 50)
+watermark.TextSize = 12
+watermark.Font = Enum.Font.Gotham
+watermark.TextXAlignment = Enum.TextXAlignment.Right
+watermark.TextYAlignment = Enum.TextYAlignment.Bottom
+watermark.TextTransparency = 0.6
+watermark.ZIndex = 0
+-- ================================================
+
+-- Эффект размытия фона
+local blur = Instance.new("BlurEffect")
+blur.Size = 16
+blur.Name = "nibum_HUB_Blur"
+blur.Parent = Lighting
+
+-- Вспомогательные функции для создания элементов и анимаций
+local function createFrame(parent, size, position, color, cornerRadius, zIndex)
+    local frame = Instance.new("Frame", parent)
+    frame.Size = size
+    frame.Position = position
+    frame.BackgroundColor3 = color or Colors.bg1
+    frame.BorderSizePixel = 0
+    if cornerRadius then
+        local corner = Instance.new("UICorner", frame)
+        corner.CornerRadius = UDim.new(0, cornerRadius)
+    end
+    if zIndex then
+        frame.ZIndex = zIndex
+    end
+    return frame
+end
+
+local function createTextLabel(parent, text, textSize, color, font, alignment)
+    local label = Instance.new("TextLabel", parent)
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.Position = UDim2.new(0, 0, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextSize = textSize or 13
+    label.TextColor3 = color or Colors.txt
+    label.Font = font or Enum.Font.GothamMedium
+    label.TextXAlignment = alignment or Enum.TextXAlignment.Left
+    label.TextYAlignment = Enum.TextYAlignment.Center
+    label.TextWrapped = false
+    return label
+end
+
+local function createTextButton(parent, size, position, color, cornerRadius, zIndex)
+    local btn = Instance.new("TextButton", parent)
+    btn.Size = size
+    btn.Position = position
+    btn.BackgroundColor3 = color or Colors.bg3
+    btn.BorderSizePixel = 0
+    btn.Text = ""
+    btn.AutoButtonColor = false
+    if cornerRadius then
+        local corner = Instance.new("UICorner", btn)
+        corner.CornerRadius = UDim.new(0, cornerRadius)
+    end
+    if zIndex then
+        btn.ZIndex = zIndex
+    end
+    return btn
+end
+
+local function addStroke(object, color, thickness, transparency)
+    local stroke = Instance.new("UIStroke", object)
+    stroke.Color = color or Colors.brd
+    stroke.Thickness = thickness or 1
+    stroke.Transparency = transparency or 0
+    return stroke
+end
+
+local function tween(object, duration, properties, style, direction)
+    local info = TweenInfo.new(duration, style or Enum.EasingStyle.Linear, direction or Enum.EasingDirection.InOut)
+    local tween = TweenService:Create(object, info, properties)
+    tween:Play()
+    return tween
+end
+
+-- Создаём затемнённый фон
+local background = createFrame(screenGui, UDim2.new(1, 0, 1, 0), UDim2.new(0, 0, 0, 0), Colors.black, 0, 1)
+background.BackgroundTransparency = 1
+
+-- Основной контейнер с анимированной рамкой
+local mainFrame = createFrame(screenGui,
+    UDim2.new(0, windowWidth + 80, 0, windowHeight + 60),
+    UDim2.new(0.5, 0, 0.5, 0),
+    Colors.acc, 40, 0)
+mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+mainFrame.BackgroundTransparency = 0.92
+addStroke(mainFrame, Colors.brd2, 1)
+
+-- Анимация пульсации рамки
+tween(mainFrame, 4, {
+    BackgroundTransparency = 0.87,
+    Size = UDim2.new(0, windowWidth + 120, 0, windowHeight + 100)
+}, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+
+-- Внутренний фрейм
+local innerFrame = createFrame(screenGui,
+    UDim2.new(0, windowWidth, 0, windowHeight),
+    UDim2.new(0.5, 0, 0.5, 0),
+    Colors.bg1, 12, 2)
+innerFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+innerFrame.ClipsDescendants = true
+addStroke(innerFrame, Colors.brd2, 1)
+
+-- Верхняя панель (шапка)
+local headerHeight = isMobile and 44 or 38
+local header = createFrame(innerFrame,
+    UDim2.new(1, 0, 0, headerHeight),
+    UDim2.new(0, 0, 0, 0),
+    Colors.bg0, 0, 4)
+Instance.new("UICorner", header).CornerRadius = UDim.new(0, 12)
+
+-- Логотип (иконка)
+local logoSize = isMobile and 22 or 20
+local logo = Instance.new("ImageLabel", header)
+logo.Size = UDim2.new(0, logoSize, 0, logoSize)
+logo.Position = UDim2.new(0, isMobile and 12 or 10, 0.5, -logoSize/2)
+logo.BackgroundTransparency = 1
+logo.Image = "rbxassetid://77911892724832"
+logo.ScaleType = Enum.ScaleType.Fit
+logo.ZIndex = 6
+
+-- Заголовок
+local titleLabel = createTextLabel(header,
+    "<font color=\"#D73737\">nibum</font>HUB",
+    isMobile and 13 or 13,
+    Colors.white, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
+titleLabel.Size = UDim2.new(0, 90, 1, -4)
+titleLabel.Position = UDim2.new(0, isMobile and 40 or 36, 0, 2)
+titleLabel.RichText = true
+titleLabel.ZIndex = 6
+
+-- Кнопка закрытия
+local closeBtnSize = isMobile and 30 or 26
+local closeBtn = createTextButton(header,
+    UDim2.new(0, closeBtnSize, 0, closeBtnSize),
+    UDim2.new(1, -(closeBtnSize + 6), 0.5, -closeBtnSize/2),
+    Colors.bg2, 6, 6)
+local closeX = createTextLabel(closeBtn, "X", isMobile and 13 or 12, Color3.fromRGB(180, 50, 50), Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+closeX.ZIndex = 7
+
+-- Эффекты наведения для кнопки закрытия
+closeBtn.MouseEnter:Connect(function()
+    closeX.TextColor3 = Colors.white
+end)
+closeBtn.MouseLeave:Connect(function()
+    closeX.TextColor3 = Color3.fromRGB(180, 50, 50)
+end)
+closeBtn.MouseButton1Click:Connect(function()
+    screenGui:Destroy()
+    blur:Destroy()
+end)
+
+-- Основная область контента
+local contentFrame = createFrame(innerFrame,
+    UDim2.new(1, -18*2, 1, -(headerHeight + 14)),
+    UDim2.new(0, 18, 0, headerHeight + 8),
+    Colors.bg1, 0, 3)
+contentFrame.BackgroundTransparency = 1
+
+-- Анимированный логотип с обводкой
+local logoBigSize = isMobile and 62 or 70
+local logoBig = createFrame(contentFrame,
+    UDim2.new(0, logoBigSize, 0, logoBigSize),
+    UDim2.new(0.5, -logoBigSize/2, 0, 2),
+    Colors.bg2, 16, 4)
+addStroke(logoBig, Colors.acc, 2, 0.3)
+local stroke = logoBig:FindFirstChildOfClass("UIStroke")
+if stroke then
+    local gradient = Instance.new("UIGradient", stroke)
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Colors.acc),
+        ColorSequenceKeypoint.new(0.5, Colors.accGlow),
+        ColorSequenceKeypoint.new(1, Colors.accDark)
+    })
+    tween(gradient, 3, { Rotation = 360 }, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+end
+
+-- Текст внутри логотипа
+local logoText = Instance.new("TextLabel", logoBig)
+logoText.Size = UDim2.new(1, 0, 1, 0)
+logoText.BackgroundTransparency = 1
+logoText.Text = "<font color=\"#D73737\">nibum HUB</font>"
+logoText.RichText = true
+logoText.TextColor3 = Colors.white
+logoText.Font = Enum.Font.GothamBold
+logoText.TextSize = isMobile and 14 or 16
+logoText.TextXAlignment = Enum.TextXAlignment.Center
+logoText.TextYAlignment = Enum.TextYAlignment.Center
+logoText.ZIndex = 4
+
+-- Изображение логотипа (с анимацией появления)
+local logoImage = Instance.new("ImageLabel", logoBig)
+logoImage.Size = UDim2.new(1, -8, 1, -8)
+logoImage.Position = UDim2.new(0, 4, 0, 4)
+logoImage.BackgroundTransparency = 1
+logoImage.Image = "rbxassetid://77911892724832"
+logoImage.ScaleType = Enum.ScaleType.Fit
+logoImage.ImageTransparency = 1
+logoImage.ZIndex = 5
+Instance.new("UICorner", logoImage).CornerRadius = UDim.new(0, 12)
+
+-- Когда изображение загрузится, показываем его
+local function showLogo()
+    if logoImage.IsLoaded then
+        logoText.Visible = false
+        tween(logoImage, 0.3, { ImageTransparency = 0 })
+    end
+end
+logoImage:GetPropertyChangedSignal("IsLoaded"):Connect(showLogo)
+task.delay(0.1, showLogo)
+
+-- Пульсация фона логотипа
+tween(logoBig, 2.2, { BackgroundColor3 = Colors.bg3 }, Enum.EasingStyle.Sine)
+
+-- Заголовок "Loading nibum HUB"
+local loadingTitle = createTextLabel(contentFrame,
+    "Loading nibum HUB",
+    isMobile and 18 or 20,
+    Colors.white, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+loadingTitle.Size = UDim2.new(1, 0, 0, isMobile and 26 or 28)
+loadingTitle.Position = UDim2.new(0, 0, 0, logoBigSize + 12)
+loadingTitle.ZIndex = 4
+
+-- Подзаголовок
+local loadingSub = createTextLabel(contentFrame,
+    "Please wait while the script loads...",
+    isMobile and 11 or 12,
+    Colors.txt2, Enum.Font.Gotham, Enum.TextXAlignment.Center)
+loadingSub.Size = UDim2.new(1, 0, 0, isMobile and 16 or 18)
+loadingSub.Position = UDim2.new(0, 0, 0, logoBigSize + (isMobile and 28 or 30) + (isMobile and 26 or 28))
+loadingSub.ZIndex = 4
+
+-- Анимированный спиннер
+local spinner = createFrame(contentFrame,
+    UDim2.new(0, 40, 0, 40),
+    UDim2.new(0.5, -20, 0, logoBigSize + 70),
+    Colors.bg2, 20, 5)
+addStroke(spinner, Colors.acc, 2, 0.3)
+local spinnerGradient = Instance.new("UIGradient", spinner:FindFirstChildOfClass("UIStroke") or spinner)
+spinnerGradient.Rotation = 90
+spinnerGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Colors.acc),
+    ColorSequenceKeypoint.new(1, Colors.accDark)
+})
+tween(spinnerGradient, 2, { Rotation = 450 }, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+
+-- Текст статуса
+local statusText = createTextLabel(contentFrame,
+    "Initializing...",
+    isMobile and 10 or 11,
+    Colors.txt2, Enum.Font.Gotham, Enum.TextXAlignment.Center)
+statusText.Size = UDim2.new(1, 0, 0, 14)
+statusText.Position = UDim2.new(0, 0, 0, logoBigSize + 70 + 40 + 5)
+statusText.ZIndex = 4
+
+-- Функция обновления статуса
+local function setStatus(text, color, duration)
+    statusText.Text = text
+    if color then statusText.TextColor3 = color end
+    if duration then
+        task.delay(duration, function()
+            if statusText.Text == text then
+                statusText.Text = ""
+            end
+        end)
+    end
+end
+
+-- Функция плавного закрытия UI
+local function closeUI()
+    tween(innerFrame, 0.18, {
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0.5, 0, 0.5, 28)
+    })
+    tween(background, 0.18, { BackgroundTransparency = 1 })
+    task.wait(0.2)
+    if blur then blur:Destroy() end
+    if screenGui then screenGui:Destroy() end
+end
+
+-- Основная загрузка скрипта
+local function loadMainScript()
+    setStatus("Connecting to server...", Colors.gold)
+    task.wait(0.5)
+    setStatus("Downloading script...", Colors.acc)
+    task.wait(0.3)
+
+    -- НОВАЯ ССЫЛКА (buildaboatfortreasure)
+    local scriptUrl = "https://raw.githubusercontent.com/privnerxsc-unknown/unknownyea/refs/heads/main/buildaboatfortreasure"
+    local success, result = pcall(function()
+        return game:HttpGet(scriptUrl)
+    end)
+
+    if success and result then
+        setStatus("Executing script...", Colors.grn)
+        task.wait(0.2)
+        local loadFunction = loadstring(result)
+        if loadFunction then
+            setStatus("Success! Loading...", Colors.grn)
+            task.wait(0.5)
+            loadFunction()
+        else
+            setStatus("Error: Failed to compile script!", Colors.acc)
+            task.wait(2)
+        end
+    else
+        setStatus("Error: Could not download script!", Colors.acc)
+        task.wait(2)
+    end
+    closeUI()
+end
+
+-- Запуск загрузки после небольшой задержки
+task.delay(1, function()
+    setStatus("Preparing environment...", Colors.txt)
+    task.wait(0.5)
+    loadMainScript()
+end)
+
+-- Обработка закрытия по Escape
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.Escape then
+        closeUI()
+    end
+end)
+
+-- Анимация появления UI
+tween(background, 0.22, { BackgroundTransparency = 0.35 })
+tween(innerFrame, 0.32, {
+    Position = UDim2.new(0.5, 0, 0.5, 0),
+    BackgroundTransparency = 0
+}, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
+print("[nibum HUB] Loader started successfully (cracked by @inlawry)")
