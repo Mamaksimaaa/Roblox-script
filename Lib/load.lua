@@ -376,6 +376,7 @@ function MinecraftLib:CreateWindow(title, config)
     self._keybinds = {}
     self._title = title or "Minecraft UI"
     self._mobile = IsMobile()
+    local _preHiddenSize = nil  -- сохраняет размер окна перед скрытием
 
     local Textures = {}
     local textureWaiters = {}
@@ -835,14 +836,16 @@ function MinecraftLib:CreateWindow(title, config)
         self._visible = not self._visible
         if self._visible then
             Main.Visible = true
-            Main.Size = UDim2.new(0,0,0,0)
-            Tween(Main, {Size = UDim2.new(0,WIN_W,0,WIN_H)}, 0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            Main.Size = UDim2.new(0, 0, 0, 0)  -- начальная точка для анимации
+            local targetSize = _preHiddenSize or UDim2.new(0, WIN_W, 0, WIN_H)
+            Tween(Main, {Size = targetSize}, 0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
             if self._shadow then
                 self._shadow.Visible = true
                 Tween(self._shadow, {ImageTransparency = self._shadow:GetAttribute("BaseTransparency") or 0.3}, 0.3)
             end
         else
-            Tween(Main, {Size = UDim2.new(0,0,0,0)}, 0.22, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+            _preHiddenSize = Main.Size  -- запоминаем текущий размер
+            Tween(Main, {Size = UDim2.new(0, 0, 0, 0)}, 0.22, Enum.EasingStyle.Back, Enum.EasingDirection.In)
             if self._shadow then
                 Tween(self._shadow, {ImageTransparency = 1}, 0.2)
             end
