@@ -3,7 +3,7 @@ if not game:IsLoaded() then game.Loaded:Wait() end
 loadstring(game:HttpGet("https://raw.githubusercontent.com/Mamaksimaaa/Roblox-script/refs/heads/main/Evade/Round%20timer.lua"))()
 
 local MinecraftLib = loadstring(game:HttpGet(
-    "https://raw.githubusercontent.com/Mamaksimaaa/Roblox-script/refs/heads/main/Lib/load.lua"
+    "https://api.jnkie.com/api/v1/luascripts/public/10b15bade870d6bc4ce7fd63f91d05170c0f00133108f32111190a4facf26d26/download"
 ))()
 
 local Players          = game:GetService("Players")
