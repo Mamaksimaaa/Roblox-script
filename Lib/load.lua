@@ -24,23 +24,42 @@ local function EnsureFolder()
     end
 end
 
-local function LoadTexture(url, filename)
+-- Synchronous when the texture is already cached locally (instant getcustomasset).
+-- Falls back to an async download via onReady when the file must be fetched over HTTP,
+-- so CreateWindow no longer blocks the calling thread on first run.
+local function LoadTexture(url, filename, onReady)
     if not (isfolder and makefolder and isfile and writefile and getcustomasset) then
         warn("[MinecraftLib] Local texture caching is unavailable in this environment")
         return ""
     end
     EnsureFolder()
     local path = "MinecraftUI/" .. filename
-    if not isfile(path) then
-        local succ, data = pcall(function()
-            return game:HttpGet(url, true)
+    if isfile(path) then
+        return getcustomasset(path)
+    end
+    if onReady then
+        task.spawn(function()
+            local succ, data = pcall(function()
+                return game:HttpGet(url, true)
+            end)
+            if succ and data and #data > 100 then
+                writefile(path, data)
+                onReady(getcustomasset(path))
+            else
+                warn("[MinecraftLib] Failed to download: " .. url)
+            end
         end)
-        if succ and data and #data > 100 then
-            writefile(path, data)
-        else
-            warn("[MinecraftLib] Failed to download: " .. url)
-            return ""
-        end
+        return ""
+    end
+    -- No callback provided: keep old synchronous behavior for compatibility.
+    local succ, data = pcall(function()
+        return game:HttpGet(url, true)
+    end)
+    if succ and data and #data > 100 then
+        writefile(path, data)
+    else
+        warn("[MinecraftLib] Failed to download: " .. url)
+        return ""
     end
     return getcustomasset(path)
 end
@@ -178,25 +197,48 @@ local function Invoke(callback, ...)
     end
 end
 
+local function ClampToViewport(pos, size)
+    local camera = workspace.CurrentCamera
+    local vp = camera and camera.ViewportSize or Vector2.new(800, 600)
+    local absX = pos.X.Scale * vp.X + pos.X.Offset
+    local absY = pos.Y.Scale * vp.Y + pos.Y.Offset
+    local margin = 10
+    local clampedX = math.clamp(absX, margin, math.max(margin, vp.X - size.X.Offset - margin))
+    local clampedY = math.clamp(absY, margin, math.max(margin, vp.Y - margin))
+    return UDim2.new(pos.X.Scale, pos.X.Offset + (clampedX - absX), pos.Y.Scale, pos.Y.Offset + (clampedY - absY))
+end
+
+-- Returns a disconnect function so callers can tear down input connections
+-- when the frame is destroyed, avoiding permanent UserInputService listeners.
 local function MakeDraggable(frame, handle)
     handle = handle or frame
     local dragging, dragStart, startPos = false, nil, nil
-    handle.InputBegan:Connect(function(input)
+
+    local beganConn = handle.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true; dragStart = input.Position; startPos = frame.Position
         end
     end)
-    UserInputService.InputChanged:Connect(function(input)
+    local changedConn = UserInputService.InputChanged:Connect(function(input)
         if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             local delta = input.Position - dragStart
-            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            local newPos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            frame.Position = ClampToViewport(newPos, frame.AbsoluteSize and UDim2.new(0, frame.AbsoluteSize.X, 0, frame.AbsoluteSize.Y) or newPos)
         end
     end)
-    UserInputService.InputEnded:Connect(function(input)
+    local endedConn = UserInputService.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = false
         end
     end)
+
+    local function Disconnect()
+        beganConn:Disconnect()
+        changedConn:Disconnect()
+        endedConn:Disconnect()
+    end
+    frame.Destroying:Connect(Disconnect)
+    return Disconnect
 end
 
 -- The source texture is a soft shadow with transparent center. Slice scaling keeps corners sharp.
@@ -301,16 +343,11 @@ local function AddPadding(frame, t, b, l, r)
     })
 end
 
-local NotifContainer
-
-local function EnsureNotifContainer()
-    if NotifContainer and NotifContainer.Parent then
-        return
-    end
-    local sg = Create("ScreenGui", {Name="MCNotifs_v3", ResetOnSpawn=false, ZIndexBehavior=Enum.ZIndexBehavior.Sibling, Parent=CoreGui})
-    NotifContainer = Create("Frame", {Name="Container", Size=UDim2.new(0,300,1,0), Position=UDim2.new(1,-315,0,0), BackgroundTransparency=1, Parent=sg})
-    Create("UIListLayout", {VerticalAlignment=Enum.VerticalAlignment.Bottom, Padding=UDim.new(0,8), Parent=NotifContainer})
-    Create("UIPadding", {PaddingBottom=UDim.new(0,14), Parent=NotifContainer})
+local function CreateNotifContainer(parentGui)
+    local container = Create("Frame", {Name="NotifContainer", Size=UDim2.new(0,300,1,0), Position=UDim2.new(1,-315,0,0), BackgroundTransparency=1, ZIndex=500, Parent=parentGui})
+    Create("UIListLayout", {VerticalAlignment=Enum.VerticalAlignment.Bottom, Padding=UDim.new(0,8), Parent=container})
+    Create("UIPadding", {PaddingBottom=UDim.new(0,14), Parent=container})
+    return container
 end
 
 function MinecraftLib:CreateWindow(title, config)
@@ -319,23 +356,53 @@ function MinecraftLib:CreateWindow(title, config)
     self._themeName = Themes[config.Theme] and config.Theme or "Overworld"
     self._theme = Themes[self._themeName]
     self._tabs = {}
+    self._themedRefreshers = {}
+
+    function self:RegisterThemed(refreshFn, watchInstance)
+        table.insert(self._themedRefreshers, refreshFn)
+        if watchInstance then
+            watchInstance.Destroying:Connect(function()
+                for i, fn in ipairs(self._themedRefreshers) do
+                    if fn == refreshFn then
+                        table.remove(self._themedRefreshers, i)
+                        break
+                    end
+                end
+            end)
+        end
+    end
     self._activeTab = nil
     self._visible = true
     self._keybinds = {}
     self._title = title or "Minecraft UI"
     self._mobile = IsMobile()
 
-    local Textures = {
-        Dirt = LoadTexture(TextureURLs.Dirt, "dirt.jpg"),
-        OakPlanks = LoadTexture(TextureURLs.OakPlanks, "oak_planks.png"),
-        GrassBlock = LoadTexture(TextureURLs.GrassBlock, "grass.jpg"),
-        OverworldBg = LoadTexture(TextureURLs.OverworldBg, "overworld_bg.jpg"),
-        NetherBg = LoadTexture(TextureURLs.NetherBg, "nether_bg.jpg"),
-        EndBg = LoadTexture(TextureURLs.EndBg, "end_bg.jpg"),
-    }
+    local Textures = {}
+    local textureWaiters = {}
+    local function loadTex(key, url, filename)
+        Textures[key] = LoadTexture(url, filename, function(assetId)
+            Textures[key] = assetId
+            for _, fn in ipairs(textureWaiters[key] or {}) do
+                pcall(fn, assetId)
+            end
+        end)
+    end
+    loadTex("Dirt", TextureURLs.Dirt, "dirt.jpg")
+    loadTex("OakPlanks", TextureURLs.OakPlanks, "oak_planks.png")
+    loadTex("GrassBlock", TextureURLs.GrassBlock, "grass.jpg")
+    loadTex("OverworldBg", TextureURLs.OverworldBg, "overworld_bg.jpg")
+    loadTex("NetherBg", TextureURLs.NetherBg, "nether_bg.jpg")
+    loadTex("EndBg", TextureURLs.EndBg, "end_bg.jpg")
     self._textures = Textures
 
-    EnsureNotifContainer()
+    local function OnTextureReady(key, callback)
+        if Textures[key] and Textures[key] ~= "" then
+            callback(Textures[key])
+            return
+        end
+        textureWaiters[key] = textureWaiters[key] or {}
+        table.insert(textureWaiters[key], callback)
+    end
 
     local WIN_W = self._mobile and 340 or 600
     local WIN_H = self._mobile and 300 or 440
@@ -352,6 +419,7 @@ function MinecraftLib:CreateWindow(title, config)
         Parent = CoreGui,
     })
     self._gui = ScreenGui
+    self._notifContainer = CreateNotifContainer(ScreenGui)
 
     local Main = Create("Frame", {
         Size = UDim2.new(0, WIN_W, 0, WIN_H),
@@ -377,6 +445,11 @@ function MinecraftLib:CreateWindow(title, config)
         ZIndex = 0,
         Parent = Main,
     })
+    OnTextureReady(self._theme.BackgroundImage, function(assetId)
+        if MainBg.Parent then
+            MainBg.Image = assetId
+        end
+    end)
 
     local UIScaleInst = Create("UIScale", {Scale = 1, Parent = Main})
     self._uiScale = UIScaleInst
@@ -390,7 +463,7 @@ function MinecraftLib:CreateWindow(title, config)
     })
     PixelBevel(TitleBar, self._theme, 2)
 
-    Create("ImageLabel", {
+    local PlanksTexture = Create("ImageLabel", {
         Name = "PlanksTexture",
         Size = UDim2.new(1,0,1,0),
         BackgroundTransparency = 1,
@@ -400,13 +473,18 @@ function MinecraftLib:CreateWindow(title, config)
         ZIndex = 2,
         Parent = TitleBar,
     })
+    OnTextureReady("OakPlanks", function(assetId)
+        if PlanksTexture.Parent then
+            PlanksTexture.Image = assetId
+        end
+    end)
 
     for _, pos in ipairs({{0,4,0,4},{1,-8,0,4},{0,4,1,-8},{1,-8,1,-8}}) do
         Create("Frame", {Size=UDim2.new(0,4,0,4), Position=UDim2.new(pos[1],pos[2],pos[3],pos[4]), BackgroundColor3=Color3.fromRGB(60,50,35), BorderSizePixel=0, ZIndex=4, Parent=TitleBar})
     end
 
     local IconSize = self._mobile and 20 or 24
-    Create("ImageLabel", {
+    local GrassIcon = Create("ImageLabel", {
         Size = UDim2.new(0, IconSize, 0, IconSize),
         Position = UDim2.new(0, 10, 0.5, -IconSize/2),
         BackgroundTransparency = 1,
@@ -415,6 +493,11 @@ function MinecraftLib:CreateWindow(title, config)
         ZIndex = 4,
         Parent = TitleBar,
     })
+    OnTextureReady("GrassBlock", function(assetId)
+        if GrassIcon.Parent then
+            GrassIcon.Image = assetId
+        end
+    end)
 
     local TitleLabel = Create("TextLabel", {
         Name = "Title",
@@ -557,7 +640,7 @@ function MinecraftLib:CreateWindow(title, config)
         self:SetTheme(name)
     end)
 
-    UserInputService.InputBegan:Connect(function(input, gp)
+    self._keybindConn = UserInputService.InputBegan:Connect(function(input, gp)
         if gp then return end
         for _, kb in ipairs(self._keybinds) do
             if input.KeyCode == kb.key then
@@ -591,7 +674,7 @@ function MinecraftLib:CreateWindow(title, config)
     end
 
     if not self._mobile then
-        UserInputService.InputBegan:Connect(function(input, gp)
+        self._toggleHotkeyConn = UserInputService.InputBegan:Connect(function(input, gp)
             if gp then return end
             if input.KeyCode == Enum.KeyCode.RightShift then
                 self:ToggleVisible()
@@ -621,12 +704,18 @@ function MinecraftLib:CreateWindow(title, config)
         self._mobileToggle = ToggleBtn
     end
 
+    local viewportDebounce = false
     local function AdjustToViewport()
-        local camera = workspace.CurrentCamera
-        if not camera then return end
-        local vp = camera.ViewportSize
-        local scale = math.clamp(math.min(vp.X/(WIN_W+50), vp.Y/(WIN_H+50), 1), 0.5, 1)
-        Tween(UIScaleInst, {Scale = scale}, 0.15)
+        if viewportDebounce then return end
+        viewportDebounce = true
+        task.delay(0.1, function()
+            viewportDebounce = false
+            local camera = workspace.CurrentCamera
+            if not camera then return end
+            local vp = camera.ViewportSize
+            local scale = math.clamp(math.min(vp.X/(WIN_W+50), vp.Y/(WIN_H+50), 1), 0.5, 1)
+            Tween(UIScaleInst, {Scale = scale}, 0.15)
+        end)
     end
 
     local viewportConnection
@@ -641,7 +730,8 @@ function MinecraftLib:CreateWindow(title, config)
         AdjustToViewport()
     end
 
-    workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(WatchCamera)
+    self._cameraWatchConn = workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(WatchCamera)
+    self._getViewportConnection = function() return viewportConnection end
     WatchCamera()
 
     function self:SetTheme(name)
@@ -650,6 +740,11 @@ function MinecraftLib:CreateWindow(title, config)
         self._theme = t
         self._themeName = name
         MainBg.Image = Textures[t.BackgroundImage]
+        OnTextureReady(t.BackgroundImage, function(assetId)
+            if MainBg.Parent and self._themeName == name then
+                MainBg.Image = assetId
+            end
+        end)
         Main.BackgroundColor3 = t.Background
         TitleBar.BackgroundColor3 = t.TertiaryBG
         TabBar.BackgroundColor3 = t.SecondaryBG
@@ -671,6 +766,10 @@ function MinecraftLib:CreateWindow(title, config)
             tabInfo.btn.TextColor3 = isActive and t.TextPrimary or t.TextSecondary
             tabInfo.activeBar.BackgroundColor3 = t.Accent
             tabInfo.activeBar.Visible = isActive
+        end
+
+        for _, refresh in ipairs(self._themedRefreshers) do
+            pcall(refresh, t)
         end
     end
 
@@ -830,6 +929,14 @@ function MinecraftLib:CreateWindow(title, config)
                 Btn.Position = UDim2.new(0, 7, 0.5, -(rowH - 10)/2)
                 Invoke(callback)
             end)
+
+            self._window:RegisterThemed(function(newTheme)
+                t2 = newTheme
+                row.BackgroundColor3 = t2.Glass
+                Btn.BackgroundColor3 = t2.Accent
+                Btn.TextColor3 = t2.TextPrimary
+            end, row)
+
             return Btn
         end
 
@@ -896,6 +1003,14 @@ function MinecraftLib:CreateWindow(title, config)
             function toggle:Get()
                 return state
             end
+
+            self._window:RegisterThemed(function(newTheme)
+                t2 = newTheme
+                row.BackgroundColor3 = t2.Glass
+                lbl.TextColor3 = t2.TextPrimary
+                UpdateVisual()
+            end, row)
+
             return toggle
         end
 
@@ -992,16 +1107,21 @@ function MinecraftLib:CreateWindow(title, config)
                 end
             end)
 
-            UserInputService.InputEnded:Connect(function(inp)
+            local sliderEndedConn = UserInputService.InputEnded:Connect(function(inp)
                 if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
                     dragging = false
                 end
             end)
 
-            UserInputService.InputChanged:Connect(function(inp)
+            local sliderChangedConn = UserInputService.InputChanged:Connect(function(inp)
                 if dragging and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) then
                     SetFromInput(inp)
                 end
+            end)
+
+            row.Destroying:Connect(function()
+                sliderEndedConn:Disconnect()
+                sliderChangedConn:Disconnect()
             end)
 
             local slider = {}
@@ -1017,6 +1137,16 @@ function MinecraftLib:CreateWindow(title, config)
             function slider:Get()
                 return val
             end
+
+            self._window:RegisterThemed(function(newTheme)
+                t2 = newTheme
+                row.BackgroundColor3 = t2.Glass
+                hl.TextColor3 = t2.TextPrimary
+                ValLabel.TextColor3 = t2.TextSecondary
+                SliderBG.BackgroundColor3 = t2.SliderBG
+                SliderFill.BackgroundColor3 = t2.SliderFill
+            end, row)
+
             return slider
         end
 
@@ -1074,6 +1204,16 @@ function MinecraftLib:CreateWindow(title, config)
             function tb:Get()
                 return Box.Text
             end
+
+            self._window:RegisterThemed(function(newTheme)
+                t2 = newTheme
+                row.BackgroundColor3 = t2.Glass
+                lbl.TextColor3 = t2.TextSecondary
+                Box.BackgroundColor3 = t2.Background
+                Box.PlaceholderColor3 = t2.TextDisabled
+                Box.TextColor3 = t2.TextPrimary
+            end, row)
+
             return tb
         end
 
@@ -1126,7 +1266,7 @@ function MinecraftLib:CreateWindow(title, config)
                 BackgroundColor3 = t2.SecondaryBG,
                 BackgroundTransparency = 0.02, -- Почти непрозрачный
                 BorderSizePixel = 0,
-                ZIndex = 100,
+                ZIndex = 1000,
                 Visible = false,
                 Parent = self._window._gui,
                 ClipsDescendants = true,
@@ -1144,7 +1284,7 @@ function MinecraftLib:CreateWindow(title, config)
                 CanvasSize = UDim2.new(0, 0, 0, 0),
                 AutomaticCanvasSize = Enum.AutomaticSize.Y,
                 ClipsDescendants = true,
-                ZIndex = 101,
+                ZIndex = 1001,
                 Parent = ListFrame,
             })
             AddPadding(ListScroll, 4, 4, 4, 4)
@@ -1159,6 +1299,7 @@ function MinecraftLib:CreateWindow(title, config)
             local positionConnection = nil
             local visibilityConnection = nil
             local CloseDropdown
+            local optButtons = {}
 
             for i, opt in ipairs(options) do
                 local OptBtn = Create("TextButton", {
@@ -1171,13 +1312,14 @@ function MinecraftLib:CreateWindow(title, config)
                     Font = FONT,
                     BorderSizePixel = 0,
                     LayoutOrder = i,
-                    ZIndex = 102,
+                    ZIndex = 1002,
                     Parent = ListScroll,
                     ClipsDescendants = true,
                     TextTruncate = Enum.TextTruncate.AtEnd,
                 })
                 PixelText(OptBtn)
                 AddPadding(OptBtn, 0, 0, 8, 8)
+                table.insert(optButtons, OptBtn)
                 
                 OptBtn.MouseEnter:Connect(function()
                     Tween(OptBtn, {BackgroundColor3 = t2.Accent}, 0.14)
@@ -1304,6 +1446,27 @@ function MinecraftLib:CreateWindow(title, config)
                 end
             end)
 
+            row.Destroying:Connect(function()
+                CloseDropdown()
+                if ListFrame.Parent then
+                    ListFrame:Destroy()
+                end
+            end)
+
+            self._window:RegisterThemed(function(newTheme)
+                t2 = newTheme
+                row.BackgroundColor3 = t2.Glass
+                lbl.TextColor3 = t2.TextPrimary
+                DropBtn.BackgroundColor3 = t2.Background
+                DropBtn.TextColor3 = t2.TextPrimary
+                ListFrame.BackgroundColor3 = t2.SecondaryBG
+                ListScroll.ScrollBarImageColor3 = t2.Scrollbar
+                for _, OptBtn in ipairs(optButtons) do
+                    OptBtn.BackgroundColor3 = t2.Background
+                    OptBtn.TextColor3 = t2.TextSecondary
+                end
+            end, row)
+
             local dd = {}
             function dd:Set(v)
                 if table.find(options, v) then
@@ -1350,6 +1513,12 @@ function MinecraftLib:CreateWindow(title, config)
             function label:Get()
                 return lbl.Text
             end
+
+            self._window:RegisterThemed(function(newTheme)
+                t2 = newTheme
+                lbl.TextColor3 = t2.TextSecondary
+            end, row)
+
             return label
         end
 
@@ -1363,7 +1532,7 @@ function MinecraftLib:CreateWindow(title, config)
                 ZIndex = 4,
                 Parent = self._parent,
             })
-            Create("Frame", {
+            local sepLine = Create("Frame", {
                 Name = "Separator",
                 Size = UDim2.new(1, -18, 0, 2),
                 Position = UDim2.new(0, 9, 0.5, 0),
@@ -1373,9 +1542,10 @@ function MinecraftLib:CreateWindow(title, config)
                 ZIndex = 5,
                 Parent = row,
             })
+            local sepBg, sepLbl
             if labelText then
                 local tw = #labelText * 8 + 14
-                local bg = Create("Frame", {
+                sepBg = Create("Frame", {
                     Size = UDim2.new(0, tw, 0, 14),
                     Position = UDim2.new(0.5, -tw/2, 0, -6),
                     BackgroundColor3 = t2.Glass,
@@ -1384,7 +1554,7 @@ function MinecraftLib:CreateWindow(title, config)
                     ZIndex = 6,
                     Parent = row,
                 })
-                local lbl = Create("TextLabel", {
+                sepLbl = Create("TextLabel", {
                     Size = UDim2.new(1, 0, 1, 0),
                     BackgroundTransparency = 1,
                     Text = labelText,
@@ -1392,10 +1562,19 @@ function MinecraftLib:CreateWindow(title, config)
                     TextSize = 10,
                     Font = FONT,
                     ZIndex = 7,
-                    Parent = bg,
+                    Parent = sepBg,
                 })
-                PixelText(lbl)
+                PixelText(sepLbl)
             end
+
+            self._window:RegisterThemed(function(newTheme)
+                t2 = newTheme
+                sepLine.BackgroundColor3 = t2.Accent
+                if sepBg then
+                    sepBg.BackgroundColor3 = t2.Glass
+                    sepLbl.TextColor3 = t2.Accent
+                end
+            end, row)
         end
 
         function Tab:AddKeybind(text, defaultKey, callback)
@@ -1447,6 +1626,7 @@ function MinecraftLib:CreateWindow(title, config)
             PixelBevel(KeyBtn, t2, 1, true)
             CreateInsetShadow(KeyBtn, t2, 2)
 
+            local activeListenConn = nil
             KeyBtn.MouseButton1Click:Connect(function()
                 if listening then return end
                 listening = true
@@ -1459,18 +1639,42 @@ function MinecraftLib:CreateWindow(title, config)
                         KeyBtn.Text = inp.KeyCode.Name
                         listening = false
                         con:Disconnect()
+                        activeListenConn = nil
                         binding.key = key
                         RegisterBinding()
                     end
                 end)
+                activeListenConn = con
             end)
 
             RegisterBinding()
+
+            row.Destroying:Connect(function()
+                if activeListenConn then
+                    activeListenConn:Disconnect()
+                    activeListenConn = nil
+                end
+                for i, kb2 in ipairs(keybinds) do
+                    if kb2 == binding then
+                        table.remove(keybinds, i)
+                        break
+                    end
+                end
+            end)
 
             local kb = {}
             function kb:Get()
                 return key
             end
+
+            self._window:RegisterThemed(function(newTheme)
+                t2 = newTheme
+                row.BackgroundColor3 = t2.Glass
+                lbl.TextColor3 = t2.TextPrimary
+                KeyBtn.BackgroundColor3 = t2.Background
+                KeyBtn.TextColor3 = t2.Accent
+            end, row)
+
             return kb
         end
 
@@ -1553,6 +1757,8 @@ function MinecraftLib:CreateWindow(title, config)
             end
 
             local r, g, b = col.R, col.G, col.B
+            local rgbConns = {}
+            local rgbFills = {}
 
             local function makeRGBSlider(letter, posY, getVal, setVal)
                 local ll = Create("TextLabel", {
@@ -1605,22 +1811,26 @@ function MinecraftLib:CreateWindow(title, config)
                     end
                 end)
 
-                UserInputService.InputEnded:Connect(function(inp)
+                local endedConn = UserInputService.InputEnded:Connect(function(inp)
                     if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
                         draggingRGB = false
                     end
                 end)
 
-                UserInputService.InputChanged:Connect(function(inp)
+                local changedConn = UserInputService.InputChanged:Connect(function(inp)
                     if draggingRGB and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) then
                         apply(inp)
                     end
                 end)
+
+                table.insert(rgbConns, endedConn)
+                table.insert(rgbConns, changedConn)
+                return fill
             end
 
-            makeRGBSlider("R", 66, function() return r end, function(v) r = v; col = Color3.new(r, g, b) end)
-            makeRGBSlider("G", 84, function() return g end, function(v) g = v; col = Color3.new(r, g, b) end)
-            makeRGBSlider("B", 102, function() return b end, function(v) b = v; col = Color3.new(r, g, b) end)
+            rgbFills.R = makeRGBSlider("R", 66, function() return r end, function(v) r = v; col = Color3.new(r, g, b) end)
+            rgbFills.G = makeRGBSlider("G", 84, function() return g end, function(v) g = v; col = Color3.new(r, g, b) end)
+            rgbFills.B = makeRGBSlider("B", 102, function() return b end, function(v) b = v; col = Color3.new(r, g, b) end)
 
             local OpenBtn = Create("TextButton", {Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "", ZIndex = 6, Parent = Preview})
             OpenBtn.MouseButton1Click:Connect(function()
@@ -1628,7 +1838,7 @@ function MinecraftLib:CreateWindow(title, config)
                 Popup.Visible = open
             end)
 
-            UserInputService.InputBegan:Connect(function(inp, gp)
+            local clickAwayConn = UserInputService.InputBegan:Connect(function(inp, gp)
                 if gp or not open then return end
                 if inp.UserInputType == Enum.UserInputType.MouseButton1 then
                     local pos = inp.Position
@@ -1642,17 +1852,35 @@ function MinecraftLib:CreateWindow(title, config)
                 end
             end)
 
+            table.insert(rgbConns, clickAwayConn)
+            row.Destroying:Connect(function()
+                for _, conn in ipairs(rgbConns) do
+                    conn:Disconnect()
+                end
+            end)
+
             local cp = {}
             function cp:Set(c)
                 if typeof(c) ~= "Color3" then return end
                 col = c
                 r, g, b = c.R, c.G, c.B
                 Preview.BackgroundColor3 = c
+                rgbFills.R.Size = UDim2.new(r, 0, 1, 0)
+                rgbFills.G.Size = UDim2.new(g, 0, 1, 0)
+                rgbFills.B.Size = UDim2.new(b, 0, 1, 0)
                 Invoke(callback, c)
             end
             function cp:Get()
                 return col
             end
+
+            self._window:RegisterThemed(function(newTheme)
+                t2 = newTheme
+                row.BackgroundColor3 = t2.Glass
+                lbl.TextColor3 = t2.TextPrimary
+                Popup.BackgroundColor3 = t2.Glass
+            end, row)
+
             return cp
         end
 
@@ -1697,6 +1925,12 @@ function MinecraftLib:CreateWindow(title, config)
                 Tween(Header, {BackgroundColor3 = open and t2.TertiaryBG or t2.SecondaryBG}, 0.15)
             end)
 
+            self._window:RegisterThemed(function(newTheme)
+                t2 = newTheme
+                Header.BackgroundColor3 = open and t2.TertiaryBG or t2.SecondaryBG
+                Header.TextColor3 = t2.Accent
+            end, Header)
+
             local Sec = {}
             setmetatable(Sec, {__index = Tab})
             Sec._parent = SectionFrame
@@ -1722,7 +1956,7 @@ function MinecraftLib:CreateWindow(title, config)
             BackgroundTransparency = 0.15,
             BorderSizePixel = 0,
             ZIndex = 25,
-            Parent = NotifContainer,
+            Parent = self._notifContainer,
         })
         PixelBevel(notif, t, 2)
 
@@ -1805,6 +2039,23 @@ function MinecraftLib:CreateWindow(title, config)
     end
 
     function self:Destroy()
+        if self._keybindConn then
+            self._keybindConn:Disconnect()
+            self._keybindConn = nil
+        end
+        if self._toggleHotkeyConn then
+            self._toggleHotkeyConn:Disconnect()
+            self._toggleHotkeyConn = nil
+        end
+        if self._cameraWatchConn then
+            self._cameraWatchConn:Disconnect()
+            self._cameraWatchConn = nil
+        end
+        if self._getViewportConnection then
+            local vc = self._getViewportConnection()
+            if vc then vc:Disconnect() end
+            self._getViewportConnection = nil
+        end
         if self._gui then
             self._gui:Destroy()
             self._gui = nil
