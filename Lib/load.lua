@@ -532,9 +532,26 @@ function MinecraftLib:CreateWindow(title, config)
     PixelBevel(CloseBtn, self._theme, 1)
     CreateInsetShadow(CloseBtn, self._theme, 2)
 
+    -- Minimize button (свернуть)
+    local MinimizeBtn = Create("TextButton", {
+        Size = UDim2.new(0, BtnSize, 0, BtnSize),
+        Position = UDim2.new(1, -BtnSize*2 - 10, 0.5, -BtnSize/2),
+        BackgroundColor3 = self._theme.SecondaryBG,
+        Text = "–",
+        TextColor3 = Color3.fromRGB(255,255,255),
+        TextSize = 14,
+        Font = FONT,
+        BorderSizePixel = 0,
+        ZIndex = 5,
+        Parent = TitleBar,
+    })
+    PixelText(MinimizeBtn)
+    PixelBevel(MinimizeBtn, self._theme, 1)
+    CreateInsetShadow(MinimizeBtn, self._theme, 2)
+
     local ThemeBtn = Create("TextButton", {
         Size = UDim2.new(0, self._mobile and 52 or 64, 0, self._mobile and 20 or 22),
-        Position = UDim2.new(1, -BtnSize - (self._mobile and 64 or 78), 0.5, -(self._mobile and 10 or 11)),
+        Position = UDim2.new(1, -BtnSize*2 - (self._mobile and 76 or 90), 0.5, -(self._mobile and 10 or 11)),
         BackgroundColor3 = self._theme.SecondaryBG,
         Text = "OW",
         TextColor3 = self._theme.TextSecondary,
@@ -607,6 +624,169 @@ function MinecraftLib:CreateWindow(title, config)
 
     MakeDraggable(Main, TitleBar)
 
+    -- ================================================================
+    -- RESIZE HANDLE (уголок изменения размера, правый нижний угол)
+    -- ================================================================
+    local RESIZE_SIZE = 18
+    local MIN_WIN_W   = 300
+    local MIN_WIN_H   = 200
+
+    local ResizeHandle = Create("Frame", {
+        Name       = "ResizeHandle",
+        Size       = UDim2.new(0, RESIZE_SIZE, 0, RESIZE_SIZE),
+        Position   = UDim2.new(1, -RESIZE_SIZE, 1, -RESIZE_SIZE),
+        BackgroundColor3 = self._theme.Accent,
+        BackgroundTransparency = 0.45,
+        BorderSizePixel = 0,
+        ZIndex     = 10,
+        Parent     = Main,
+    })
+    -- Minecraft-style diagonal stripes on the handle
+    for i = 1, 3 do
+        local off = i * 5
+        Create("Frame", {
+            Size = UDim2.new(0, 2, 0, RESIZE_SIZE - off + 2),
+            Position = UDim2.new(0, RESIZE_SIZE - off - 2, 1, -(RESIZE_SIZE - off + 2)),
+            BackgroundColor3 = self._theme.BevelLight,
+            BackgroundTransparency = 0.5,
+            BorderSizePixel = 0,
+            ZIndex = 11,
+            Parent = ResizeHandle,
+        })
+    end
+
+    -- Resize interaction
+    local resizing      = false
+    local resizeStart   = nil
+    local resizeOriginW = WIN_W
+    local resizeOriginH = WIN_H
+
+    local resizeBeganConn = ResizeHandle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            resizing      = true
+            resizeStart   = input.Position
+            resizeOriginW = Main.AbsoluteSize.X
+            resizeOriginH = Main.AbsoluteSize.Y
+        end
+    end)
+
+    local resizeChangedConn = UserInputService.InputChanged:Connect(function(input)
+        if not resizing then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseMovement
+        and input.UserInputType ~= Enum.UserInputType.Touch then return end
+
+        local delta  = input.Position - resizeStart
+        local newW   = math.max(MIN_WIN_W, resizeOriginW + delta.X)
+        local newH   = math.max(MIN_WIN_H, resizeOriginH + delta.Y)
+        Main.Size    = UDim2.new(0, newW, 0, newH)
+    end)
+
+    local resizeEndedConn = UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            resizing = false
+        end
+    end)
+
+    ResizeHandle.Destroying:Connect(function()
+        resizeBeganConn:Disconnect()
+        resizeChangedConn:Disconnect()
+        resizeEndedConn:Disconnect()
+    end)
+
+    -- Hover tint on resize handle
+    ResizeHandle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            Tween(ResizeHandle, {BackgroundTransparency = 0.2}, 0.1)
+        end
+    end)
+    ResizeHandle.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement and not resizing then
+            Tween(ResizeHandle, {BackgroundTransparency = 0.45}, 0.1)
+        end
+    end)
+    ResizeHandle.MouseEnter:Connect(function()
+        Tween(ResizeHandle, {BackgroundTransparency = 0.2}, 0.1)
+    end)
+    ResizeHandle.MouseLeave:Connect(function()
+        if not resizing then
+            Tween(ResizeHandle, {BackgroundTransparency = 0.45}, 0.1)
+        end
+    end)
+
+    -- ================================================================
+    -- MINIMIZE / MAXIMIZE / RESTORE (свернуть / развернуть / восстановить)
+    -- ================================================================
+    local _minimized   = false
+    local _maximized   = false
+    local _savedSize   = UDim2.new(0, WIN_W, 0, WIN_H)
+    local _savedPos    = UDim2.new(0.5, -WIN_W/2, 0.5, -WIN_H/2)
+    local _savedScale  = 1
+    local TITLE_H      = self._mobile and 36 or 42
+
+    local function MinimizeWindow()
+        if _minimized then
+            -- Restore
+            _minimized = false
+            MinimizeBtn.Text = "–"
+            Main.ClipsDescendants = false
+            Tween(Main, {Size = _savedSize, Position = _savedPos}, 0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+        else
+            -- Minimize → collapse to title bar only
+            _savedSize  = Main.Size
+            _savedPos   = Main.Position
+            _minimized  = true
+            MinimizeBtn.Text = "□"
+            Tween(Main, {Size = UDim2.new(0, Main.AbsoluteSize.X, 0, TITLE_H)}, 0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+            task.delay(0.23, function()
+                if _minimized and Main.Parent then
+                    Main.ClipsDescendants = true
+                end
+            end)
+        end
+    end
+
+    -- Double-click on TitleBar = maximize/restore (как в Windows)
+    local _lastTitleClick = 0
+    TitleBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            local now = tick()
+            if now - _lastTitleClick < 0.35 then
+                -- Double-click detected
+                local camera = workspace.CurrentCamera
+                local vp    = camera and camera.ViewportSize or Vector2.new(1280, 720)
+                if _maximized then
+                    -- Restore
+                    _maximized = false
+                    Tween(Main, {Size = _savedSize, Position = _savedPos}, 0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+                else
+                    -- Maximize
+                    _savedSize = Main.Size
+                    _savedPos  = Main.Position
+                    _maximized = true
+                    local margin = 4
+                    Tween(Main, {
+                        Size     = UDim2.new(0, vp.X - margin*2, 0, vp.Y - margin*2),
+                        Position = UDim2.new(0, margin, 0, margin),
+                    }, 0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                end
+            end
+            _lastTitleClick = now
+        end
+    end)
+
+    -- Minimize button events
+    MinimizeBtn.MouseEnter:Connect(function()
+        Tween(MinimizeBtn, {BackgroundColor3 = Color3.fromRGB(180, 140, 40)}, 0.15)
+    end)
+    MinimizeBtn.MouseLeave:Connect(function()
+        Tween(MinimizeBtn, {BackgroundColor3 = self._theme.SecondaryBG}, 0.15)
+    end)
+    MinimizeBtn.MouseButton1Click:Connect(MinimizeWindow)
+
+    -- Update ResizeHandle color on theme change (done via RegisterThemed below)
+
     CloseBtn.MouseEnter:Connect(function()
         Tween(CloseBtn, {BackgroundColor3 = Color3.fromRGB(220,70,60)}, 0.15)
     end)
@@ -614,7 +794,9 @@ function MinecraftLib:CreateWindow(title, config)
         Tween(CloseBtn, {BackgroundColor3 = self._theme.CloseBtn}, 0.15)
     end)
     CloseBtn.MouseButton1Click:Connect(function()
-        Tween(Main, {Size = UDim2.new(0,0,0,0), Position = UDim2.new(Main.Position.X.Scale, Main.Position.X.Offset+WIN_W/2, Main.Position.Y.Scale, Main.Position.Y.Offset+WIN_H/2)}, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+        local cx = Main.Position.X.Offset + Main.AbsoluteSize.X/2
+        local cy = Main.Position.Y.Offset + Main.AbsoluteSize.Y/2
+        Tween(Main, {Size = UDim2.new(0,0,0,0), Position = UDim2.new(Main.Position.X.Scale, cx, Main.Position.Y.Scale, cy)}, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In)
         if self._shadow then
             Tween(self._shadow, {ImageTransparency = 1}, 0.25)
         end
@@ -752,9 +934,11 @@ function MinecraftLib:CreateWindow(title, config)
         BottomBar.BackgroundColor3 = t.Accent
         TitleLabel.TextColor3 = t.Title
         CloseBtn.BackgroundColor3 = t.CloseBtn
+        MinimizeBtn.BackgroundColor3 = t.SecondaryBG
         ThemeBtn.BackgroundColor3 = t.SecondaryBG
         ThemeBtn.TextColor3 = t.TextSecondary
-        
+        ResizeHandle.BackgroundColor3 = t.Accent
+
         -- Обновление тени
         if self._shadow then
             self._shadow.ImageColor3 = t.Shadow
