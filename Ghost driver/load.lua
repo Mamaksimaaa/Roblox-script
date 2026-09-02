@@ -1,6 +1,6 @@
 --alpha version
 --[[
-    IRY HUB - Dead Rails (AutoFarm / Traffic Magic)
+    IRY HUB - Ghost Driver (AutoFarm / Traffic Magic)
     Адаптировано под MinecraftLib
     Создатель: @hodbush
     Discord: https://discord.gg/YvZaukBdu
@@ -248,7 +248,7 @@ local AutoFarmTab = Window:AddTab("Auto Farm")
 local MiscTab = Window:AddTab("Misc")
 
 -- ==================== MAIN TAB ====================
-MainTab:AddLabel("IRY HUB - Dead Rails")
+MainTab:AddLabel("IRY HUB - Ghost driver")
 MainTab:AddSeparator("Информация")
 MainTab:AddLabel("Создатель: @hodbush")
 MainTab:AddLabel("Discord: IRY HUB (discord.gg/YvZaukBdu)")
