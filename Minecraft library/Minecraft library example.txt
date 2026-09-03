@@ -34,7 +34,7 @@
 --       AutoLoad     (bool)    — загружать autosave при старте (работает вместе с AutoSave)
 --       Scale        (number)  — начальный масштаб UI (0.5 – 1.5)
 
-local MinecraftLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/YOUR_REPO/main/MinecraftLib.lua"))()
+local MinecraftLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/Mamaksimaaa/Roblox-script/refs/heads/main/Lib/load.lua"))()
 
 local Window = MinecraftLib:CreateWindow({
     Title       = "My Minecraft UI",
