@@ -1,223 +1,1013 @@
--- Загрузка библиотеки
-local MinecraftLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/Mamaksimaaa/Roblox-script/refs/heads/main/Lib/load.lua"))()
+-- ============================================================
+--   MinecraftLib v3.3  —  ПОЛНЫЙ ПРИМЕР ВСЕХ ФУНКЦИЙ
+--   Модель: Claude Sonnet 4.6 (claude-sonnet-4-6)
+--   Создано для: Roblox (исполнитель скриптов: Synapse X / KRNL / Fluxus)
+-- ============================================================
+--
+--   КАК ПОДКЛЮЧИТЬ БИБЛИОТЕКУ:
+--   Способ 1 — loadstring (рекомендуется):
+--       local MinecraftLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/Mamaksimaaa/Roblox-script/refs/heads/main/Lib/load.lua"))()
+--
+--
+-- ============================================================
 
--- Создание окна
-local Window = MinecraftLib:CreateWindow("Minecraft UI v3", {
-    Theme = "Overworld" -- Overworld / Nether / End
+
+-- ============================================================
+-- ШАГ 1: СОЗДАНИЕ ОКНА  (MinecraftLib:CreateWindow)
+-- ============================================================
+--
+--   Сигнатура:
+--       MinecraftLib:CreateWindow(title, config)
+--       MinecraftLib:CreateWindow(config)   -- можно без отдельного title
+--
+--   Псевдонимы:
+--       MinecraftLib.Window(...)
+--       MinecraftLib.New(...)
+--
+--   Параметры config:
+--       Title        (string)  — заголовок окна
+--       Theme        (string)  — тема по умолчанию: "Overworld"|"Nether"|"End"|"Sea"|"Sky"
+--       ToggleKey    (string|EnumItem) — клавиша показа/скрытия; по умолчанию RightShift
+--       Size         ({X=, Y=}) — начальный размер окна в пикселях
+--       ConfigFolder (string)  — папка для сохранения конфигов (по умолчанию — название окна)
+--       AutoSave     (bool)    — автоматически сохранять конфиг при любом изменении
+--       AutoLoad     (bool)    — загружать autosave при старте (работает вместе с AutoSave)
+--       Scale        (number)  — начальный масштаб UI (0.5 – 1.5)
+
+local MinecraftLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/YOUR_REPO/main/MinecraftLib.lua"))()
+
+local Window = MinecraftLib:CreateWindow({
+    Title       = "My Minecraft UI",
+    Theme       = "Overworld",   -- стартовая тема
+    ToggleKey   = "RightShift",  -- Enum.KeyCode.RightShift
+    Size        = {X = 620, Y = 460},
+    ConfigFolder = "MyScript",
+    AutoSave    = true,
+    AutoLoad    = true,
+    Scale       = 1.0,
 })
 
--- ==================== ВКЛАДКА 1: Main ====================
-local MainTab = Window:AddTab("Main")
+-- После создания окно сразу видно на экране.
+-- На мобильных устройствах автоматически появляется плавающая кнопка "M".
+-- В заголовке есть: иконка блока травы, название, кнопка темы (OW/NT/ED/SE/SK),
+-- кнопка свернуть (–), кнопка закрыть (×).
+-- Двойной клик по заголовку — максимизировать/восстановить.
+-- Правый нижний угол — ресайз-хэндл.
 
-MainTab:AddLabel("Welcome to Minecraft UI!")
 
-MainTab:AddButton("Click Me!", function()
-    Window:Notify("Button", "You clicked the button!", 3)
+-- ============================================================
+-- ШАГ 2: МЕТОДЫ ОКНА
+-- ============================================================
+
+-- Скрыть окно (анимация сжатия)
+Window:Hide()
+
+-- Показать окно (анимация разворачивания)
+Window:Show()
+
+-- Переключить видимость
+Window:ToggleVisible()
+
+-- Изменить заголовок в шапке окна
+Window:SetTitle("Новый заголовок")
+
+-- Изменить клавишу переключения (принимает строку или EnumItem)
+Window:SetToggleKey("RightAlt")
+
+-- Изменить масштаб UI (0.5 = 50%, 1.5 = 150%)
+Window:SetScale(1.1)
+
+-- Сменить тему
+--   Доступные встроенные темы: "Overworld", "Nether", "End", "Sea", "Sky"
+Window:SetTheme("Nether")
+
+-- Получить текущую тему
+local theme, themeName = Window:GetTheme()
+-- theme    — таблица с цветами (Color3 значения)
+-- themeName — строка, например "Nether"
+
+-- Получить список всех тем
+local allThemes = Window:GetThemes()
+-- вернёт {"Overworld", "Nether", "End", "Sea", "Sky", ...ваши кастомные...}
+
+-- Добавить кастомную тему
+--   Первый аргумент — название, второй — таблица переопределений.
+--   Все недостающие поля берутся из темы "Overworld".
+MinecraftLib:AddTheme("MyTheme", {
+    Background    = Color3.fromRGB(20, 20, 30),
+    Accent        = Color3.fromRGB(100, 200, 255),
+    AccentHover   = Color3.fromRGB(130, 220, 255),
+    AccentPress   = Color3.fromRGB(70, 160, 220),
+    TextPrimary   = Color3.fromRGB(255, 255, 255),
+    TextSecondary = Color3.fromRGB(180, 200, 220),
+    -- остальные поля = Overworld
+})
+Window:SetTheme("MyTheme")
+
+
+-- ============================================================
+-- ШАГ 3: ВОДЯНОЙ ЗНАК (SetWatermark)
+-- ============================================================
+--
+--   Показывает плавающий HUD в верхнем левом углу экрана.
+--   Отображает: название скрипта | FPS | Ping (мс).
+--   Водяной знак можно перетаскивать мышью.
+--
+--   Window:SetWatermark(enabled, text)
+--       enabled (bool)   — включить/выключить
+--       text    (string) — текст перед FPS/Ping (необязательно)
+
+Window:SetWatermark(true, "MyScript v1.0")
+-- Теперь показывает: "MyScript v1.0  |  120 FPS  |  32 ms"
+
+Window:SetWatermark(false) -- скрыть водяной знак
+
+
+-- ============================================================
+-- ШАГ 4: УВЕДОМЛЕНИЯ (Notify)
+-- ============================================================
+--
+--   Появляются в правом нижнем углу экрана, стекируются (до 6 штук),
+--   содержат прогресс-бар и кнопку закрытия (клик по уведомлению).
+--
+--   Сигнатура 1 (короткая):
+--       Window:Notify(title, message, duration, type)
+--
+--   Сигнатура 2 (таблица):
+--       Window:Notify({
+--           Title    = "...",
+--           Content  = "...",   -- (псевдоним: Message, Text)
+--           Duration = 5,       -- секунд (по умолчанию 4)
+--           Type     = "...",   -- "Success" | "Warning" | "Error" | nil (accent-цвет)
+--       })
+--
+--   Псевдоним: Window.Notification(...)
+--
+--   Возвращает: { Dismiss = function }
+
+local notif = Window:Notify("Заголовок", "Текст уведомления", 4)
+notif.Dismiss() -- закрыть вручную
+
+Window:Notify({Title="Успех!", Content="Конфиг сохранён.", Type="Success"})
+Window:Notify({Title="Внимание", Content="Включите функцию X.", Type="Warning", Duration=6})
+Window:Notify({Title="Ошибка", Content="Не удалось загрузить.", Type="Error"})
+
+
+-- ============================================================
+-- ШАГ 5: ДИАЛОГ (Dialog)
+-- ============================================================
+--
+--   Модальное окно поверх UI с кнопками.
+--   Блокирует клики по основному окну до нажатия кнопки.
+--
+--   Window:Dialog({
+--       Title   = "...",
+--       Content = "...",
+--       Buttons = {
+--           { Text = "OK",     Callback = function() end },
+--           { Text = "Cancel", Callback = function() end },
+--       }
+--   })
+--
+--   Первая кнопка всегда крашена цветом Accent.
+--   Возвращает: { Close = function }
+
+local dialog = Window:Dialog({
+    Title   = "Подтверждение",
+    Content = "Вы уверены, что хотите сбросить все настройки?",
+    Buttons = {
+        {
+            Text     = "Да, сбросить",
+            Callback = function()
+                print("Сброс выполнен!")
+            end,
+        },
+        {
+            Text     = "Отмена",
+            Callback = function()
+                print("Отменено")
+            end,
+        },
+    },
+})
+
+-- Закрыть диалог программно (без нажатия кнопки):
+-- dialog.Close()
+
+
+-- ============================================================
+-- ШАГ 6: ВКЛАДКИ (AddTab)
+-- ============================================================
+--
+--   Вкладки — вертикальный список кнопок слева.
+--   Первая добавленная вкладка открывается автоматически.
+--
+--   Window:AddTab(name)           — строка
+--   Window:AddTab({Name=..., Icon=...}) — таблица (Icon — rbxassetid://)
+--
+--   Псевдонимы: Window.Tab, Window.CreateTab
+--
+--   Методы объекта Tab:
+--       Tab:Select()        — программно выбрать вкладку
+--       Tab.Name            — название вкладки
+--       Tab:AddNotify(...)  — псевдоним Window:Notify
+--
+--   Все Add-методы доступны напрямую через Tab (AddButton, AddToggle и т.д.)
+--   а также через псевдонимы: Tab.Button, Tab.Toggle, Tab.Slider,
+--   Tab.Textbox, Tab.Input, Tab.Dropdown, Tab.Label, Tab.Paragraph,
+--   Tab.Keybind, Tab.ColorPicker, Tab.Section, Tab.Separator
+
+local MainTab     = Window:AddTab("Main")
+local SettingsTab = Window:AddTab({Name = "Visual", Icon = "rbxassetid://123456"})
+local PlayerTab   = Window:AddTab("Player")
+
+-- Переключиться на вкладку программно:
+Window:SelectTab("Main")   -- вернёт true если найдена, false если нет
+
+
+-- ============================================================
+-- ШАГ 7: СЕКЦИИ (AddSection)
+-- ============================================================
+--
+--   Складная группа элементов внутри вкладки.
+--   Клик по заголовку секции сворачивает/разворачивает содержимое.
+--
+--   Tab:AddSection(title, defaultOpen)
+--       title       (string) — заголовок
+--       defaultOpen (bool)   — открыта по умолчанию (true)
+--
+--   Возвращает объект Section, который имеет те же Add-методы, что и Tab.
+--   Методы секции:
+--       Section:SetOpen(bool)   — свернуть/развернуть
+--       Section:Destroy()       — удалить секцию и её содержимое
+
+local CombatSection  = MainTab:AddSection("Combat", true)   -- открыта
+local VisualSection  = MainTab:AddSection("Visuals", false) -- закрыта
+local MiscSection    = MainTab:AddSection("Misc")           -- открыта по умолчанию
+
+-- Добавить элемент внутрь секции — то же самое, что в Tab:
+-- CombatSection:AddToggle(...)
+-- CombatSection:AddSlider(...)
+-- и т.д.
+
+-- Закрыть секцию из кода:
+MiscSection:SetOpen(false)
+
+
+-- ============================================================
+-- ШАГ 8: КНОПКА (AddButton)
+-- ============================================================
+--
+--   Сигнатура 1 (позиционная):
+--       Tab:AddButton(text, callback)
+--
+--   Сигнатура 2 (таблица):
+--       Tab:AddButton({
+--           Name     = "...",
+--           Callback = function() end,
+--           Tooltip  = "...",   -- подсказка при наведении (только ПК)
+--       })
+--
+--   Возвращает объект с методами:
+--       el:SetText(string)      — изменить текст кнопки
+--       el:SetCallback(fn)      — изменить обработчик
+--       el:SetVisible(bool)     — показать/скрыть
+--       el:SetEnabled(bool)     — включить/отключить (затемняет элемент)
+--       el:IsEnabled()          — bool
+--       el:Destroy()            — удалить элемент
+
+local KillAuraBtn = CombatSection:AddButton({
+    Name    = "Trigger Kill Aura",
+    Tooltip = "Атакует ближайшего игрока",
+    Callback = function()
+        print("Kill Aura triggered!")
+        Window:Notify("Combat", "Kill Aura активирован!", 2, "Success")
+    end,
+})
+
+-- Поменять текст через код:
+KillAuraBtn:SetText("Aura Active")
+-- Заблокировать кнопку:
+KillAuraBtn:SetEnabled(false)
+-- Разблокировать:
+KillAuraBtn:SetEnabled(true)
+
+
+-- ============================================================
+-- ШАГ 9: ПЕРЕКЛЮЧАТЕЛЬ (AddToggle)
+-- ============================================================
+--
+--   Сигнатура 1 (позиционная):
+--       Tab:AddToggle(text, default, callback)
+--
+--   Сигнатура 2 (таблица):
+--       Tab:AddToggle({
+--           Name     = "...",
+--           Default  = false,
+--           Callback = function(value) end,  -- value: bool
+--           Flag     = "...",    -- уникальный ключ для системы конфигов
+--           Keybind  = "...",    -- клавиша быстрого переключения (строка/EnumItem)
+--           Tooltip  = "...",
+--       })
+--
+--   Возвращает объект с методами:
+--       el:Set(bool, silent)    — установить значение (silent=true → без Callback)
+--       el:Get()                — вернуть текущее bool значение
+--       el:Toggle()             — инвертировать
+--       el:SetText(string)      — изменить подпись
+--       el:SetKeybind(key)      — изменить горячую клавишу
+--       + стандартные SetVisible/SetEnabled/IsEnabled/Destroy
+
+local AimbotToggle = CombatSection:AddToggle({
+    Name    = "Aimbot",
+    Default = false,
+    Flag    = "aimbot_enabled",   -- используется при сохранении конфига
+    Keybind = "H",                -- Toggle по нажатию H
+    Tooltip = "Автоматическое прицеливание",
+    Callback = function(value)
+        if value then
+            print("Aimbot включён")
+        else
+            print("Aimbot выключен")
+        end
+    end,
+})
+
+-- Включить программно (без вызова Callback):
+AimbotToggle:Set(true, true)
+
+-- Включить и вызвать Callback:
+AimbotToggle:Set(true)
+
+-- Переключить:
+AimbotToggle:Toggle()
+
+-- Прочитать состояние:
+local isOn = AimbotToggle:Get()
+print("Aimbot state:", isOn)
+
+
+-- ============================================================
+-- ШАГ 10: СЛАЙДЕР (AddSlider)
+-- ============================================================
+--
+--   Сигнатура 1 (позиционная):
+--       Tab:AddSlider(text, min, max, default, callback)
+--
+--   Сигнатура 2 (таблица):
+--       Tab:AddSlider({
+--           Name     = "...",
+--           Min      = 0,
+--           Max      = 100,
+--           Default  = 50,
+--           Step     = 1,       -- шаг (поддерживает дробные: 0.1, 0.5 и т.д.)
+--           Suffix   = "",      -- строка после числа, например " m" или "%"
+--           Callback = function(value) end,  -- value: number
+--           Flag     = "...",
+--           Tooltip  = "...",
+--       })
+--
+--   Значение можно ввести вручную, кликнув на число справа.
+--
+--   Возвращает объект с методами:
+--       el:Set(number, silent)        — установить значение
+--       el:Get()                      — вернуть текущее число
+--       el:SetRange(min, max)         — изменить диапазон
+--       + стандартные SetVisible/SetEnabled/IsEnabled/Destroy
+
+local SpeedSlider = PlayerTab:AddSlider({
+    Name     = "Walk Speed",
+    Min      = 16,
+    Max      = 500,
+    Default  = 16,
+    Step     = 1,
+    Suffix   = " studs/s",
+    Flag     = "walk_speed",
+    Tooltip  = "Скорость ходьбы персонажа",
+    Callback = function(value)
+        local char = game.Players.LocalPlayer.Character
+        if char and char:FindFirstChild("Humanoid") then
+            char.Humanoid.WalkSpeed = value
+        end
+    end,
+})
+
+-- Маленький шаг (дробный):
+local FOVSlider = VisualSection:AddSlider({
+    Name     = "FOV",
+    Min      = 50,
+    Max      = 120,
+    Default  = 70,
+    Step     = 0.5,
+    Suffix   = "°",
+    Flag     = "camera_fov",
+    Callback = function(v)
+        workspace.CurrentCamera.FieldOfView = v
+    end,
+})
+
+-- Изменить значение из кода:
+SpeedSlider:Set(200)
+
+-- Изменить диапазон:
+SpeedSlider:SetRange(0, 1000)
+
+
+-- ============================================================
+-- ШАГ 11: ТЕКСТОВОЕ ПОЛЕ (AddTextbox / AddInput)
+-- ============================================================
+--
+--   Сигнатура 1 (позиционная):
+--       Tab:AddTextbox(text, placeholder, callback)
+--
+--   Сигнатура 2 (таблица):
+--       Tab:AddTextbox({
+--           Name                = "...",
+--           Placeholder         = "...",
+--           Default             = "",
+--           Callback            = function(text) end,  -- срабатывает при Enter
+--           CallbackOnFocusLost = false,  -- срабатывать при потере фокуса (не только Enter)
+--           OnChange            = function(text) end,  -- срабатывает при каждом символе
+--           Numeric             = false,  -- принимать только числа
+--           Flag                = "...",
+--           Tooltip             = "...",
+--       })
+--
+--   Псевдоним: Tab.Input
+--
+--   Возвращает объект с методами:
+--       el:Set(string, silent)  — задать значение
+--       el:Get()                — вернуть текущий текст
+--       el.Box                  — ссылка на экземпляр TextBox
+--       + стандартные SetVisible/SetEnabled/IsEnabled/Destroy
+
+local TargetBox = CombatSection:AddTextbox({
+    Name        = "Target Name",
+    Placeholder = "Введите имя игрока...",
+    Default     = "",
+    Flag        = "target_name",
+    Callback    = function(text)
+        print("Цель:", text)
+    end,
+})
+
+local PortBox = MiscSection:AddTextbox({
+    Name        = "Port",
+    Placeholder = "8080",
+    Numeric     = true,
+    CallbackOnFocusLost = true,
+    Callback    = function(text)
+        print("Port set to:", text)
+    end,
+})
+
+-- Задать значение из кода:
+TargetBox:Set("PlayerName123")
+-- Прочитать:
+local name = TargetBox:Get()
+
+
+-- ============================================================
+-- ШАГ 12: ВЫПАДАЮЩИЙ СПИСОК (AddDropdown)
+-- ============================================================
+--
+--   Сигнатура 1 (позиционная):
+--       Tab:AddDropdown(text, options, callback)
+--
+--   Сигнатура 2 (таблица):
+--       Tab:AddDropdown({
+--           Name       = "...",
+--           Options    = {"A", "B", "C"},
+--           Default    = "A",           -- одиночный выбор
+--           Multi      = false,         -- режим множественного выбора
+--           Searchable = nil,           -- true/false (по умолчанию авто: >8 опций → true)
+--           Callback   = function(value) end,
+--               -- одиночный: value = string
+--               -- Multi:    value = {string, ...}
+--           Flag       = "...",
+--           Tooltip    = "...",
+--       })
+--
+--   Возвращает объект с методами:
+--       el:Set(value, silent)         — задать выбор
+--       el:Get()                      — вернуть текущий выбор
+--       el:Refresh(newOptions, keep)  — обновить список опций
+--           keep = true → сохранить текущий выбор если он ещё в списке
+--       el:Close()                    — закрыть выпадающий список
+--       el:GetOptions()               — вернуть копию текущего списка опций
+--       + стандартные SetVisible/SetEnabled/IsEnabled/Destroy
+
+local WeaponDropdown = CombatSection:AddDropdown({
+    Name     = "Weapon",
+    Options  = {"Sword", "Axe", "Bow", "Crossbow", "Trident"},
+    Default  = "Sword",
+    Flag     = "weapon_type",
+    Tooltip  = "Выберите основное оружие",
+    Callback = function(value)
+        print("Выбрано оружие:", value)
+    end,
+})
+
+-- Множественный выбор:
+local BuffsDropdown = VisualSection:AddDropdown({
+    Name    = "Active Buffs",
+    Options = {"Speed", "Jump Boost", "Strength", "Resistance", "Night Vision"},
+    Multi   = true,
+    Default = {"Speed", "Strength"},
+    Flag    = "active_buffs",
+    Callback = function(values)
+        print("Активные баффы:", table.concat(values, ", "))
+    end,
+})
+
+-- Обновить список динамически:
+local playerNames = {}
+for _, p in ipairs(game.Players:GetPlayers()) do
+    table.insert(playerNames, p.Name)
+end
+WeaponDropdown:Refresh(playerNames, false)
+
+-- Прочитать значение:
+local currentWeapon = WeaponDropdown:Get()
+local currentBuffs  = BuffsDropdown:Get()  -- таблица строк при Multi=true
+
+
+-- ============================================================
+-- ШАГ 13: ГОРЯЧАЯ КЛАВИША (AddKeybind)
+-- ============================================================
+--
+--   Отображает кнопку с текущей клавишей, клик → режим ожидания ("..."),
+--   затем нажмите любую клавишу — она запишется.
+--   Escape = отменить. Backspace/Delete = очистить (None).
+--
+--   Сигнатура (таблица):
+--       Tab:AddKeybind({
+--           Name      = "...",
+--           Default   = "F",             -- строка или EnumItem
+--           Callback  = function(pressed) end,  -- pressed: bool (Press-режим не передаёт)
+--           OnChanged = function(key) end,      -- key: EnumItem или nil
+--           Mode      = "Press",         -- "Press" — один раз при нажатии
+--                                        -- "Hold"  — Callback(true) при зажатии, Callback(false) при отпускании
+--           Flag      = "...",
+--           Tooltip   = "...",
+--       })
+--
+--   Возвращает объект с методами:
+--       el:Get()                — вернуть EnumItem или nil
+--       el:Set(key, silent)     — задать клавишу
+--       el:SetCallback(fn)      — изменить обработчик
+--       + стандартные SetVisible/SetEnabled/IsEnabled/Destroy
+
+local SprintKey = PlayerTab:AddKeybind({
+    Name    = "Sprint Key",
+    Default = "LeftShift",
+    Mode    = "Hold",
+    Flag    = "sprint_key",
+    Callback = function(held)
+        local char = game.Players.LocalPlayer.Character
+        if char and char:FindFirstChild("Humanoid") then
+            char.Humanoid.WalkSpeed = held and 32 or 16
+        end
+    end,
+    OnChanged = function(key)
+        print("Новая клавиша спринта:", key and key.Name or "None")
+    end,
+})
+
+local PanicKey = MiscSection:AddKeybind({
+    Name    = "Panic / Hide UI",
+    Default = "Delete",
+    Mode    = "Press",
+    Flag    = "panic_key",
+    Callback = function()
+        Window:ToggleVisible()
+    end,
+})
+
+-- Прочитать текущую клавишу:
+local key = SprintKey:Get()
+if key then print(key.Name) end
+
+
+-- ============================================================
+-- ШАГ 14: ЦВЕТОВОЙ ПИКЕР (AddColorPicker)
+-- ============================================================
+--
+--   Открывается всплывающим окном при клике на цветной квадрат.
+--   Содержит: SV-поле, полосу оттенка (Hue), опциональный Alpha-канал,
+--   HEX-поле для ввода, RGB-метка, 9 цветовых пресетов.
+--
+--   Сигнатура (таблица):
+--       Tab:AddColorPicker({
+--           Name               = "...",
+--           Default            = Color3.fromRGB(255, 0, 0),
+--           Alpha              = false,            -- включить канал прозрачности
+--           DefaultTransparency = 0,               -- начальное значение прозрачности (0=непрозрачный)
+--           Callback           = function(color, alpha) end,
+--               -- color: Color3
+--               -- alpha: number (0–1) — только если Alpha=true
+--           Flag    = "...",
+--           Tooltip = "...",
+--       })
+--
+--   Возвращает объект с методами:
+--       el:Get()                        — вернуть Color3
+--       el:Set(color, silent)           — задать Color3
+--       el:GetHex()                     — вернуть строку "#RRGGBB"
+--       el:GetTransparency()            — вернуть transparency (0–1), только если Alpha=true
+--       el:SetTransparency(val, silent) — задать transparency
+--       el:Close()                      — закрыть пикер
+--       + стандартные SetVisible/SetEnabled/IsEnabled/Destroy
+
+local ChamsColor = VisualSection:AddColorPicker({
+    Name    = "Chams Color",
+    Default = Color3.fromRGB(255, 0, 0),
+    Flag    = "chams_color",
+    Callback = function(color)
+        print("Новый цвет чамсов:", color)
+        -- Применить ко всем NPC:
+        for _, model in ipairs(workspace:GetDescendants()) do
+            if model:IsA("BasePart") and model.Parent:FindFirstChild("Humanoid") then
+                model.Color = color
+            end
+        end
+    end,
+})
+
+-- С поддержкой прозрачности:
+local ESPColor = VisualSection:AddColorPicker({
+    Name               = "ESP Box Color",
+    Default            = Color3.fromRGB(0, 200, 255),
+    Alpha              = true,
+    DefaultTransparency = 0.2,
+    Flag               = "esp_color",
+    Callback = function(color, alpha)
+        print(string.format("ESP: %s, alpha=%d%%", tostring(color), math.floor((1-alpha)*100)))
+    end,
+})
+
+-- Прочитать из кода:
+local col = ChamsColor:Get()
+local hex = ChamsColor:GetHex()      -- "#FF0000"
+local tr  = ESPColor:GetTransparency()
+
+
+-- ============================================================
+-- ШАГ 15: ПОДПИСЬ (AddLabel)
+-- ============================================================
+--
+--   Однострочный текст. Обычно используется для заголовков или статуса.
+--
+--   Tab:AddLabel(text)
+--   Tab:AddLabel({Name = "..."})
+--
+--   Псевдоним: Tab.Label
+--
+--   Возвращает объект с методами:
+--       el:Set(string)  — изменить текст (добавляет "» " в начало)
+--       el:Get()        — вернуть текст без "» "
+--       el.Label        — ссылка на экземпляр TextLabel
+--       + стандартные SetVisible/Destroy
+
+local StatusLabel = MainTab:AddLabel("Status: Idle")
+
+-- Обновлять лэйбл каждую секунду:
+task.spawn(function()
+    while task.wait(1) do
+        local ping = math.floor(game.Players.LocalPlayer:GetNetworkPing() * 1000)
+        StatusLabel:Set(string.format("Ping: %d ms", ping))
+    end
 end)
 
-MainTab:AddSeparator("Features")
 
-local autoFarmToggle = MainTab:AddToggle("Auto Farm", false, function(state)
-    Window:Notify("Toggle", "Auto Farm: " .. tostring(state), 2)
-    print("[Auto Farm] State:", state)
+-- ============================================================
+-- ШАГ 16: ПАРАГРАФ (AddParagraph)
+-- ============================================================
+--
+--   Блок с заголовком и многострочным описанием.
+--   Текст автоматически переносится на новую строку.
+--
+--   Tab:AddParagraph(title, content)
+--   Tab:AddParagraph({Name = "...", Content = "..."})
+--
+--   Псевдоним: Tab.Paragraph
+--
+--   Возвращает объект с методами:
+--       el:Set(title, content)  — задать заголовок и текст (любой из них может быть nil)
+--       el:SetContent(string)   — изменить только текст
+--       + стандартные SetVisible/Destroy
+
+local InfoParagraph = MiscSection:AddParagraph({
+    Name    = "О скрипте",
+    Content = "MinecraftLib v3.3 — продвинутая UI-библиотека для Roblox.\n"
+           .. "Поддерживает темы, конфиги, мобильные устройства и многое другое.\n"
+           .. "GitHub: github.com/YOUR_REPO",
+})
+
+-- Обновить текст:
+InfoParagraph:Set(nil, "Версия обновлена до 3.4!")
+InfoParagraph:SetContent("Новый текст параграфа.")
+
+
+-- ============================================================
+-- ШАГ 17: РАЗДЕЛИТЕЛЬ (AddSeparator)
+-- ============================================================
+--
+--   Горизонтальная линия для визуального разделения блоков.
+--   Может иметь подпись по центру.
+--
+--   Tab:AddSeparator(labelText)   — labelText необязателен
+--
+--   Псевдоним: Tab.Separator
+--
+--   Возвращает базовый объект (SetVisible, Destroy).
+
+MainTab:AddSeparator()                -- просто линия
+MainTab:AddSeparator("─── Danger Zone ───")  -- линия с текстом
+
+
+-- ============================================================
+-- ШАГ 18: ГОТОВАЯ ВКЛАДКА НАСТРОЕК (AddSettingsTab)
+-- ============================================================
+--
+--   Создаёт полноценную вкладку с настройками UI:
+--       • Смена темы (Dropdown)
+--       • Клавиша переключения UI (Keybind)
+--       • Масштаб UI (Slider 50–150%)
+--       • Водяной знак (Toggle)
+--       • Сохранение / загрузка / удаление конфигов
+--       • Автосохранение (Toggle)
+--
+--   Window:AddSettingsTab(name)
+--       name (string) — название вкладки, по умолчанию "Settings"
+
+local SettingsTabBuiltin = Window:AddSettingsTab("⚙ Settings")
+
+
+-- ============================================================
+-- ШАГ 19: СИСТЕМА КОНФИГОВ
+-- ============================================================
+--
+--   Конфиги сохраняются как JSON-файлы в папке:
+--       MinecraftUI/configs/<ConfigFolder>/<name>.json
+--
+--   Требуется файловая система эксплойта (isfolder, writefile и т.д.).
+--   Флаги (Flag=) элементов используются как ключи в JSON.
+
+-- Сохранить конфиг:
+local ok, err = Window:SaveConfig("default")
+if ok then
+    print("Сохранено!")
+else
+    print("Ошибка:", err)
+end
+
+-- Загрузить конфиг:
+local ok2, err2 = Window:LoadConfig("default")
+
+-- Получить список конфигов (возвращает таблицу строк):
+local configs = Window:GetConfigs()
+for _, name in ipairs(configs) do
+    print("Конфиг:", name)
+end
+
+-- Удалить конфиг:
+Window:DeleteConfig("old_config")
+
+-- Загрузить автосохранение:
+Window:LoadAutoSave()
+
+-- Автосохранение выполняется через 1 секунду после любого изменения
+-- (если AutoSave=true при создании окна).
+
+
+-- ============================================================
+-- ШАГ 20: ФЛАГИ И РЕГИСТРАЦИЯ ЭЛЕМЕНТОВ
+-- ============================================================
+--
+--   Любой элемент с параметром Flag="key" регистрируется в Window._flags.
+--   Это позволяет системе конфигов сохранять и восстанавливать его значение.
+--
+--   Window:RegisterFlag(flag, element)
+--       — обычно вызывается автоматически через Finish() внутри библиотеки.
+--       — можно использовать вручную для кастомных элементов.
+--
+--   Доступ к элементу по флагу:
+local myElement = Window._flags["walk_speed"]
+if myElement then
+    myElement:Set(100)
+end
+
+
+-- ============================================================
+-- ШАГ 21: СОБЫТИЯ ТЕМЫ (RegisterThemed)
+-- ============================================================
+--
+--   Регистрирует функцию, которая вызывается при каждой смене темы.
+--   Используется для обновления цветов кастомных элементов.
+--
+--   Window:RegisterThemed(function(theme) end, watchInstance)
+--       theme         — таблица с Color3 цветами текущей темы
+--       watchInstance — Instance, при уничтожении которого колбэк снимется
+
+local myFrame = Instance.new("Frame")
+myFrame.Parent = game.Players.LocalPlayer.PlayerGui
+
+Window:RegisterThemed(function(theme)
+    myFrame.BackgroundColor3 = theme.Accent
+    -- theme содержит: Background, SecondaryBG, TertiaryBG,
+    -- Accent, AccentHover, AccentPress, TextPrimary, TextSecondary,
+    -- TextDisabled, TextHover, Border, BevelLight, BevelDark,
+    -- SliderFill, SliderBG, ToggleOn, ToggleOff, Scrollbar,
+    -- Shadow, Title, CloseBtn, Notification, NotifAccent,
+    -- Separator, Glass, TabActive, TabInactive
+end, myFrame)
+
+
+-- ============================================================
+-- ШАГ 22: УНИЧТОЖЕНИЕ ОКНА (Destroy)
+-- ============================================================
+--
+--   Полностью удаляет UI, отключает все соединения (InputBegan,
+--   InputEnded, Heartbeat для водяного знака, слежение за камерой).
+--
+--   После Destroy() объект Window не должен использоваться.
+
+-- Пример: уничтожить окно через 60 секунд
+task.delay(60, function()
+    Window:Destroy()
+    print("UI уничтожен")
 end)
 
-local speedSlider = MainTab:AddSlider("Walk Speed", 16, 200, 50, function(val)
-    print("[Speed] Value:", val)
-    -- game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = val
-end)
 
-MainTab:AddTextbox("Player Name", "Enter name...", function(text)
-    Window:Notify("Textbox", "Entered: " .. text, 2)
-    print("[Player] Name:", text)
-end)
+-- ============================================================
+-- ШАГ 23: ПОЛНЫЙ РАБОЧИЙ ПРИМЕР СКРИПТА
+-- ============================================================
+--
+--   Ниже — самодостаточный мини-скрипт, демонстрирующий
+--   типичное использование библиотеки:
 
-local gameModeDropdown = MainTab:AddDropdown("Game Mode", {"Survival", "Creative", "Adventure", "Spectator"}, function(selected)
-    Window:Notify("Dropdown", "Selected: " .. selected, 2)
-    print("[Mode] Selected:", selected)
-end)
+do
+    local Lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/YOUR_REPO/main/MinecraftLib.lua"))()
 
-local toggleUIKeybind = MainTab:AddKeybind("Toggle UI", Enum.KeyCode.F, function()
-    Window:ToggleVisible()
-end)
+    local W = Lib:CreateWindow({
+        Title       = "Example Script",
+        Theme       = "Sea",
+        ToggleKey   = "RightControl",
+        AutoSave    = true,
+        AutoLoad    = true,
+    })
 
-local accentColor = MainTab:AddColorPicker("Accent Color", Color3.fromRGB(80, 140, 45), function(color)
-    print("[Color] Selected:", color)
-end)
+    W:SetWatermark(true, "Example v1.0")
 
--- ==================== ВКЛАДКА 2: Player ====================
-local PlayerTab = Window:AddTab("Player")
+    -- Вкладка Combat
+    local combat = W:AddTab("Combat")
+    local combatSec = combat:AddSection("Settings")
 
-PlayerTab:AddLabel("Player Settings")
+    local aimbotToggle = combatSec:AddToggle({
+        Name = "Aimbot", Default = false, Flag = "aimbot",
+        Callback = function(v) print("Aimbot:", v) end,
+    })
+    local smoothSlider = combatSec:AddSlider({
+        Name = "Smooth", Min = 1, Max = 20, Default = 5, Step = 1, Flag = "smooth",
+        Callback = function(v) print("Smooth:", v) end,
+    })
+    local fovSlider = combatSec:AddSlider({
+        Name = "FOV Circle", Min = 30, Max = 360, Default = 90, Suffix = "°", Flag = "fov_circle",
+        Callback = function(v) print("FOV:", v) end,
+    })
+    combatSec:AddButton({
+        Name = "Reset to defaults",
+        Callback = function()
+            aimbotToggle:Set(false)
+            smoothSlider:Set(5)
+            fovSlider:Set(90)
+            W:Notify("Combat", "Настройки сброшены.", 3, "Warning")
+        end,
+    })
 
-PlayerTab:AddButton("Heal to Full", function()
-    Window:Notify("Heal", "Healed to full HP!", 2)
-    print("[Heal] Full health restored")
-end)
+    -- Вкладка Visuals
+    local visuals = W:AddTab("Visuals")
+    local espSec = visuals:AddSection("ESP")
 
-PlayerTab:AddButton("Suicide", function()
-    Window:Notify("Death", "You died!", 2)
-    print("[Suicide] Player died")
-end)
+    espSec:AddToggle({Name = "Players ESP", Default = false, Flag = "esp_players", Callback = function(v) print("ESP:", v) end})
+    espSec:AddToggle({Name = "Boxes",       Default = true,  Flag = "esp_boxes",   Callback = function(v) print("Boxes:", v) end})
+    espSec:AddColorPicker({Name = "Box Color", Default = Color3.fromRGB(255,0,0), Flag = "esp_col",
+        Callback = function(c) print("Color:", c) end})
+    espSec:AddSlider({Name = "Box Thickness", Min = 1, Max = 5, Default = 2, Step = 1, Flag = "esp_thick",
+        Callback = function(v) print("Thick:", v) end})
 
-PlayerTab:AddSeparator("Stats")
+    -- Вкладка Player
+    local player = W:AddTab("Player")
 
-local healthSlider = PlayerTab:AddSlider("Max Health", 100, 1000, 100, function(val)
-    print("[Health] Max:", val)
-end)
+    player:AddSlider({Name = "WalkSpeed", Min=16, Max=500, Default=16, Step=1, Flag="wsp",
+        Callback = function(v)
+            local c = game.Players.LocalPlayer.Character
+            if c and c:FindFirstChild("Humanoid") then c.Humanoid.WalkSpeed = v end
+        end})
+    player:AddSlider({Name = "JumpPower", Min=50, Max=500, Default=50, Step=5, Flag="jp",
+        Callback = function(v)
+            local c = game.Players.LocalPlayer.Character
+            if c and c:FindFirstChild("Humanoid") then c.Humanoid.JumpPower = v end
+        end})
+    player:AddDropdown({Name = "Team", Options = {"Red", "Blue", "Green"}, Flag = "team",
+        Callback = function(v) print("Team:", v) end})
 
-local jumpSlider = PlayerTab:AddSlider("Jump Power", 50, 300, 100, function(val)
-    print("[Jump] Power:", val)
-    -- game.Players.LocalPlayer.Character.Humanoid.JumpPower = val
-end)
+    -- Вкладка Misc
+    local misc = W:AddTab("Misc")
 
-local noclipToggle = PlayerTab:AddToggle("Noclip", false, function(state)
-    print("[Noclip] State:", state)
-end)
+    misc:AddKeybind({Name = "Panic key", Default = "End", Mode = "Press", Flag = "panic",
+        Callback = function() W:ToggleVisible() end})
+    misc:AddTextbox({Name = "Discord Webhook", Placeholder = "https://discord.com/api/...", Flag = "webhook",
+        Callback = function(v) print("Webhook:", v) end})
+    misc:AddParagraph("Credits", "Разработано с MinecraftLib v3.3\nАвтор: YourName")
+    misc:AddButton({Name = "Notify Test",
+        Callback = function()
+            W:Notify({Title="Test", Content="Это тестовое уведомление!", Type="Success"})
+        end})
+    misc:AddButton({Name = "Dialog Test",
+        Callback = function()
+            W:Dialog({
+                Title = "Вы уверены?",
+                Content = "Сбросить все настройки?",
+                Buttons = {
+                    {Text="Да", Callback = function() print("Сброс!") end},
+                    {Text="Нет"},
+                },
+            })
+        end})
 
-local godModeToggle = PlayerTab:AddToggle("God Mode", false, function(state)
-    print("[God] State:", state)
-end)
+    -- Встроенная вкладка настроек (тема, масштаб, конфиги)
+    W:AddSettingsTab("Settings")
 
-PlayerTab:AddTextbox("Teleport to Player", "Username...", function(name)
-    print("[Teleport] Target:", name)
-    Window:Notify("Teleport", "Teleporting to " .. name .. "...", 2)
-end)
+    print("Example Script загружен! Нажмите RightControl для показа/скрытия.")
+end
 
--- ==================== ВКЛАДКА 3: Combat ====================
-local CombatTab = Window:AddTab("Combat")
 
-CombatTab:AddLabel("Combat Features")
-
-local aimbotToggle = CombatTab:AddToggle("Aimbot", false, function(state)
-    print("[Aimbot] State:", state)
-end)
-
-local silentAimToggle = CombatTab:AddToggle("Silent Aim", false, function(state)
-    print("[Silent Aim] State:", state)
-end)
-
-CombatTab:AddSeparator("Weapon")
-
-local damageSlider = CombatTab:AddSlider("Damage Multiplier", 1, 10, 1, function(val)
-    print("[Damage] Multiplier:", val)
-end)
-
-local reachSlider = CombatTab:AddSlider("Reach", 5, 50, 10, function(val)
-    print("[Reach] Distance:", val)
-end)
-
-local hitboxDropdown = CombatTab:AddDropdown("Hitbox Expand", {"Head", "Torso", "All", "None"}, function(selected)
-    print("[Hitbox] Mode:", selected)
-end)
-
-local autoClickToggle = CombatTab:AddToggle("Auto Clicker", false, function(state)
-    print("[AutoClick] State:", state)
-end)
-
-CombatTab:AddKeybind("Aim Key", Enum.KeyCode.Q, function()
-    print("[Aim] Key pressed")
-end)
-
--- ==================== ВКЛАДКА 4: Settings ====================
-local SettingsTab = Window:AddTab("Settings")
-
-SettingsTab:AddLabel("UI Configuration")
-
-local fpsSlider = SettingsTab:AddSlider("FPS Cap", 30, 240, 60, function(val)
-    print("[FPS] Cap:", val)
-end)
-
-local fovSlider = SettingsTab:AddSlider("FOV", 30, 120, 70, function(val)
-    print("[FOV] Value:", val)
-    -- workspace.CurrentCamera.FieldOfView = val
-end)
-
-SettingsTab:AddSeparator("Advanced")
-
-local antiAFKToggle = SettingsTab:AddToggle("Anti-AFK", true, function(state)
-    print("[Anti-AFK] State:", state)
-end)
-
-local antiBanToggle = SettingsTab:AddToggle("Anti-Ban", false, function(state)
-    print("[Anti-Ban] State:", state)
-end)
-
-local espToggle = SettingsTab:AddToggle("ESP", false, function(state)
-    print("[ESP] State:", state)
-end)
-
-local tracerToggle = SettingsTab:AddToggle("Tracers", false, function(state)
-    print("[Tracers] State:", state)
-end)
-
-SettingsTab:AddDropdown("ESP Mode", {"Boxes", "Skeleton", "Chams", "Glow"}, function(selected)
-    print("[ESP] Mode:", selected)
-end)
-
--- Секция внутри Settings
-local debugSection = SettingsTab:AddSection("Debug")
-
-debugSection:AddToggle("Console Logs", true, function(state)
-    print("[Debug] Logs:", state)
-end)
-
-debugSection:AddToggle("Error Notifications", false, function(state)
-    print("[Debug] Errors:", state)
-end)
-
-debugSection:AddButton("Dump Config", function()
-    Window:Notify("Debug", "Config dumped to console!", 2)
-    print("=== CONFIG DUMP ===")
-    print("Auto Farm:", autoFarmToggle:Get())
-    print("Walk Speed:", speedSlider:Get())
-    print("Game Mode:", gameModeDropdown:Get())
-    print("Accent Color:", accentColor:Get())
-end)
-
--- ==================== ВКЛАДКА 5: Teleport ====================
-local TeleportTab = Window:AddTab("Teleport")
-
-TeleportTab:AddLabel("Locations")
-
-TeleportTab:AddButton("Spawn", function()
-    Window:Notify("Teleport", "Teleported to Spawn!", 2)
-    print("[TP] Spawn")
-end)
-
-TeleportTab:AddButton("Base", function()
-    Window:Notify("Teleport", "Teleported to Base!", 2)
-    print("[TP] Base")
-end)
-
-TeleportTab:AddButton("Shop", function()
-    Window:Notify("Teleport", "Teleported to Shop!", 2)
-    print("[TP] Shop")
-end)
-
-TeleportTab:AddButton("Dungeon", function()
-    Window:Notify("Teleport", "Teleported to Dungeon!", 2)
-    print("[TP] Dungeon")
-end)
-
-TeleportTab:AddSeparator("Custom")
-
-TeleportTab:AddTextbox("X Coordinate", "0", function(x)
-    print("[TP] X:", x)
-end)
-
-TeleportTab:AddTextbox("Y Coordinate", "0", function(y)
-    print("[TP] Y:", y)
-end)
-
-TeleportTab:AddTextbox("Z Coordinate", "0", function(z)
-    print("[TP] Z:", z)
-end)
-
-TeleportTab:AddButton("Teleport to Coords", function()
-    Window:Notify("Teleport", "Teleported to coordinates!", 2)
-end)
-
--- ==================== СТАРТОВОЕ УВЕДОМЛЕНИЕ ====================
-Window:Notify("Minecraft UI", "Loaded successfully! Press RightShift or F to toggle.", 5)
-print("[Minecraft UI] Script loaded successfully!")
+-- ============================================================
+-- СПРАВОЧНИК ВСЕХ МЕТОДОВ (КРАТКАЯ ШПАРГАЛКА)
+-- ============================================================
+--
+--  ОКНО:
+--    :CreateWindow(title/config)       → Window
+--    :AddTab(name/config)             → Tab
+--    :SelectTab(name)                 → bool
+--    :AddSettingsTab(name)            → Tab
+--    :SetTheme(name)
+--    :GetTheme()                      → theme, name
+--    :GetThemes()                     → {string,...}
+--    :AddTheme(name, tbl)             → theme  [вызов на MinecraftLib, не на Window]
+--    :SetTitle(string)
+--    :SetToggleKey(key)
+--    :SetScale(0.5–1.5)
+--    :SetWatermark(bool, text?)
+--    :Show() / :Hide() / :ToggleVisible()
+--    :Notify(title, msg, dur, type)   → {Dismiss}
+--    :Dialog({Title,Content,Buttons}) → {Close}
+--    :SaveConfig(name)                → ok, err
+--    :LoadConfig(name)                → ok, err
+--    :GetConfigs()                    → {string,...}
+--    :DeleteConfig(name)              → bool
+--    :LoadAutoSave()                  → ok, err
+--    :RegisterThemed(fn, instance?)
+--    :RegisterFlag(flag, element)
+--    :Destroy()
+--
+--  ВКЛАДКА / СЕКЦИЯ (одинаковые методы):
+--    :AddButton(...)      → el {SetText, SetCallback}
+--    :AddToggle(...)      → el {Set, Get, Toggle, SetText, SetKeybind}
+--    :AddSlider(...)      → el {Set, Get, SetRange}
+--    :AddTextbox(...)     → el {Set, Get, .Box}
+--    :AddDropdown(...)    → el {Set, Get, Refresh, Close, GetOptions}
+--    :AddKeybind(...)     → el {Set, Get, SetCallback}
+--    :AddColorPicker(...) → el {Set, Get, GetHex, GetTransparency, SetTransparency, Close}
+--    :AddLabel(...)       → el {Set, Get, .Label}
+--    :AddParagraph(...)   → el {Set, SetContent}
+--    :AddSeparator(label?)→ el
+--    :AddSection(...)     → Section (те же методы + SetOpen, Destroy)
+--    :AddNotify(...)      — псевдоним Window:Notify
+--
+--  ОБЩИЕ МЕТОДЫ ВСЕХ ЭЛЕМЕНТОВ:
+--    :SetVisible(bool)
+--    :SetEnabled(bool)   — показывает/скрывает затемнение
+--    :IsEnabled()        → bool
+--    :Destroy()
+--
+--  ТЕМЫ (Color3-поля):
+--    Background, SecondaryBG, TertiaryBG, Glass
+--    Accent, AccentHover, AccentPress
+--    TabActive, TabInactive
+--    TextPrimary, TextSecondary, TextDisabled, TextHover
+--    Border, BevelLight, BevelDark, Shadow
+--    SliderFill, SliderBG
+--    ToggleOn, ToggleOff
+--    Scrollbar, Title, CloseBtn
+--    Notification, NotifAccent, Separator
+--    BackgroundImage (string ключ текстуры или false)
+--    TitleBarImage   (string ключ текстуры или false)
+--    Gradient        (ColorSequence — только у Sea/Sky)
+--    GradientRotation (number)
+--
+-- ============================================================
+-- КОНЕЦ ФАЙЛА
+-- ============================================================
