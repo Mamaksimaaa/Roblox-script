@@ -1,12 +1,13 @@
--- MinecraftLib v3.2
+-- MinecraftLib v3.3
 local MinecraftLib = {}
 MinecraftLib.__index = MinecraftLib
-MinecraftLib.Version = "3.2"
+MinecraftLib.Version = "3.3"
 
 local Players          = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService     = game:GetService("TweenService")
 local HttpService      = game:GetService("HttpService")
+local RunService       = game:GetService("RunService")
 local CoreGui          = game:GetService("CoreGui")
 local LocalPlayer      = Players.LocalPlayer
 
@@ -99,10 +100,49 @@ local Themes = {
         CloseBtn = Color3.fromRGB(170, 40, 35), Notification = Color3.fromRGB(28, 23, 18), NotifAccent = Color3.fromRGB(120, 80, 170),
         Separator = Color3.fromRGB(82, 72, 52), Glass = Color3.fromRGB(40, 35, 28),
     },
+    Sea = {
+        BackgroundImage = false, TitleBarImage = false,
+        Gradient = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(16, 70, 92)),
+            ColorSequenceKeypoint.new(0.55, Color3.fromRGB(10, 46, 64)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(5, 24, 36)),
+        }),
+        GradientRotation = 90,
+        Background = Color3.fromRGB(12, 45, 60), SecondaryBG = Color3.fromRGB(18, 65, 80), TertiaryBG = Color3.fromRGB(14, 55, 70),
+        Accent = Color3.fromRGB(40, 170, 160), AccentHover = Color3.fromRGB(70, 200, 190), AccentPress = Color3.fromRGB(25, 130, 120),
+        TabActive = Color3.fromRGB(30, 140, 135), TabInactive = Color3.fromRGB(18, 65, 80),
+        TextPrimary = Color3.fromRGB(225, 245, 245), TextSecondary = Color3.fromRGB(170, 210, 210),
+        TextDisabled = Color3.fromRGB(90, 130, 130), TextHover = Color3.fromRGB(255, 255, 85),
+        Border = Color3.fromRGB(5, 20, 28), BevelLight = Color3.fromRGB(140, 220, 215), BevelDark = Color3.fromRGB(8, 32, 42),
+        SliderFill = Color3.fromRGB(40, 170, 160), SliderBG = Color3.fromRGB(6, 25, 32),
+        ToggleOn = Color3.fromRGB(40, 170, 160), ToggleOff = Color3.fromRGB(30, 70, 80),
+        Scrollbar = Color3.fromRGB(60, 140, 140), Shadow = Color3.fromRGB(2, 6, 8), Title = Color3.fromRGB(200, 240, 235),
+        CloseBtn = Color3.fromRGB(190, 60, 60), Notification = Color3.fromRGB(10, 38, 50), NotifAccent = Color3.fromRGB(80, 220, 200),
+        Separator = Color3.fromRGB(60, 140, 140), Glass = Color3.fromRGB(15, 50, 65),
+    },
+    Sky = {
+        BackgroundImage = false, TitleBarImage = false,
+        Gradient = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(215, 235, 255)),
+            ColorSequenceKeypoint.new(0.45, Color3.fromRGB(150, 200, 245)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(95, 160, 230)),
+        }),
+        GradientRotation = 90,
+        Background = Color3.fromRGB(135, 190, 240), SecondaryBG = Color3.fromRGB(150, 200, 245), TertiaryBG = Color3.fromRGB(115, 170, 230),
+        Accent = Color3.fromRGB(255, 200, 70), AccentHover = Color3.fromRGB(255, 220, 110), AccentPress = Color3.fromRGB(215, 165, 40),
+        TabActive = Color3.fromRGB(85, 145, 220), TabInactive = Color3.fromRGB(150, 200, 245),
+        TextPrimary = Color3.fromRGB(255, 255, 255), TextSecondary = Color3.fromRGB(235, 245, 255),
+        TextDisabled = Color3.fromRGB(190, 210, 230), TextHover = Color3.fromRGB(255, 255, 85),
+        Border = Color3.fromRGB(40, 80, 130), BevelLight = Color3.fromRGB(245, 250, 255), BevelDark = Color3.fromRGB(80, 130, 190),
+        SliderFill = Color3.fromRGB(255, 200, 70), SliderBG = Color3.fromRGB(85, 135, 200),
+        ToggleOn = Color3.fromRGB(255, 200, 70), ToggleOff = Color3.fromRGB(105, 155, 215),
+        Scrollbar = Color3.fromRGB(70, 120, 190), Shadow = Color3.fromRGB(30, 60, 100), Title = Color3.fromRGB(255, 255, 255),
+        CloseBtn = Color3.fromRGB(220, 80, 70), Notification = Color3.fromRGB(95, 155, 225), NotifAccent = Color3.fromRGB(255, 220, 110),
+        Separator = Color3.fromRGB(70, 120, 190), Glass = Color3.fromRGB(140, 195, 245),
+    },
 }
 MinecraftLib.Themes = Themes
 
--- Пользовательская тема: недостающие поля берутся из Overworld
 function MinecraftLib:AddTheme(name, tbl)
     local t = {}
     for k, v in pairs(Themes.Overworld) do t[k] = v end
@@ -143,7 +183,6 @@ local function Invoke(callback, ...)
     end
 end
 
--- Позиционные аргументы ИЛИ таблица {Name=, Default=, Callback=, Flag=, Tooltip=, ...}
 local function Opts(first, keys, ...)
     if type(first) == "table" then
         first.Name = first.Name or first.Title or first.Text or first[1]
@@ -160,6 +199,9 @@ local function PointInside(gui, pos)
     local ap, as = gui.AbsolutePosition, gui.AbsoluteSize
     return pos.X >= ap.X and pos.X <= ap.X + as.X and pos.Y >= ap.Y and pos.Y <= ap.Y + as.Y
 end
+
+local function IsPress(inp) return inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch end
+local function IsMove(inp)  return inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch end
 
 local function ToKeyCode(v)
     if typeof(v) == "EnumItem" then return v end
@@ -199,6 +241,8 @@ local function Deserialize(v)
     return v
 end
 
+local function SafeName(n) return (tostring(n or "default"):gsub("[^%w_%- ]", "")) end
+
 local function GetGuiParent()
     local ok, hui = pcall(function() return gethui and gethui() end)
     if ok and typeof(hui) == "Instance" then return hui end
@@ -211,7 +255,6 @@ local function Viewport()
     return cam and cam.ViewportSize or Vector2.new(1280, 720)
 end
 
--- Не даём утащить заголовок за пределы экрана
 local function ClampToViewport(pos, absSize)
     local vp = Viewport()
     local absX = pos.X.Scale * vp.X + pos.X.Offset
@@ -226,22 +269,20 @@ local function MakeDraggable(frame, handle, canDrag)
     handle = handle or frame
     local dragging, dragStart, startPos = false, nil, nil
     local began = handle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if IsPress(input) then
             if canDrag and not canDrag() then return end
             dragging, dragStart, startPos = true, input.Position, frame.Position
         end
     end)
     local changed = UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        if dragging and IsMove(input) then
             local delta = input.Position - dragStart
             local newPos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
             frame.Position = ClampToViewport(newPos, frame.AbsoluteSize)
         end
     end)
     local ended = UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-        end
+        if IsPress(input) then dragging = false end
     end)
     local function Disconnect() began:Disconnect(); changed:Disconnect(); ended:Disconnect() end
     frame.Destroying:Connect(Disconnect)
@@ -249,7 +290,7 @@ local function MakeDraggable(frame, handle, canDrag)
 end
 
 -- ================================================================
--- VISUAL PRIMITIVES (атрибут MC_Role — перекраска при смене темы)
+-- VISUAL PRIMITIVES
 -- ================================================================
 local function CreateDropShadow(parent, theme, offset, size)
     offset = offset or 6; size = size or 14
@@ -324,10 +365,11 @@ function MinecraftLib:CreateWindow(title, config)
     self._title = title or "Minecraft UI"
     self._mobile = IsMobile()
     self._toggleKey = ToKeyCode(config.ToggleKey) or Enum.KeyCode.RightShift
-    self._configName = tostring(config.ConfigFolder or self._title):gsub("[^%w_%- ]", "")
+    self._configName = SafeName(config.ConfigFolder or self._title)
     self._openPopup = nil
     self._autoSave = config.AutoSave == true
     self._viewportScale = 1
+    self._userScale = math.clamp(tonumber(config.Scale) or 1, 0.5, 1.5)
 
     function self:RegisterThemed(refreshFn, watchInstance)
         table.insert(self._themedRefreshers, refreshFn)
@@ -338,7 +380,6 @@ function MinecraftLib:CreateWindow(title, config)
             end)
         end
     end
-
     function self:RegisterFlag(flag, element)
         if flag then self._flags[flag] = element end
     end
@@ -365,7 +406,6 @@ function MinecraftLib:CreateWindow(title, config)
         textureWaiters[key] = textureWaiters[key] or {}
         table.insert(textureWaiters[key], callback)
     end
-
     local function BindImage(img, key, condition)
         if not key then img.Image = "" return end
         img.Image = Textures[key] or ""
@@ -397,36 +437,27 @@ function MinecraftLib:CreateWindow(title, config)
     Create("UIPadding", {PaddingBottom = UDim.new(0, 14), Parent = NotifContainer})
     self._notifContainer = NotifContainer
 
-    -- Tooltip (один на окно)
+    -- Tooltip
     local Tooltip = Create("TextLabel", {
-        Name = "Tooltip", AutomaticSize = Enum.AutomaticSize.XY, BackgroundColor3 = self._theme.Notification,
-        BackgroundTransparency = 0.05, BorderSizePixel = 0, Text = "", TextColor3 = self._theme.TextPrimary, TextSize = 11,
-        Font = FONT, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, Visible = false, ZIndex = 3000, Parent = ScreenGui,
+        Name = "Tooltip", AutomaticSize = Enum.AutomaticSize.XY, BackgroundColor3 = self._theme.Notification, BackgroundTransparency = 0.05,
+        BorderSizePixel = 0, Text = "", TextColor3 = self._theme.TextPrimary, TextSize = 11, Font = FONT, TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left, Visible = false, ZIndex = 3000, Parent = ScreenGui,
     })
-    PixelText(Tooltip)
-    AddPadding(Tooltip, 4, 4, 7, 7)
-    PixelBevel(Tooltip, self._theme, 1)
+    PixelText(Tooltip); AddPadding(Tooltip, 4, 4, 7, 7); PixelBevel(Tooltip, self._theme, 1)
     Create("UISizeConstraint", {MaxSize = Vector2.new(240, math.huge), Parent = Tooltip})
 
     local function PlaceTooltip(pos)
-        local vp = Viewport()
-        local s = Tooltip.AbsoluteSize
-        local x = math.clamp(pos.X + 14, 4, math.max(4, vp.X - s.X - 4))
-        local y = math.clamp(pos.Y + 18, 4, math.max(4, vp.Y - s.Y - 4))
-        Tooltip.Position = UDim2.fromOffset(x, y)
+        local vp, s = Viewport(), Tooltip.AbsoluteSize
+        Tooltip.Position = UDim2.fromOffset(math.clamp(pos.X + 14, 4, math.max(4, vp.X - s.X - 4)), math.clamp(pos.Y + 18, 4, math.max(4, vp.Y - s.Y - 4)))
     end
-
     function self:_AttachTooltip(gui, text)
         if not text or mobile then return end
         gui.MouseEnter:Connect(function()
-            Tooltip.Text = tostring(text)
-            Tooltip.Visible = true
+            Tooltip.Text = tostring(text); Tooltip.Visible = true
             PlaceTooltip(UserInputService:GetMouseLocation())
         end)
         gui.InputChanged:Connect(function(inp)
-            if inp.UserInputType == Enum.UserInputType.MouseMovement and Tooltip.Visible then
-                PlaceTooltip(inp.Position)
-            end
+            if inp.UserInputType == Enum.UserInputType.MouseMovement and Tooltip.Visible then PlaceTooltip(inp.Position) end
         end)
         gui.MouseLeave:Connect(function() Tooltip.Visible = false end)
         gui.Destroying:Connect(function() Tooltip.Visible = false end)
@@ -440,22 +471,34 @@ function MinecraftLib:CreateWindow(title, config)
     PixelBevel(Main, self._theme, 2)
     self._main = Main
     self._shadow = CreateDropShadow(Main, self._theme, 6, 14)
-
+    local MainGradient = Create("UIGradient", {Enabled = false, Parent = Main})
     local MainBg = Create("ImageLabel", {Name = "BackgroundImage", Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Stretch, ZIndex = 0, Parent = Main})
-    BindImage(MainBg, self._theme.BackgroundImage)
-
     local UIScaleInst = Create("UIScale", {Scale = 1, Parent = Main})
     self._uiScale = UIScaleInst
 
     -- ---------------- title bar ----------------
     local TitleBar = Create("Frame", {Name = "TitleBar", Size = UDim2.new(1, 0, 0, TITLE_H), BackgroundColor3 = self._theme.TertiaryBG, BorderSizePixel = 0, ZIndex = 2, Parent = Main})
     PixelBevel(TitleBar, self._theme, 2)
-
     local PlanksTexture = Create("ImageLabel", {Name = "PlanksTexture", Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Tile, TileSize = UDim2.new(0, 64, 0, 64), ZIndex = 2, Parent = TitleBar})
-    BindImage(PlanksTexture, "OakPlanks")
+
+    local function ApplyBackground(t, name)
+        if t.Gradient then
+            MainGradient.Color = t.Gradient
+            MainGradient.Rotation = t.GradientRotation or 90
+            MainGradient.Enabled = true
+            Main.BackgroundColor3 = Color3.new(1, 1, 1)
+        else
+            MainGradient.Enabled = false
+            Main.BackgroundColor3 = t.Background
+        end
+        BindImage(MainBg, t.BackgroundImage, function() return self._themeName == name end)
+        BindImage(PlanksTexture, t.TitleBarImage, function() return self._themeName == name end)
+    end
+    ApplyBackground(self._theme, self._themeName)
 
     for _, pos in ipairs({{0, 4, 0, 4}, {1, -8, 0, 4}, {0, 4, 1, -8}, {1, -8, 1, -8}}) do
-        Create("Frame", {Size = UDim2.new(0, 4, 0, 4), Position = UDim2.new(pos[1], pos[2], pos[3], pos[4]), BackgroundColor3 = Color3.fromRGB(60, 50, 35), BorderSizePixel = 0, ZIndex = 4, Parent = TitleBar})
+        local dot = Create("Frame", {Size = UDim2.new(0, 4, 0, 4), Position = UDim2.new(pos[1], pos[2], pos[3], pos[4]), BackgroundColor3 = self._theme.BevelDark, BorderSizePixel = 0, ZIndex = 4, Parent = TitleBar})
+        dot:SetAttribute("MC_Role", "BevelDark")
     end
 
     local IconSize = mobile and 20 or 24
@@ -489,7 +532,6 @@ function MinecraftLib:CreateWindow(title, config)
     -- ---------------- tab bar / content ----------------
     local TabBar = Create("Frame", {Name = "TabBar", Size = UDim2.new(0, TAB_W, 1, -TITLE_H), Position = UDim2.new(0, 0, 0, TITLE_H), BackgroundColor3 = self._theme.SecondaryBG, BorderSizePixel = 0, ZIndex = 2, Parent = Main})
     PixelBevel(TabBar, self._theme, 2)
-
     local TabList = Create("ScrollingFrame", {
         Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = mobile and 5 or 4,
         ScrollBarImageColor3 = self._theme.Scrollbar, CanvasSize = UDim2.new(0, 0, 0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y,
@@ -508,13 +550,11 @@ function MinecraftLib:CreateWindow(title, config)
 
     local Divider = Create("Frame", {Size = UDim2.new(0, 2, 1, -TITLE_H), Position = UDim2.new(0, TAB_W, 0, TITLE_H), BackgroundColor3 = self._theme.Border, BorderSizePixel = 0, ZIndex = 3, Parent = Main})
     Divider:SetAttribute("MC_Role", "Border")
-
     local BottomBar = Create("Frame", {Size = UDim2.new(1, 0, 0, 5), Position = UDim2.new(0, 0, 1, -5), BackgroundColor3 = self._theme.Accent, BorderSizePixel = 0, ZIndex = 3, Parent = Main})
 
     -- ---------------- window state ----------------
     local _minimized, _maximized = false, false
     local _savedSize, _savedPos = Main.Size, Main.Position
-
     MakeDraggable(Main, TitleBar, function() return not _maximized and Main.AnchorPoint.X == 0 end)
 
     -- ---------------- resize handle ----------------
@@ -534,16 +574,13 @@ function MinecraftLib:CreateWindow(title, config)
     do
         local resizing, resizeStart, originW, originH = false, nil, 0, 0
         local c1 = ResizeHandle.InputBegan:Connect(function(input)
-            if _minimized then return end
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                resizing, resizeStart = true, input.Position
-                originW, originH = Main.Size.X.Offset, Main.Size.Y.Offset
-                Tween(ResizeHandle, {BackgroundTransparency = 0.1}, 0.1)
-            end
+            if _minimized or not IsPress(input) then return end
+            resizing, resizeStart = true, input.Position
+            originW, originH = Main.Size.X.Offset, Main.Size.Y.Offset
+            Tween(ResizeHandle, {BackgroundTransparency = 0.1}, 0.1)
         end)
         local c2 = UserInputService.InputChanged:Connect(function(input)
-            if not resizing then return end
-            if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
+            if not resizing or not IsMove(input) then return end
             local scale = math.max(UIScaleInst.Scale, 0.01)
             local delta = (input.Position - resizeStart) / scale
             local vp = Viewport()
@@ -551,7 +588,7 @@ function MinecraftLib:CreateWindow(title, config)
             _maximized = false
         end)
         local c3 = UserInputService.InputEnded:Connect(function(input)
-            if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) and resizing then
+            if IsPress(input) and resizing then
                 resizing = false
                 Tween(ResizeHandle, {BackgroundTransparency = 0.45}, 0.1)
             end
@@ -568,7 +605,6 @@ function MinecraftLib:CreateWindow(title, config)
 
     local function AttachPopup(anchor, popup, scrollFrame, computeSize, onOpen, onClose)
         local open, conns, ctrl = false, {}, {}
-
         local function Reposition()
             local w, h, align = computeSize()
             popup.Size = UDim2.fromOffset(w, h)
@@ -578,7 +614,6 @@ function MinecraftLib:CreateWindow(title, config)
             local x = (align == "right") and (ap.X + as.X - w) or ap.X
             popup.Position = UDim2.fromOffset(math.clamp(x, 4, math.max(4, vp.X - w - 4)), math.clamp(y, 4, math.max(4, vp.Y - h - 4)))
         end
-
         function ctrl.Close()
             if not open then return end
             open = false
@@ -588,7 +623,6 @@ function MinecraftLib:CreateWindow(title, config)
             if self._openPopup == ctrl then self._openPopup = nil end
             if onClose then onClose() end
         end
-
         function ctrl.Open()
             if open then return end
             if self._openPopup and self._openPopup ~= ctrl then self._openPopup.Close() end
@@ -597,7 +631,7 @@ function MinecraftLib:CreateWindow(title, config)
             Reposition()
             popup.Visible = true
             table.insert(conns, UserInputService.InputBegan:Connect(function(inp)
-                if inp.UserInputType ~= Enum.UserInputType.MouseButton1 and inp.UserInputType ~= Enum.UserInputType.Touch then return end
+                if not IsPress(inp) then return end
                 if not PointInside(popup, inp.Position) and not PointInside(anchor, inp.Position) then ctrl.Close() end
             end))
             if scrollFrame and scrollFrame:IsA("ScrollingFrame") then
@@ -609,11 +643,9 @@ function MinecraftLib:CreateWindow(title, config)
             table.insert(conns, Main:GetPropertyChangedSignal("Visible"):Connect(ctrl.Close))
             if onOpen then onOpen() end
         end
-
         function ctrl.Toggle() if open then ctrl.Close() else ctrl.Open() end end
         function ctrl.IsOpen() return open end
         ctrl.Reposition = Reposition
-
         anchor.Destroying:Connect(function()
             ctrl.Close()
             if popup.Parent then popup:Destroy() end
@@ -658,20 +690,15 @@ function MinecraftLib:CreateWindow(title, config)
 
     local _lastTitleClick = 0
     TitleBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if IsPress(input) then
             local now = os.clock()
-            if now - _lastTitleClick < 0.35 then
-                Maximize(); _lastTitleClick = 0
-            else
-                _lastTitleClick = now
-            end
+            if now - _lastTitleClick < 0.35 then Maximize(); _lastTitleClick = 0 else _lastTitleClick = now end
         end
     end)
 
     MinimizeBtn.MouseEnter:Connect(function() Tween(MinimizeBtn, {BackgroundColor3 = Color3.fromRGB(180, 140, 40)}, 0.15) end)
     MinimizeBtn.MouseLeave:Connect(function() Tween(MinimizeBtn, {BackgroundColor3 = self._theme.SecondaryBG}, 0.15) end)
     MinimizeBtn.Activated:Connect(Minimize)
-
     CloseBtn.MouseEnter:Connect(function() Tween(CloseBtn, {BackgroundColor3 = Color3.fromRGB(220, 70, 60)}, 0.15) end)
     CloseBtn.MouseLeave:Connect(function() Tween(CloseBtn, {BackgroundColor3 = self._theme.CloseBtn}, 0.15) end)
     CloseBtn.Activated:Connect(function()
@@ -682,16 +709,14 @@ function MinecraftLib:CreateWindow(title, config)
 
     -- ---------------- theme button ----------------
     local function ThemeOrder()
-        local order = {"Overworld", "Nether", "End"}
+        local order = {"Overworld", "Nether", "End", "Sea", "Sky"}
         local extra = {}
-        for name in pairs(Themes) do
-            if not table.find(order, name) then table.insert(extra, name) end
-        end
+        for name in pairs(Themes) do if not table.find(order, name) then table.insert(extra, name) end end
         table.sort(extra)
         for _, n in ipairs(extra) do table.insert(order, n) end
         return order
     end
-    local themeShort = {Overworld = "OW", Nether = "NT", End = "ED"}
+    local themeShort = {Overworld = "OW", Nether = "NT", End = "ED", Sea = "SE", Sky = "SK"}
     local function ShortName(n) return themeShort[n] or n:sub(1, 2):upper() end
     ThemeBtn.Text = ShortName(self._themeName)
     ThemeBtn.Activated:Connect(function()
@@ -702,12 +727,12 @@ function MinecraftLib:CreateWindow(title, config)
 
     -- ---------------- global input ----------------
     self._inputConn = UserInputService.InputBegan:Connect(function(input, gp)
-        if gp or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+        if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+        if input.KeyCode == Enum.KeyCode.Escape and self._openPopup then ClosePopups() return end
+        if gp then return end
         if not mobile and input.KeyCode == self._toggleKey then self:ToggleVisible() return end
         for _, kb in ipairs(self._keybinds) do
-            if kb.key == input.KeyCode and not kb.listening and not kb.cooldown then
-                Invoke(kb.callback, true)
-            end
+            if kb.key == input.KeyCode and not kb.listening and not kb.cooldown then Invoke(kb.callback, true) end
         end
     end)
     self._inputEndConn = UserInputService.InputEnded:Connect(function(input)
@@ -717,7 +742,8 @@ function MinecraftLib:CreateWindow(title, config)
         end
     end)
 
-    -- ---------------- visibility (масштаб от центра, Size не трогаем) ----------------
+    -- ---------------- visibility / scale ----------------
+    local function EffectiveScale() return self._viewportScale * self._userScale end
     local function ToCenterAnchor()
         if Main.AnchorPoint.X > 0 then return end
         local half = Main.AbsoluteSize / 2
@@ -738,14 +764,13 @@ function MinecraftLib:CreateWindow(title, config)
         if visTween then visTween:Cancel() end
         Main.Visible = true
         self._shadow.Visible = true
-        local tw = Tween(UIScaleInst, {Scale = self._viewportScale}, 0.3, Enum.EasingStyle.Back)
+        local tw = Tween(UIScaleInst, {Scale = EffectiveScale()}, 0.3, Enum.EasingStyle.Back)
         Tween(self._shadow, {ImageTransparency = self._shadow:GetAttribute("BaseTransparency") or 0.3}, 0.3)
         visTween = tw
         tw.Completed:Connect(function(state)
             if state == Enum.PlaybackState.Completed and self._visible and visTween == tw then ToCornerAnchor() end
         end)
     end
-
     function self:Hide()
         if not self._visible then return end
         self._visible = false
@@ -763,16 +788,18 @@ function MinecraftLib:CreateWindow(title, config)
             end
         end)
     end
-
     function self:ToggleVisible() if self._visible then self:Hide() else self:Show() end end
     function self:SetToggleKey(key) self._toggleKey = ToKeyCode(key) or self._toggleKey end
     function self:SetTitle(text) self._title = tostring(text); TitleLabel.Text = self._title end
+    function self:SetScale(mult)
+        self._userScale = math.clamp(tonumber(mult) or 1, 0.5, 1.5)
+        if self._visible and Main.AnchorPoint.X == 0 then Tween(UIScaleInst, {Scale = EffectiveScale()}, 0.15) end
+    end
 
     if mobile then
         local ToggleBtn = Create("TextButton", {
-            Name = "MobileToggle", Size = UDim2.new(0, 48, 0, 48), Position = UDim2.new(1, -60, 1, -120),
-            BackgroundColor3 = self._theme.TertiaryBG, Text = "M", TextColor3 = self._theme.TextPrimary, TextSize = 18,
-            Font = FONT, BorderSizePixel = 0, ZIndex = 50, Parent = ScreenGui,
+            Name = "MobileToggle", Size = UDim2.new(0, 48, 0, 48), Position = UDim2.new(1, -60, 1, -120), BackgroundColor3 = self._theme.TertiaryBG,
+            Text = "M", TextColor3 = self._theme.TextPrimary, TextSize = 18, Font = FONT, BorderSizePixel = 0, ZIndex = 50, Parent = ScreenGui,
         })
         PixelText(ToggleBtn); PixelBevel(ToggleBtn, self._theme, 2); CreateInsetShadow(ToggleBtn, self._theme, 2)
         MakeDraggable(ToggleBtn, ToggleBtn)
@@ -780,7 +807,6 @@ function MinecraftLib:CreateWindow(title, config)
         self._mobileToggle = ToggleBtn
     end
 
-    -- ---------------- auto-scale ----------------
     local viewportDebounce = false
     local function AdjustToViewport()
         if viewportDebounce then return end
@@ -789,9 +815,7 @@ function MinecraftLib:CreateWindow(title, config)
             viewportDebounce = false
             local vp = Viewport()
             self._viewportScale = math.clamp(math.min(vp.X / (WIN_W + 50), vp.Y / (WIN_H + 50), 1), 0.5, 1)
-            if self._visible and Main.AnchorPoint.X == 0 then
-                Tween(UIScaleInst, {Scale = self._viewportScale}, 0.15)
-            end
+            if self._visible and Main.AnchorPoint.X == 0 then Tween(UIScaleInst, {Scale = EffectiveScale()}, 0.15) end
         end)
     end
     local viewportConn
@@ -805,15 +829,44 @@ function MinecraftLib:CreateWindow(title, config)
     self._getViewportConn = function() return viewportConn end
     WatchCamera()
 
+    -- ---------------- watermark ----------------
+    local Watermark = Create("Frame", {
+        Name = "Watermark", AutomaticSize = Enum.AutomaticSize.XY, Position = UDim2.fromOffset(10, 10), BackgroundColor3 = self._theme.Notification,
+        BackgroundTransparency = 0.1, BorderSizePixel = 0, Visible = false, ZIndex = 400, Parent = ScreenGui,
+    })
+    PixelBevel(Watermark, self._theme, 1); AddPadding(Watermark, 4, 4, 8, 8)
+    local WMAccent = Create("Frame", {Size = UDim2.new(0, 3, 1, 0), Position = UDim2.new(0, -8, 0, 0), BackgroundColor3 = self._theme.Accent, BorderSizePixel = 0, ZIndex = 401, Parent = Watermark})
+    local WMLabel = Create("TextLabel", {AutomaticSize = Enum.AutomaticSize.XY, BackgroundTransparency = 1, Text = "", TextColor3 = self._theme.TextPrimary, TextSize = 12, Font = FONT, ZIndex = 401, Parent = Watermark})
+    PixelText(WMLabel)
+    MakeDraggable(Watermark)
+    self._wmText = self._title
+    local wmConn, wmFrames, wmAccum = nil, 0, 0
+    function self:SetWatermark(enabled, text)
+        if text then self._wmText = tostring(text) end
+        Watermark.Visible = enabled and true or false
+        if enabled and not wmConn then
+            wmConn = RunService.Heartbeat:Connect(function(dt)
+                wmFrames += 1; wmAccum += dt
+                if wmAccum >= 0.5 then
+                    local fps = math.floor(wmFrames / wmAccum + 0.5)
+                    wmFrames, wmAccum = 0, 0
+                    local ok, ping = pcall(function() return LocalPlayer:GetNetworkPing() * 1000 end)
+                    WMLabel.Text = string.format("%s  |  %d FPS  |  %d ms", self._wmText, fps, ok and math.floor(ping + 0.5) or 0)
+                end
+            end)
+        elseif not enabled and wmConn then
+            wmConn:Disconnect(); wmConn = nil
+        end
+    end
+    self._stopWatermark = function() if wmConn then wmConn:Disconnect(); wmConn = nil end end
+
     -- ---------------- theme switching ----------------
     function self:SetTheme(name)
         local t = Themes[name]
         if not t then return end
         self._theme, self._themeName = t, name
         ThemeBtn.Text = ShortName(name)
-
-        BindImage(MainBg, t.BackgroundImage, function() return self._themeName == name end)
-        Main.BackgroundColor3 = t.Background
+        ApplyBackground(t, name)
         TitleBar.BackgroundColor3 = t.TertiaryBG
         TabBar.BackgroundColor3 = t.SecondaryBG
         ContentArea.BackgroundColor3 = t.Glass
@@ -826,12 +879,14 @@ function MinecraftLib:CreateWindow(title, config)
         ResizeHandle.BackgroundColor3 = t.Accent
         Tooltip.BackgroundColor3 = t.Notification
         Tooltip.TextColor3 = t.TextPrimary
+        Watermark.BackgroundColor3 = t.Notification
+        WMAccent.BackgroundColor3 = t.Accent
+        WMLabel.TextColor3 = t.TextPrimary
         self._shadow.ImageColor3 = t.Shadow
         if self._mobileToggle then
             self._mobileToggle.BackgroundColor3 = t.TertiaryBG
             self._mobileToggle.TextColor3 = t.TextPrimary
         end
-
         for _, inst in ipairs(ScreenGui:GetDescendants()) do
             local role = inst:GetAttribute("MC_Role")
             if role and t[role] then
@@ -841,7 +896,6 @@ function MinecraftLib:CreateWindow(title, config)
                 inst.ScrollBarImageColor3 = t.Scrollbar
             end
         end
-
         for _, tabInfo in ipairs(self._tabs) do
             local isActive = (tabInfo == self._activeTab)
             tabInfo.btn.BackgroundColor3 = isActive and t.TabActive or t.TabInactive
@@ -851,17 +905,21 @@ function MinecraftLib:CreateWindow(title, config)
         for _, refresh in ipairs(self._themedRefreshers) do pcall(refresh, t) end
     end
     function self:GetTheme() return self._theme, self._themeName end
+    function self:GetThemes() return ThemeOrder() end
 
     -- ---------------- config system ----------------
     local function ConfigDir() return CONFIG_FOLDER .. "/" .. self._configName end
 
     function self:SaveConfig(name)
         if not HasFS then return false, "No filesystem" end
-        name = tostring(name or "default")
+        name = SafeName(name)
         EnsureFolder(FOLDER); EnsureFolder(CONFIG_FOLDER); EnsureFolder(ConfigDir())
         local data = {}
         for flag, element in pairs(self._flags) do
-            if element.Get then
+            if element._Save then
+                local ok, v = pcall(element._Save)
+                if ok then data[flag] = v end
+            elseif element.Get then
                 local ok, v = pcall(element.Get, element)
                 if ok then data[flag] = Serialize(v) end
             end
@@ -873,7 +931,7 @@ function MinecraftLib:CreateWindow(title, config)
 
     function self:LoadConfig(name)
         if not HasFS then return false, "No filesystem" end
-        name = tostring(name or "default")
+        name = SafeName(name)
         local path = ConfigDir() .. "/" .. name .. ".json"
         if not isfile(path) then return false, "Config not found" end
         local ok, data = pcall(function() return HttpService:JSONDecode(readfile(path)) end)
@@ -881,7 +939,10 @@ function MinecraftLib:CreateWindow(title, config)
         self._loading = true
         for flag, raw in pairs(data) do
             local element = self._flags[flag]
-            if element and element.Set then pcall(element.Set, element, Deserialize(raw)) end
+            if element then
+                if element._Load then pcall(element._Load, raw)
+                elseif element.Set then pcall(element.Set, element, Deserialize(raw)) end
+            end
         end
         self._loading = false
         return true
@@ -900,13 +961,13 @@ function MinecraftLib:CreateWindow(title, config)
 
     function self:DeleteConfig(name)
         if not HasFS or not delfile then return false end
-        local path = ConfigDir() .. "/" .. tostring(name) .. ".json"
+        local path = ConfigDir() .. "/" .. SafeName(name) .. ".json"
         if isfile(path) then pcall(delfile, path) return true end
         return false
     end
 
     local saveScheduled = false
-    function self:_FlagChanged(flag)
+    function self:_FlagChanged()
         if not self._autoSave or self._loading or saveScheduled then return end
         saveScheduled = true
         task.delay(1, function()
@@ -920,10 +981,65 @@ function MinecraftLib:CreateWindow(title, config)
     end
 
     -- ================================================================
+    -- DIALOG
+    -- ================================================================
+    function self:Dialog(o)
+        o = o or {}
+        local t = self._theme
+        ClosePopups()
+        local Overlay = Create("TextButton", {
+            Name = "Dialog", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1,
+            Text = "", AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 2000, Parent = ScreenGui,
+        })
+        Tween(Overlay, {BackgroundTransparency = 0.45}, 0.2)
+        local Box = Create("Frame", {
+            Size = UDim2.fromOffset(mobile and 280 or 340, 0), AutomaticSize = Enum.AutomaticSize.Y, AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.fromScale(0.5, 0.5), BackgroundColor3 = t.Background, BorderSizePixel = 0, ZIndex = 2001, Parent = Overlay,
+        })
+        PixelBevel(Box, t, 2)
+        local scale = Create("UIScale", {Scale = 0.6, Parent = Box})
+        Tween(scale, {Scale = 1}, 0.25, Enum.EasingStyle.Back)
+        AddPadding(Box, 10, 10, 12, 12)
+        Create("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = Box})
+
+        local tl = Create("TextLabel", {Size = UDim2.new(1, 0, 0, 20), BackgroundTransparency = 1, Text = tostring(o.Title or "Dialog"), TextColor3 = t.Accent, TextSize = FONT_TITLE, Font = FONT, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 1, ZIndex = 2002, Parent = Box})
+        PixelText(tl)
+        local cl = Create("TextLabel", {
+            Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Text = tostring(o.Content or ""), TextColor3 = t.TextSecondary,
+            TextSize = FONT_BODY, Font = FONT, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 2, ZIndex = 2002, Parent = Box,
+        })
+        PixelText(cl)
+        local Row = Create("Frame", {Size = UDim2.new(1, 0, 0, 30), BackgroundTransparency = 1, LayoutOrder = 3, ZIndex = 2002, Parent = Box})
+        Create("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Right, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = Row})
+
+        local closed = false
+        local function Close()
+            if closed then return end
+            closed = true
+            Tween(scale, {Scale = 0.6}, 0.15, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+            Tween(Overlay, {BackgroundTransparency = 1}, 0.15)
+            task.delay(0.16, function() if Overlay.Parent then Overlay:Destroy() end end)
+        end
+        local buttons = o.Buttons or {{Text = "OK"}}
+        for i, b in ipairs(buttons) do
+            local btn = Create("TextButton", {
+                Size = UDim2.fromOffset(math.max(70, #tostring(b.Text or "OK") * 9 + 20), 28), BackgroundColor3 = i == 1 and t.Accent or t.SecondaryBG,
+                Text = tostring(b.Text or "OK"), TextColor3 = t.TextPrimary, TextSize = FONT_BODY, Font = FONT, BorderSizePixel = 0, LayoutOrder = i, ZIndex = 2003, Parent = Row,
+            })
+            PixelText(btn); PixelBevel(btn, t, 1); CreateInsetShadow(btn, t, 2)
+            btn.MouseEnter:Connect(function() Tween(btn, {BackgroundColor3 = t.AccentHover}, 0.12); btn.TextColor3 = t.TextHover end)
+            btn.MouseLeave:Connect(function() Tween(btn, {BackgroundColor3 = i == 1 and t.Accent or t.SecondaryBG}, 0.12); btn.TextColor3 = t.TextPrimary end)
+            btn.Activated:Connect(function() Close(); Invoke(b.Callback) end)
+        end
+        return {Close = Close}
+    end
+
+    -- ================================================================
     -- TABS
     -- ================================================================
     function self:AddTab(name)
-        if type(name) == "table" then name = name.Name or name.Title or name[1] end
+        local icon
+        if type(name) == "table" then icon = name.Icon; name = name.Name or name.Title or name[1] end
         name = tostring(name or "Tab")
         local win = self
         local t = self._theme
@@ -934,13 +1050,17 @@ function MinecraftLib:CreateWindow(title, config)
             TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 4, Parent = self._tabList,
         })
         PixelText(TabBtn); PixelBevel(TabBtn, t, 1); CreateInsetShadow(TabBtn, t, 2)
-
+        if icon then
+            Create("ImageLabel", {Size = UDim2.fromOffset(16, 16), Position = UDim2.new(0, 7, 0.5, -8), BackgroundTransparency = 1, Image = icon, ZIndex = 6, Parent = TabBtn})
+            AddPadding(TabBtn, 0, 0, 26, 4)
+            TabBtn.TextXAlignment = Enum.TextXAlignment.Left
+        end
         local ActiveBar = Create("Frame", {Size = UDim2.new(0, 3, 1, 0), BackgroundColor3 = t.Accent, BorderSizePixel = 0, Visible = false, ZIndex = 6, Parent = TabBtn})
 
         local ContentScroll = Create("ScrollingFrame", {
-            Name = "TabContent_" .. name, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, BorderSizePixel = 0,
-            ScrollBarThickness = mobile and 5 or 4, ScrollBarImageColor3 = t.Scrollbar, CanvasSize = UDim2.new(0, 0, 0, 0),
-            AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y, Visible = false, ZIndex = 3, Parent = self._contentArea,
+            Name = "TabContent_" .. name, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = mobile and 5 or 4,
+            ScrollBarImageColor3 = t.Scrollbar, CanvasSize = UDim2.new(0, 0, 0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y,
+            ScrollingDirection = Enum.ScrollingDirection.Y, Visible = false, ZIndex = 3, Parent = self._contentArea,
         })
         Create("UIListLayout", {Padding = UDim.new(0, mobile and 6 or 5), SortOrder = Enum.SortOrder.LayoutOrder, Parent = ContentScroll})
         AddPadding(ContentScroll, 8, 8, 8, 8)
@@ -964,17 +1084,12 @@ function MinecraftLib:CreateWindow(title, config)
             self._activeTab = tabInfo
         end
         tabInfo.select = SelectThis
-
         TabBtn.Activated:Connect(SelectThis)
         TabBtn.MouseEnter:Connect(function()
-            if self._activeTab ~= tabInfo then
-                Tween(TabBtn, {BackgroundColor3 = self._theme.TertiaryBG}, 0.15); TabBtn.TextColor3 = self._theme.TextHover
-            end
+            if self._activeTab ~= tabInfo then Tween(TabBtn, {BackgroundColor3 = self._theme.TertiaryBG}, 0.15); TabBtn.TextColor3 = self._theme.TextHover end
         end)
         TabBtn.MouseLeave:Connect(function()
-            if self._activeTab ~= tabInfo then
-                Tween(TabBtn, {BackgroundColor3 = self._theme.TabInactive}, 0.15); TabBtn.TextColor3 = self._theme.TextSecondary
-            end
+            if self._activeTab ~= tabInfo then Tween(TabBtn, {BackgroundColor3 = self._theme.TabInactive}, 0.15); TabBtn.TextColor3 = self._theme.TextSecondary end
         end)
         if #self._tabs == 1 then SelectThis() end
 
@@ -985,7 +1100,6 @@ function MinecraftLib:CreateWindow(title, config)
 
         local layoutOrder = 0
         local function NextOrder() layoutOrder += 1 return layoutOrder end
-
         local rowH, sliderH, textboxH = (mobile and 42 or 36), (mobile and 56 or 48), (mobile and 54 or 46)
 
         local function Fire(o, ...)
@@ -1013,8 +1127,8 @@ function MinecraftLib:CreateWindow(title, config)
                 el._enabled = v
                 if not v and not overlay then
                     overlay = Create("TextButton", {
-                        Name = "DisabledOverlay", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0),
-                        BackgroundTransparency = 0.55, Text = "", AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 20, Parent = row,
+                        Name = "DisabledOverlay", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.55,
+                        Text = "", AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 20, Parent = row,
                     })
                 end
                 if overlay then overlay.Visible = not v end
@@ -1031,9 +1145,8 @@ function MinecraftLib:CreateWindow(title, config)
 
         local function MakeLabel(parent, text, size, pos, color, align)
             local l = Create("TextLabel", {
-                Name = "ItemLabel", Size = size, Position = pos, BackgroundTransparency = 1, Text = tostring(text), TextColor3 = color,
-                TextSize = FONT_BODY, Font = FONT, TextXAlignment = align or Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd,
-                ZIndex = 5, Parent = parent,
+                Name = "ItemLabel", Size = size, Position = pos, BackgroundTransparency = 1, Text = tostring(text), TextColor3 = color, TextSize = FONT_BODY,
+                Font = FONT, TextXAlignment = align or Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 5, Parent = parent,
             })
             PixelText(l)
             return l
@@ -1045,20 +1158,17 @@ function MinecraftLib:CreateWindow(title, config)
             local t2 = win._theme
             local row = MakeSlot(rowH, self._parent)
             local basePos = UDim2.new(0, 7, 0.5, -(rowH - 10) / 2)
-
             local Btn = Create("TextButton", {
                 Name = "ActionBtn", Size = UDim2.new(1, -14, 1, -10), Position = basePos, BackgroundColor3 = t2.Accent, BackgroundTransparency = 0.2,
                 Text = "> " .. tostring(o.Name), TextColor3 = t2.TextPrimary, TextSize = FONT_BODY, Font = FONT, BorderSizePixel = 0,
                 TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 5, Parent = row,
             })
             PixelText(Btn); PixelBevel(Btn, t2, 1); CreateInsetShadow(Btn, t2, 2)
-
             Btn.MouseEnter:Connect(function() Tween(Btn, {BackgroundColor3 = t2.AccentHover}, 0.18); Btn.TextColor3 = t2.TextHover end)
             Btn.MouseLeave:Connect(function() Tween(Btn, {BackgroundColor3 = t2.Accent}, 0.18); Btn.TextColor3 = t2.TextPrimary; Btn.Position = basePos end)
             Btn.MouseButton1Down:Connect(function() Tween(Btn, {BackgroundColor3 = t2.AccentPress}, 0.1); Btn.Position = basePos + UDim2.fromOffset(1, 1) end)
             Btn.MouseButton1Up:Connect(function() Tween(Btn, {BackgroundColor3 = t2.AccentHover}, 0.15); Btn.Position = basePos end)
             Btn.Activated:Connect(function() Invoke(o.Callback) end)
-
             win:RegisterThemed(function(nt) t2 = nt; row.BackgroundColor3 = t2.Glass; Btn.BackgroundColor3 = t2.Accent; Btn.TextColor3 = t2.TextPrimary end, row)
 
             local el = BaseElement(row)
@@ -1075,7 +1185,7 @@ function MinecraftLib:CreateWindow(title, config)
             local row = MakeSlot(rowH, self._parent)
             local state = o.Default and true or false
 
-            local lbl = MakeLabel(row, o.Name, UDim2.new(1, -70, 1, 0), UDim2.new(0, 10, 0, 0), t2.TextPrimary)
+            local lbl = MakeLabel(row, o.Name, UDim2.new(1, -110, 1, 0), UDim2.new(0, 10, 0, 0), t2.TextPrimary)
             local trackW = mobile and 48 or 44
             local Track = Create("Frame", {
                 Name = "ToggleTrack", Size = UDim2.new(0, trackW, 0, 20), Position = UDim2.new(1, -trackW - 10, 0.5, -10),
@@ -1102,12 +1212,33 @@ function MinecraftLib:CreateWindow(title, config)
             end
             function el:Get() return state end
             function el:Toggle() el:Set(not state) end
+            function el:SetText(v) lbl.Text = tostring(v) end
+
+            -- Привязанная клавиша
+            local KeyLbl
+            if o.Keybind then
+                local binding = {key = ToKeyCode(o.Keybind), callback = function() el:Toggle() end, mode = "Press"}
+                table.insert(win._keybinds, binding)
+                KeyLbl = MakeLabel(row, "[" .. (binding.key and binding.key.Name or "?") .. "]", UDim2.new(0, 50, 1, 0), UDim2.new(1, -trackW - 62, 0, 0), t2.Accent, Enum.TextXAlignment.Right)
+                KeyLbl.TextSize = FONT_BODY - 2
+                row.Destroying:Connect(function()
+                    local idx = table.find(win._keybinds, binding)
+                    if idx then table.remove(win._keybinds, idx) end
+                end)
+                function el:SetKeybind(k)
+                    binding.key = ToKeyCode(k)
+                    KeyLbl.Text = "[" .. (binding.key and binding.key.Name or "?") .. "]"
+                end
+            end
 
             Hit.Activated:Connect(function() el:Set(not state) end)
             Hit.MouseEnter:Connect(function() lbl.TextColor3 = t2.TextHover end)
             Hit.MouseLeave:Connect(function() lbl.TextColor3 = t2.TextPrimary end)
-
-            win:RegisterThemed(function(nt) t2 = nt; row.BackgroundColor3 = t2.Glass; lbl.TextColor3 = t2.TextPrimary; UpdateVisual() end, row)
+            win:RegisterThemed(function(nt)
+                t2 = nt; row.BackgroundColor3 = t2.Glass; lbl.TextColor3 = t2.TextPrimary
+                if KeyLbl then KeyLbl.TextColor3 = t2.Accent end
+                UpdateVisual()
+            end, row)
             if state then Invoke(o.Callback, state) end
             return Finish(el, o, row)
         end
@@ -1139,7 +1270,12 @@ function MinecraftLib:CreateWindow(title, config)
             local Header = Create("Frame", {Size = UDim2.new(1, 0, 0, mobile and 26 or 22), BackgroundTransparency = 1, ZIndex = 5, Parent = row})
             AddPadding(Header, 0, 0, 10, 8)
             local hl = MakeLabel(Header, o.Name, UDim2.new(0.6, 0, 1, 0), UDim2.new(0, 0, 0, 0), t2.TextPrimary)
-            local ValLabel = MakeLabel(Header, Fmt(val), UDim2.new(0.4, 0, 1, 0), UDim2.new(0.6, 0, 0, 0), t2.TextSecondary, Enum.TextXAlignment.Right)
+            -- значение можно ввести вручную
+            local ValBox = Create("TextBox", {
+                Name = "ValueBox", Size = UDim2.new(0.4, 0, 1, 0), Position = UDim2.new(0.6, 0, 0, 0), BackgroundTransparency = 1, Text = Fmt(val),
+                TextColor3 = t2.TextSecondary, TextSize = FONT_BODY, Font = FONT, TextXAlignment = Enum.TextXAlignment.Right, ClearTextOnFocus = false, ZIndex = 6, Parent = Header,
+            })
+            PixelText(ValBox)
 
             local knobW, knobH = mobile and 12 or 8, mobile and 20 or 14
             local SliderBG = Create("Frame", {
@@ -1154,36 +1290,10 @@ function MinecraftLib:CreateWindow(title, config)
 
             local function Render()
                 local p = Pct(val)
-                ValLabel.Text = Fmt(val)
+                if not ValBox:IsFocused() then ValBox.Text = Fmt(val) end
                 SliderFill.Size = UDim2.new(p, 0, 1, 0)
                 SliderKnob.Position = UDim2.new(p, -knobW / 2, 0.5, -knobH / 2)
             end
-
-            local dragging = false
-            local function SetFromInput(inp)
-                local absPos, absSize = SliderBG.AbsolutePosition.X, SliderBG.AbsoluteSize.X
-                if absSize <= 0 then return end
-                local newVal = Snap(lo + math.clamp((inp.Position.X - absPos) / absSize, 0, 1) * range)
-                if newVal ~= val then val = newVal; Render(); Fire(o, val) end
-            end
-
-            SliderBG.InputBegan:Connect(function(inp)
-                if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
-                    dragging = true
-                    scroll.ScrollingEnabled = false
-                    SetFromInput(inp)
-                end
-            end)
-            local endedConn = UserInputService.InputEnded:Connect(function(inp)
-                if (inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch) and dragging then
-                    dragging = false
-                    scroll.ScrollingEnabled = true
-                end
-            end)
-            local changedConn = UserInputService.InputChanged:Connect(function(inp)
-                if dragging and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) then SetFromInput(inp) end
-            end)
-            row.Destroying:Connect(function() endedConn:Disconnect(); changedConn:Disconnect(); scroll.ScrollingEnabled = true end)
 
             local el = BaseElement(row)
             function el:Set(v, silent) val = Snap(v); Render(); if not silent then Fire(o, val) end end
@@ -1195,9 +1305,34 @@ function MinecraftLib:CreateWindow(title, config)
                 el:Set(val, true)
             end
 
+            ValBox.Focused:Connect(function() ValBox.Text = tostring(val); ValBox.TextColor3 = t2.TextHover end)
+            ValBox.FocusLost:Connect(function()
+                ValBox.TextColor3 = t2.TextSecondary
+                local n = tonumber(ValBox.Text)
+                if n then el:Set(n) else Render() end
+            end)
+
+            local dragging = false
+            local function SetFromInput(inp)
+                local absPos, absSize = SliderBG.AbsolutePosition.X, SliderBG.AbsoluteSize.X
+                if absSize <= 0 then return end
+                local newVal = Snap(lo + math.clamp((inp.Position.X - absPos) / absSize, 0, 1) * range)
+                if newVal ~= val then val = newVal; Render(); Fire(o, val) end
+            end
+            SliderBG.InputBegan:Connect(function(inp)
+                if IsPress(inp) then dragging = true; scroll.ScrollingEnabled = false; SetFromInput(inp) end
+            end)
+            local endedConn = UserInputService.InputEnded:Connect(function(inp)
+                if IsPress(inp) and dragging then dragging = false; scroll.ScrollingEnabled = true end
+            end)
+            local changedConn = UserInputService.InputChanged:Connect(function(inp)
+                if dragging and IsMove(inp) then SetFromInput(inp) end
+            end)
+            row.Destroying:Connect(function() endedConn:Disconnect(); changedConn:Disconnect(); scroll.ScrollingEnabled = true end)
+
             win:RegisterThemed(function(nt)
                 t2 = nt
-                row.BackgroundColor3 = t2.Glass; hl.TextColor3 = t2.TextPrimary; ValLabel.TextColor3 = t2.TextSecondary
+                row.BackgroundColor3 = t2.Glass; hl.TextColor3 = t2.TextPrimary; ValBox.TextColor3 = t2.TextSecondary
                 SliderBG.BackgroundColor3 = t2.SliderBG; SliderFill.BackgroundColor3 = t2.SliderFill
             end, row)
             return Finish(el, o, row)
@@ -1208,19 +1343,14 @@ function MinecraftLib:CreateWindow(title, config)
             local o = Opts(text, {"Name", "Placeholder", "Callback", "Flag"}, placeholder, callback)
             local t2 = win._theme
             local row = MakeSlot(textboxH, self._parent)
-
             local lbl = MakeLabel(row, o.Name, UDim2.new(1, -20, 0, mobile and 20 or 18), UDim2.new(0, 10, 0, 4), t2.TextSecondary)
             lbl.TextSize = FONT_BODY - 1
-
             local Box = Create("TextBox", {
-                Size = UDim2.new(1, -18, 0, mobile and 24 or 20), Position = UDim2.new(0, 9, 0, mobile and 26 or 24), BackgroundColor3 = t2.Background,
-                BackgroundTransparency = 0.3, Text = tostring(o.Default or ""), PlaceholderText = o.Placeholder or "Type here...",
-                PlaceholderColor3 = t2.TextDisabled, TextColor3 = t2.TextPrimary, TextSize = FONT_BODY, Font = FONT,
-                TextXAlignment = Enum.TextXAlignment.Left, BorderSizePixel = 0, ClearTextOnFocus = false, ClipsDescendants = true, ZIndex = 5, Parent = row,
+                Size = UDim2.new(1, -18, 0, mobile and 24 or 20), Position = UDim2.new(0, 9, 0, mobile and 26 or 24), BackgroundColor3 = t2.Background, BackgroundTransparency = 0.3,
+                Text = tostring(o.Default or ""), PlaceholderText = o.Placeholder or "Type here...", PlaceholderColor3 = t2.TextDisabled, TextColor3 = t2.TextPrimary,
+                TextSize = FONT_BODY, Font = FONT, TextXAlignment = Enum.TextXAlignment.Left, BorderSizePixel = 0, ClearTextOnFocus = false, ClipsDescendants = true, ZIndex = 5, Parent = row,
             })
-            AddPadding(Box, 0, 0, 6, 6)
-            PixelBevel(Box, t2, 1, true)
-
+            AddPadding(Box, 0, 0, 6, 6); PixelBevel(Box, t2, 1, true)
             Box.Focused:Connect(function() Tween(Box, {BackgroundColor3 = t2.SecondaryBG}, 0.15) end)
             Box.FocusLost:Connect(function(enter)
                 Tween(Box, {BackgroundColor3 = t2.Background}, 0.15)
@@ -1233,10 +1363,8 @@ function MinecraftLib:CreateWindow(title, config)
             el.Box = Box
             function el:Set(v, silent) Box.Text = tostring(v); if not silent then Fire(o, Box.Text) end end
             function el:Get() return Box.Text end
-
             win:RegisterThemed(function(nt)
-                t2 = nt
-                row.BackgroundColor3 = t2.Glass; lbl.TextColor3 = t2.TextSecondary
+                t2 = nt; row.BackgroundColor3 = t2.Glass; lbl.TextColor3 = t2.TextSecondary
                 Box.BackgroundColor3 = t2.Background; Box.PlaceholderColor3 = t2.TextDisabled; Box.TextColor3 = t2.TextPrimary
             end, row)
             return Finish(el, o, row)
@@ -1261,7 +1389,6 @@ function MinecraftLib:CreateWindow(title, config)
             else
                 selected = (o.Default ~= nil and table.find(list, o.Default)) and o.Default or list[1] or ""
             end
-
             local function IsSel(opt) if multi then return table.find(selected, opt) ~= nil end return opt == selected end
             local function Display()
                 if multi then
@@ -1269,14 +1396,15 @@ function MinecraftLib:CreateWindow(title, config)
                     if #selected <= 2 then return table.concat(selected, ", ") end
                     return #selected .. " selected"
                 end
+                if selected == "" then return "None" end
                 return tostring(selected)
             end
 
             local lbl = MakeLabel(row, o.Name, UDim2.new(0.35, 0, 1, 0), UDim2.new(0, 10, 0, 0), t2.TextPrimary)
             local DropBtn = Create("TextButton", {
-                Size = UDim2.new(0.6, 0, 0, rowH - 12), Position = UDim2.new(0.38, 0, 0.5, -(rowH - 12) / 2), BackgroundColor3 = t2.Background,
-                BackgroundTransparency = 0.05, Text = Display() .. " ▼", TextColor3 = t2.TextPrimary, TextSize = FONT_BODY - 1, Font = FONT,
-                BorderSizePixel = 0, ClipsDescendants = true, TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 5, Parent = row,
+                Size = UDim2.new(0.6, 0, 0, rowH - 12), Position = UDim2.new(0.38, 0, 0.5, -(rowH - 12) / 2), BackgroundColor3 = t2.Background, BackgroundTransparency = 0.05,
+                Text = Display() .. " ▼", TextColor3 = t2.TextPrimary, TextSize = FONT_BODY - 1, Font = FONT, BorderSizePixel = 0, ClipsDescendants = true,
+                TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 5, Parent = row,
             })
             PixelText(DropBtn); PixelBevel(DropBtn, t2, 1, true); CreateInsetShadow(DropBtn, t2, 2)
             local popup
@@ -1288,22 +1416,20 @@ function MinecraftLib:CreateWindow(title, config)
             })
             PixelBevel(ListFrame, t2, 2)
 
-            local SearchBox
-            local topOff = 4
+            local SearchBox, topOff = nil, 4
             if searchable then
                 SearchBox = Create("TextBox", {
-                    Size = UDim2.new(1, -8, 0, 20), Position = UDim2.fromOffset(4, 4), BackgroundColor3 = t2.Background, BackgroundTransparency = 0.1,
-                    Text = "", PlaceholderText = "Search...", PlaceholderColor3 = t2.TextDisabled, TextColor3 = t2.TextPrimary, TextSize = FONT_BODY - 1,
-                    Font = FONT, TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false, BorderSizePixel = 0, ZIndex = 1002, Parent = ListFrame,
+                    Size = UDim2.new(1, -8, 0, 20), Position = UDim2.fromOffset(4, 4), BackgroundColor3 = t2.Background, BackgroundTransparency = 0.1, Text = "",
+                    PlaceholderText = "Search...", PlaceholderColor3 = t2.TextDisabled, TextColor3 = t2.TextPrimary, TextSize = FONT_BODY - 1, Font = FONT,
+                    TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false, BorderSizePixel = 0, ZIndex = 1002, Parent = ListFrame,
                 })
                 AddPadding(SearchBox, 0, 0, 6, 6); PixelBevel(SearchBox, t2, 1, true)
                 topOff = 28
             end
-
             local ListScroll = Create("ScrollingFrame", {
-                Size = UDim2.new(1, -4, 1, -(topOff + 2)), Position = UDim2.new(0, 2, 0, topOff), BackgroundTransparency = 1, BorderSizePixel = 0,
-                ScrollBarThickness = 4, ScrollBarImageColor3 = t2.Scrollbar, CanvasSize = UDim2.new(0, 0, 0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y,
-                ScrollingDirection = Enum.ScrollingDirection.Y, ZIndex = 1001, Parent = ListFrame,
+                Size = UDim2.new(1, -4, 1, -(topOff + 2)), Position = UDim2.new(0, 2, 0, topOff), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4,
+                ScrollBarImageColor3 = t2.Scrollbar, CanvasSize = UDim2.new(0, 0, 0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y,
+                ZIndex = 1001, Parent = ListFrame,
             })
             AddPadding(ListScroll, 2, 4, 4, 4)
             Create("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2), Parent = ListScroll})
@@ -1311,50 +1437,36 @@ function MinecraftLib:CreateWindow(title, config)
             local entries = {}
             local function Query() return SearchBox and SearchBox.Text:lower() or "" end
             local function Matches(opt) local q = Query() return q == "" or tostring(opt):lower():find(q, 1, true) ~= nil end
-            local function VisibleCount()
-                local n = 0
-                for _, opt in ipairs(list) do if Matches(opt) then n += 1 end end
-                return n
-            end
-            local function ApplyFilter()
-                for _, e in ipairs(entries) do e.btn.Visible = Matches(e.opt) end
-            end
+            local function VisibleCount() local n = 0 for _, opt in ipairs(list) do if Matches(opt) then n += 1 end end return n end
+            local function ApplyFilter() for _, e in ipairs(entries) do e.btn.Visible = Matches(e.opt) end end
             local function StyleEntry(e)
                 local sel = IsSel(e.opt)
                 e.btn.BackgroundColor3 = sel and t2.Accent or t2.Background
                 e.btn.TextColor3 = sel and t2.TextPrimary or t2.TextSecondary
                 if e.mark then e.mark.Text = sel and "■" or "□" end
             end
-
             local function Rebuild()
                 for _, e in ipairs(entries) do e.btn:Destroy() end
                 table.clear(entries)
                 for i, opt in ipairs(list) do
                     local btn = Create("TextButton", {
-                        Size = UDim2.new(1, 0, 0, itemH), BackgroundTransparency = 0.1, Text = tostring(opt), TextSize = FONT_BODY - 1, Font = FONT,
-                        TextXAlignment = Enum.TextXAlignment.Left, BorderSizePixel = 0, LayoutOrder = i, ClipsDescendants = true,
-                        TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 1002, Parent = ListScroll,
+                        Size = UDim2.new(1, 0, 0, itemH), BackgroundTransparency = 0.1, Text = tostring(opt), TextSize = FONT_BODY - 1, Font = FONT, TextXAlignment = Enum.TextXAlignment.Left,
+                        BorderSizePixel = 0, LayoutOrder = i, ClipsDescendants = true, TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 1002, Parent = ListScroll,
                     })
-                    PixelText(btn)
-                    AddPadding(btn, 0, 0, multi and 22 or 8, 8)
+                    PixelText(btn); AddPadding(btn, 0, 0, multi and 22 or 8, 8)
                     local e = {btn = btn, opt = opt}
                     if multi then
-                        e.mark = Create("TextLabel", {
-                            Size = UDim2.new(0, 14, 1, 0), Position = UDim2.new(0, -16, 0, 0), BackgroundTransparency = 1, Text = "□",
-                            TextColor3 = t2.TextPrimary, TextSize = 12, Font = FONT, ZIndex = 1003, Parent = btn,
-                        })
+                        e.mark = Create("TextLabel", {Size = UDim2.new(0, 14, 1, 0), Position = UDim2.new(0, -16, 0, 0), BackgroundTransparency = 1, Text = "□", TextColor3 = t2.TextPrimary, TextSize = 12, Font = FONT, ZIndex = 1003, Parent = btn})
                     end
                     table.insert(entries, e)
                     StyleEntry(e)
-
                     btn.MouseEnter:Connect(function() Tween(btn, {BackgroundColor3 = t2.AccentHover}, 0.12); btn.TextColor3 = t2.TextHover end)
                     btn.MouseLeave:Connect(function() StyleEntry(e) end)
                     btn.Activated:Connect(function()
                         if multi then
                             local idx = table.find(selected, opt)
                             if idx then table.remove(selected, idx) else table.insert(selected, opt) end
-                            StyleEntry(e)
-                            UpdateBtn()
+                            StyleEntry(e); UpdateBtn()
                             Fire(o, table.clone(selected))
                         else
                             selected = opt
@@ -1370,18 +1482,13 @@ function MinecraftLib:CreateWindow(title, config)
             Rebuild()
 
             popup = AttachPopup(DropBtn, ListFrame, self._scroll, function()
-                local h = math.min(math.max(VisibleCount(), 1) * (itemH + 2) + 10 + topOff, 260)
-                return DropBtn.AbsoluteSize.X, h, "left"
+                return DropBtn.AbsoluteSize.X, math.min(math.max(VisibleCount(), 1) * (itemH + 2) + 10 + topOff, 260), "left"
             end, function()
                 if SearchBox then SearchBox.Text = "" end
                 UpdateBtn()
             end, UpdateBtn)
-
             if SearchBox then
-                SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
-                    ApplyFilter()
-                    if popup.IsOpen() then popup.Reposition() end
-                end)
+                SearchBox:GetPropertyChangedSignal("Text"):Connect(function() ApplyFilter(); if popup.IsOpen() then popup.Reposition() end end)
             end
             DropBtn.Activated:Connect(popup.Toggle)
 
@@ -1391,9 +1498,7 @@ function MinecraftLib:CreateWindow(title, config)
                     selected = {}
                     if type(v) == "table" then
                         for _, x in ipairs(v) do if table.find(list, x) then table.insert(selected, x) end end
-                    elseif table.find(list, v) then
-                        selected = {v}
-                    end
+                    elseif table.find(list, v) then selected = {v} end
                     for _, e in ipairs(entries) do StyleEntry(e) end
                     UpdateBtn()
                     if not silent then Fire(o, table.clone(selected)) end
@@ -1414,8 +1519,7 @@ function MinecraftLib:CreateWindow(title, config)
                 elseif not (keepSelection and table.find(list, selected)) then
                     selected = list[1] or ""
                 end
-                Rebuild()
-                UpdateBtn()
+                Rebuild(); UpdateBtn()
                 if popup.IsOpen() then popup.Reposition() end
             end
             function el:Close() popup.Close() end
@@ -1432,7 +1536,7 @@ function MinecraftLib:CreateWindow(title, config)
             return Finish(el, o, row)
         end
 
-        -- ============================ LABEL ============================
+        -- ============================ LABEL / PARAGRAPH / SEPARATOR ============================
         function Tab:AddLabel(text)
             local o = Opts(text, {"Name"})
             local t2 = win._theme
@@ -1446,50 +1550,39 @@ function MinecraftLib:CreateWindow(title, config)
             return Finish(el, o, row)
         end
 
-        -- ============================ PARAGRAPH ============================
         function Tab:AddParagraph(title, content)
             local o = Opts(title, {"Name", "Content"}, content)
             local t2 = win._theme
-            local row = Create("Frame", {
-                Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = t2.Glass, BackgroundTransparency = 0.25,
-                BorderSizePixel = 0, LayoutOrder = NextOrder(), ZIndex = 4, Parent = self._parent,
-            })
-            PixelBevel(row, t2, 1, true)
-            AddPadding(row, 8, 8, 10, 10)
+            local row = Create("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = t2.Glass, BackgroundTransparency = 0.25, BorderSizePixel = 0, LayoutOrder = NextOrder(), ZIndex = 4, Parent = self._parent})
+            PixelBevel(row, t2, 1, true); AddPadding(row, 8, 8, 10, 10)
             Create("UIListLayout", {Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = row})
             local tl = Create("TextLabel", {Size = UDim2.new(1, 0, 0, 16), BackgroundTransparency = 1, Text = tostring(o.Name), TextColor3 = t2.Accent, TextSize = FONT_BODY, Font = FONT, TextXAlignment = Enum.TextXAlignment.Left, LayoutOrder = 1, ZIndex = 5, Parent = row})
             PixelText(tl)
             local cl = Create("TextLabel", {
-                Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Text = tostring(o.Content or ""),
-                TextColor3 = t2.TextSecondary, TextSize = FONT_BODY - 1, Font = FONT, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left,
-                TextYAlignment = Enum.TextYAlignment.Top, LayoutOrder = 2, ZIndex = 5, Parent = row,
+                Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Text = tostring(o.Content or ""), TextColor3 = t2.TextSecondary, TextSize = FONT_BODY - 1,
+                Font = FONT, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, LayoutOrder = 2, ZIndex = 5, Parent = row,
             })
             PixelText(cl)
             local el = BaseElement(row)
-            function el:Set(t, c) if t then tl.Text = tostring(t) end if c then cl.Text = tostring(c) end end
+            function el:Set(tt, c) if tt then tl.Text = tostring(tt) end if c then cl.Text = tostring(c) end end
             function el:SetContent(c) cl.Text = tostring(c) end
             win:RegisterThemed(function(nt) t2 = nt; row.BackgroundColor3 = t2.Glass; tl.TextColor3 = t2.Accent; cl.TextColor3 = t2.TextSecondary end, row)
             return Finish(el, o, row)
         end
 
-        -- ============================ SEPARATOR ============================
         function Tab:AddSeparator(labelText)
             local t2 = win._theme
             local row = Create("Frame", {Size = UDim2.new(1, 0, 0, mobile and 22 or 20), BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = NextOrder(), ZIndex = 4, Parent = self._parent})
             local sepLine = Create("Frame", {Size = UDim2.new(1, -18, 0, 2), Position = UDim2.new(0, 9, 0.5, 0), BackgroundColor3 = t2.Accent, BackgroundTransparency = 0.3, BorderSizePixel = 0, ZIndex = 5, Parent = row})
             local sepBg, sepLbl
             if labelText then
-                sepBg = Create("Frame", {
-                    Size = UDim2.new(0, 0, 0, 14), AutomaticSize = Enum.AutomaticSize.X, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, -6),
-                    BackgroundColor3 = t2.Glass, BackgroundTransparency = 0.2, BorderSizePixel = 0, ZIndex = 6, Parent = row,
-                })
+                sepBg = Create("Frame", {Size = UDim2.new(0, 0, 0, 14), AutomaticSize = Enum.AutomaticSize.X, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, -6), BackgroundColor3 = t2.Glass, BackgroundTransparency = 0.2, BorderSizePixel = 0, ZIndex = 6, Parent = row})
                 AddPadding(sepBg, 0, 0, 7, 7)
                 sepLbl = Create("TextLabel", {Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, Text = tostring(labelText), TextColor3 = t2.Accent, TextSize = 10, Font = FONT, ZIndex = 7, Parent = sepBg})
                 PixelText(sepLbl)
             end
             win:RegisterThemed(function(nt)
-                t2 = nt
-                sepLine.BackgroundColor3 = t2.Accent
+                t2 = nt; sepLine.BackgroundColor3 = t2.Accent
                 if sepBg then sepBg.BackgroundColor3 = t2.Glass; sepLbl.TextColor3 = t2.Accent end
             end, row)
             return BaseElement(row)
@@ -1506,9 +1599,9 @@ function MinecraftLib:CreateWindow(title, config)
 
             local lbl = MakeLabel(row, o.Name, UDim2.new(0.5, 0, 1, 0), UDim2.new(0, 10, 0, 0), t2.TextPrimary)
             local KeyBtn = Create("TextButton", {
-                Size = UDim2.new(0, mobile and 90 or 80, 0, rowH - 10), Position = UDim2.new(1, -(mobile and 102 or 92), 0.5, -(rowH - 10) / 2),
-                BackgroundColor3 = t2.Background, BackgroundTransparency = 0.3, Text = binding.key and binding.key.Name or "None", TextColor3 = t2.Accent,
-                TextSize = FONT_BODY - 1, Font = FONT, BorderSizePixel = 0, TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 5, Parent = row,
+                Size = UDim2.new(0, mobile and 90 or 80, 0, rowH - 10), Position = UDim2.new(1, -(mobile and 102 or 92), 0.5, -(rowH - 10) / 2), BackgroundColor3 = t2.Background,
+                BackgroundTransparency = 0.3, Text = binding.key and binding.key.Name or "None", TextColor3 = t2.Accent, TextSize = FONT_BODY - 1, Font = FONT, BorderSizePixel = 0,
+                TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 5, Parent = row,
             })
             PixelText(KeyBtn, t2.Accent); PixelBevel(KeyBtn, t2, 1, true); CreateInsetShadow(KeyBtn, t2, 2)
 
@@ -1522,7 +1615,6 @@ function MinecraftLib:CreateWindow(title, config)
                 Invoke(o.OnChanged, binding.key)
                 if o.Flag then win:_FlagChanged(o.Flag) end
             end
-
             KeyBtn.Activated:Connect(function()
                 if binding.listening then StopListening() return end
                 binding.listening = true
@@ -1532,19 +1624,15 @@ function MinecraftLib:CreateWindow(title, config)
                     if inp.KeyCode == Enum.KeyCode.Escape then
                         StopListening()
                     elseif inp.KeyCode == Enum.KeyCode.Backspace or inp.KeyCode == Enum.KeyCode.Delete then
-                        binding.key = nil
-                        StopListening()
-                        KeyChanged()
+                        binding.key = nil; StopListening(); KeyChanged()
                     else
                         binding.key = inp.KeyCode
                         binding.cooldown = true
                         task.delay(0.2, function() binding.cooldown = false end)
-                        StopListening()
-                        KeyChanged()
+                        StopListening(); KeyChanged()
                     end
                 end)
             end)
-
             row.Destroying:Connect(function()
                 if listenConn then listenConn:Disconnect() end
                 local idx = table.find(keybinds, binding)
@@ -1553,102 +1641,103 @@ function MinecraftLib:CreateWindow(title, config)
 
             local el = BaseElement(row)
             function el:Get() return binding.key end
-            function el:Set(k) binding.key = ToKeyCode(k); KeyBtn.Text = binding.key and binding.key.Name or "None" end
+            function el:Set(k, silent)
+                binding.key = ToKeyCode(k)
+                KeyBtn.Text = binding.key and binding.key.Name or "None"
+                if not silent then KeyChanged() end
+            end
             function el:SetCallback(fn) binding.callback = fn end
-
             win:RegisterThemed(function(nt)
-                t2 = nt
-                row.BackgroundColor3 = t2.Glass; lbl.TextColor3 = t2.TextPrimary
+                t2 = nt; row.BackgroundColor3 = t2.Glass; lbl.TextColor3 = t2.TextPrimary
                 KeyBtn.BackgroundColor3 = t2.Background; KeyBtn.TextColor3 = t2.Accent
             end, row)
             return Finish(el, o, row)
         end
 
-        -- ============================ COLOR PICKER (HSV) ============================
+        -- ============================ COLOR PICKER (HSV + alpha) ============================
         function Tab:AddColorPicker(text, default, callback)
             local o = Opts(text, {"Name", "Default", "Callback", "Flag"}, default, callback)
             local t2 = win._theme
             local row = MakeSlot(rowH, self._parent)
             local col = typeof(o.Default) == "Color3" and o.Default or Color3.fromRGB(255, 0, 0)
             local h, s, v = col:ToHSV()
+            local useAlpha = o.Alpha == true
+            local alpha = math.clamp(tonumber(o.DefaultTransparency) or 0, 0, 1) -- transparency (0 = непрозрачный)
 
             local lbl = MakeLabel(row, o.Name, UDim2.new(0.6, 0, 1, 0), UDim2.new(0, 10, 0, 0), t2.TextPrimary)
             local Preview = Create("TextButton", {Size = UDim2.new(0, 26, 0, 20), Position = UDim2.new(1, -36, 0.5, -10), BackgroundColor3 = col, Text = "", BorderSizePixel = 0, ZIndex = 5, Parent = row})
             PixelBevel(Preview, t2, 1)
 
-            -- layout
             local PAD, HUE_W = 8, 16
             local POP_W = mobile and 232 or 212
             local SV_H = mobile and 124 or 112
             local SV_W = POP_W - PAD * 3 - HUE_W
-            local HEX_Y = PAD + SV_H + 8
+            local ALPHA_Y = PAD + SV_H + 6
+            local HEX_Y = ALPHA_Y + (useAlpha and 20 or 2)
             local PRESET_Y = HEX_Y + 20 + 8
             local POP_H = PRESET_Y + 16 + PAD
 
-            local Popup = Create("Frame", {
-                Name = "ColorPicker_" .. tostring(o.Name), BackgroundColor3 = t2.SecondaryBG, BackgroundTransparency = 0.02,
-                BorderSizePixel = 0, ZIndex = 1000, Visible = false, Parent = win._gui,
-            })
+            local Popup = Create("Frame", {Name = "ColorPicker_" .. tostring(o.Name), BackgroundColor3 = t2.SecondaryBG, BackgroundTransparency = 0.02, BorderSizePixel = 0, ZIndex = 1000, Visible = false, Parent = win._gui})
             PixelBevel(Popup, t2, 2)
 
-            -- SV square
             local SV = Create("Frame", {Size = UDim2.fromOffset(SV_W, SV_H), Position = UDim2.fromOffset(PAD, PAD), BackgroundColor3 = Color3.fromHSV(h, 1, 1), BorderSizePixel = 0, ZIndex = 1002, Parent = Popup})
-            local svStroke = Create("UIStroke", {Color = t2.Border, Thickness = 1, Parent = SV}); svStroke:SetAttribute("MC_Role", "Border")
+            Create("UIStroke", {Color = t2.Border, Thickness = 1, Parent = SV}):SetAttribute("MC_Role", "Border")
             Create("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 1003, Parent = SV}, {
                 Create("UIGradient", {Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1)})}),
             })
             Create("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0, ZIndex = 1004, Parent = SV}, {
                 Create("UIGradient", {Rotation = 90, Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0)})}),
             })
-            local SVCursor = Create("Frame", {Size = UDim2.fromOffset(8, 8), BackgroundTransparency = 1, ZIndex = 1005, Parent = SV}, {
-                Create("UIStroke", {Color = Color3.new(1, 1, 1), Thickness = 2}),
-            })
+            local SVCursor = Create("Frame", {Size = UDim2.fromOffset(8, 8), BackgroundTransparency = 1, ZIndex = 1005, Parent = SV}, {Create("UIStroke", {Color = Color3.new(1, 1, 1), Thickness = 2})})
             Create("Frame", {Size = UDim2.fromOffset(2, 2), Position = UDim2.fromOffset(3, 3), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0, ZIndex = 1006, Parent = SVCursor})
             local SVHit = Create("TextButton", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", ZIndex = 1007, Parent = SV})
 
-            -- Hue bar
             local Hue = Create("Frame", {Size = UDim2.fromOffset(HUE_W, SV_H), Position = UDim2.fromOffset(PAD * 2 + SV_W, PAD), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 1002, Parent = Popup}, {
                 Create("UIGradient", {Rotation = 90, Color = ColorSequence.new({
-                    ColorSequenceKeypoint.new(0,     Color3.fromRGB(255, 0, 0)),
-                    ColorSequenceKeypoint.new(1 / 6, Color3.fromRGB(255, 255, 0)),
-                    ColorSequenceKeypoint.new(2 / 6, Color3.fromRGB(0, 255, 0)),
-                    ColorSequenceKeypoint.new(3 / 6, Color3.fromRGB(0, 255, 255)),
-                    ColorSequenceKeypoint.new(4 / 6, Color3.fromRGB(0, 0, 255)),
-                    ColorSequenceKeypoint.new(5 / 6, Color3.fromRGB(255, 0, 255)),
-                    ColorSequenceKeypoint.new(1,     Color3.fromRGB(255, 0, 0)),
+                    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)), ColorSequenceKeypoint.new(1 / 6, Color3.fromRGB(255, 255, 0)),
+                    ColorSequenceKeypoint.new(2 / 6, Color3.fromRGB(0, 255, 0)), ColorSequenceKeypoint.new(3 / 6, Color3.fromRGB(0, 255, 255)),
+                    ColorSequenceKeypoint.new(4 / 6, Color3.fromRGB(0, 0, 255)), ColorSequenceKeypoint.new(5 / 6, Color3.fromRGB(255, 0, 255)),
+                    ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0)),
                 })}),
             })
-            local hueStroke = Create("UIStroke", {Color = t2.Border, Thickness = 1, Parent = Hue}); hueStroke:SetAttribute("MC_Role", "Border")
-            local HueCursor = Create("Frame", {Size = UDim2.new(1, 4, 0, 3), Position = UDim2.new(0, -2, h, -1), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 1003, Parent = Hue}, {
-                Create("UIStroke", {Color = Color3.new(0, 0, 0), Thickness = 1}),
-            })
-            local HueHit = Create("TextButton", {Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "", ZIndex = 1007, Parent = Hue})
+            Create("UIStroke", {Color = t2.Border, Thickness = 1, Parent = Hue}):SetAttribute("MC_Role", "Border")
+            local HueCursor = Create("Frame", {Size = UDim2.new(1, 4, 0, 3), Position = UDim2.new(0, -2, h, -1), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 1003, Parent = Hue}, {Create("UIStroke", {Color = Color3.new(0, 0, 0), Thickness = 1})})
+            local HueHit = Create("TextButton", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", ZIndex = 1007, Parent = Hue})
 
-            -- Hex + RGB
+            local AlphaBar, AlphaCursor, AlphaHit
+            if useAlpha then
+                local back = Create("Frame", {Size = UDim2.fromOffset(SV_W, 12), Position = UDim2.fromOffset(PAD, ALPHA_Y), BackgroundColor3 = Color3.fromRGB(60, 60, 60), BorderSizePixel = 0, ZIndex = 1002, Parent = Popup})
+                Create("UIStroke", {Color = t2.Border, Thickness = 1, Parent = back}):SetAttribute("MC_Role", "Border")
+                AlphaBar = Create("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = col, BorderSizePixel = 0, ZIndex = 1003, Parent = back}, {
+                    Create("UIGradient", {Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1)})}),
+                })
+                AlphaCursor = Create("Frame", {Size = UDim2.new(0, 3, 1, 4), Position = UDim2.new(alpha, -1, 0, -2), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 1004, Parent = back}, {Create("UIStroke", {Color = Color3.new(0, 0, 0), Thickness = 1})})
+                AlphaHit = Create("TextButton", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", ZIndex = 1007, Parent = back})
+            end
+
             local HexBox = Create("TextBox", {
-                Size = UDim2.fromOffset(84, 20), Position = UDim2.fromOffset(PAD, HEX_Y), BackgroundColor3 = t2.Background, BackgroundTransparency = 0.1,
-                Text = ToHex(col), TextColor3 = t2.TextPrimary, TextSize = 11, Font = FONT, TextXAlignment = Enum.TextXAlignment.Left,
-                ClearTextOnFocus = false, BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 1002, Parent = Popup,
+                Size = UDim2.fromOffset(84, 20), Position = UDim2.fromOffset(PAD, HEX_Y), BackgroundColor3 = t2.Background, BackgroundTransparency = 0.1, Text = ToHex(col), TextColor3 = t2.TextPrimary,
+                TextSize = 11, Font = FONT, TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false, BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 1002, Parent = Popup,
             })
             AddPadding(HexBox, 0, 0, 6, 6); PixelBevel(HexBox, t2, 1, true)
-            local RGBLabel = Create("TextLabel", {
-                Size = UDim2.new(1, -(PAD * 2 + 84 + 6), 0, 20), Position = UDim2.fromOffset(PAD + 84 + 6, HEX_Y), BackgroundTransparency = 1,
-                Text = "", TextColor3 = t2.TextSecondary, TextSize = 10, Font = FONT, TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 1002, Parent = Popup,
-            })
+            local RGBLabel = Create("TextLabel", {Size = UDim2.new(1, -(PAD * 2 + 84 + 6), 0, 20), Position = UDim2.fromOffset(PAD + 84 + 6, HEX_Y), BackgroundTransparency = 1, Text = "", TextColor3 = t2.TextSecondary, TextSize = 10, Font = FONT, TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 1002, Parent = Popup})
             PixelText(RGBLabel)
 
+            local function Emit() if useAlpha then Fire(o, col, alpha) else Fire(o, col) end end
             local function Render(fire)
                 col = Color3.fromHSV(h, s, v)
                 SV.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
                 SVCursor.Position = UDim2.new(s, -4, 1 - v, -4)
                 HueCursor.Position = UDim2.new(0, -2, h, -1)
                 Preview.BackgroundColor3 = col
+                Preview.BackgroundTransparency = useAlpha and alpha * 0.8 or 0
+                if AlphaBar then AlphaBar.BackgroundColor3 = col; AlphaCursor.Position = UDim2.new(alpha, -1, 0, -2) end
                 if not HexBox:IsFocused() then HexBox.Text = ToHex(col) end
-                RGBLabel.Text = string.format("%d, %d, %d", R255(col.R), R255(col.G), R255(col.B))
-                if fire then Fire(o, col) end
+                RGBLabel.Text = useAlpha and string.format("%d, %d, %d  a:%d%%", R255(col.R), R255(col.G), R255(col.B), math.floor((1 - alpha) * 100 + 0.5))
+                    or string.format("%d, %d, %d", R255(col.R), R255(col.G), R255(col.B))
+                if fire then Emit() end
             end
 
-            -- presets
             local presets = {
                 Color3.fromRGB(255, 0, 0), Color3.fromRGB(255, 128, 0), Color3.fromRGB(255, 255, 0), Color3.fromRGB(0, 255, 0), Color3.fromRGB(0, 255, 255),
                 Color3.fromRGB(0, 0, 255), Color3.fromRGB(128, 0, 255), Color3.fromRGB(255, 0, 255), Color3.fromRGB(255, 255, 255),
@@ -1659,14 +1748,12 @@ function MinecraftLib:CreateWindow(title, config)
                 PixelBevel(sw, t2, 1)
                 sw.Activated:Connect(function() h, s, v = pc:ToHSV(); Render(true) end)
             end
-
             HexBox.FocusLost:Connect(function()
                 local c = FromHex(HexBox.Text)
                 if c then h, s, v = c:ToHSV(); Render(true) else HexBox.Text = ToHex(col) end
             end)
 
-            -- input
-            local dragSV, dragHue = false, false
+            local dragSV, dragHue, dragA = false, false, false
             local function SVFrom(inp)
                 local ap, as = SV.AbsolutePosition, SV.AbsoluteSize
                 if as.X <= 0 or as.Y <= 0 then return end
@@ -1680,16 +1767,20 @@ function MinecraftLib:CreateWindow(title, config)
                 h = math.clamp((inp.Position.Y - ap.Y) / as.Y, 0, 1)
                 Render(true)
             end
-            local function IsPress(inp) return inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch end
-            local function IsMove(inp) return inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch end
-
+            local function AlphaFrom(inp)
+                local ap, as = AlphaHit.AbsolutePosition, AlphaHit.AbsoluteSize
+                if as.X <= 0 then return end
+                alpha = math.clamp((inp.Position.X - ap.X) / as.X, 0, 1)
+                Render(true)
+            end
             SVHit.InputBegan:Connect(function(inp) if IsPress(inp) then dragSV = true; SVFrom(inp) end end)
             HueHit.InputBegan:Connect(function(inp) if IsPress(inp) then dragHue = true; HueFrom(inp) end end)
+            if AlphaHit then AlphaHit.InputBegan:Connect(function(inp) if IsPress(inp) then dragA = true; AlphaFrom(inp) end end) end
             local conns = {
-                UserInputService.InputEnded:Connect(function(inp) if IsPress(inp) then dragSV, dragHue = false, false end end),
+                UserInputService.InputEnded:Connect(function(inp) if IsPress(inp) then dragSV, dragHue, dragA = false, false, false end end),
                 UserInputService.InputChanged:Connect(function(inp)
                     if not IsMove(inp) then return end
-                    if dragSV then SVFrom(inp) elseif dragHue then HueFrom(inp) end
+                    if dragSV then SVFrom(inp) elseif dragHue then HueFrom(inp) elseif dragA then AlphaFrom(inp) end
                 end),
             }
             row.Destroying:Connect(function() for _, c in ipairs(conns) do c:Disconnect() end end)
@@ -1699,21 +1790,24 @@ function MinecraftLib:CreateWindow(title, config)
             Render(false)
 
             local el = BaseElement(row)
-            function el:Set(c, silent)
-                if typeof(c) ~= "Color3" then return end
-                h, s, v = c:ToHSV()
-                Render(not silent)
-            end
+            function el:Set(c, silent) if typeof(c) ~= "Color3" then return end h, s, v = c:ToHSV(); Render(not silent) end
             function el:Get() return col end
             function el:GetHex() return ToHex(col) end
+            function el:GetTransparency() return alpha end
+            function el:SetTransparency(a, silent) alpha = math.clamp(tonumber(a) or 0, 0, 1); Render(not silent) end
             function el:Close() popup.Close() end
-
+            if useAlpha then
+                el._Save = function() local d = Serialize(col); d.a = alpha; return d end
+                el._Load = function(raw)
+                    local c = Deserialize(raw)
+                    if typeof(c) == "Color3" then h, s, v = c:ToHSV() end
+                    if type(raw) == "table" and tonumber(raw.a) then alpha = math.clamp(raw.a, 0, 1) end
+                    Render(true)
+                end
+            end
             win:RegisterThemed(function(nt)
-                t2 = nt
-                row.BackgroundColor3 = t2.Glass; lbl.TextColor3 = t2.TextPrimary
-                Popup.BackgroundColor3 = t2.SecondaryBG
-                HexBox.BackgroundColor3 = t2.Background; HexBox.TextColor3 = t2.TextPrimary
-                RGBLabel.TextColor3 = t2.TextSecondary
+                t2 = nt; row.BackgroundColor3 = t2.Glass; lbl.TextColor3 = t2.TextPrimary
+                Popup.BackgroundColor3 = t2.SecondaryBG; HexBox.BackgroundColor3 = t2.Background; HexBox.TextColor3 = t2.TextPrimary; RGBLabel.TextColor3 = t2.TextSecondary
             end, row)
             return Finish(el, o, row)
         end
@@ -1724,18 +1818,14 @@ function MinecraftLib:CreateWindow(title, config)
             local t2 = win._theme
             local open = (o.Open ~= false)
             local sname = tostring(o.Name)
-
             local Header = Create("TextButton", {
-                Size = UDim2.new(1, 0, 0, mobile and 32 or 28), BackgroundColor3 = t2.TertiaryBG, BackgroundTransparency = 0.2, Text = (open and "v " or "> ") .. sname,
-                TextColor3 = t2.Accent, TextSize = FONT_BODY, Font = FONT, TextXAlignment = Enum.TextXAlignment.Left, BorderSizePixel = 0,
-                LayoutOrder = NextOrder(), ZIndex = 4, Parent = self._parent,
+                Size = UDim2.new(1, 0, 0, mobile and 32 or 28), BackgroundColor3 = t2.TertiaryBG, BackgroundTransparency = 0.2, Text = (open and "v " or "> ") .. sname, TextColor3 = t2.Accent,
+                TextSize = FONT_BODY, Font = FONT, TextXAlignment = Enum.TextXAlignment.Left, BorderSizePixel = 0, LayoutOrder = NextOrder(), ZIndex = 4, Parent = self._parent,
             })
             PixelText(Header, t2.Accent); AddPadding(Header, 0, 0, 10, 10); PixelBevel(Header, t2, 1); CreateInsetShadow(Header, t2, 2)
-
             local SectionFrame = Create("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = NextOrder(), Visible = open, ZIndex = 4, Parent = self._parent})
             Create("UIListLayout", {Padding = UDim.new(0, mobile and 5 or 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = SectionFrame})
             AddPadding(SectionFrame, 0, 0, 10, 0)
-
             local function SetOpen(x)
                 open = x
                 SectionFrame.Visible = open
@@ -1771,15 +1861,73 @@ function MinecraftLib:CreateWindow(title, config)
     end
 
     -- ================================================================
+    -- SETTINGS TAB (готовая вкладка настроек)
+    -- ================================================================
+    function self:AddSettingsTab(name)
+        local tab = self:AddTab(name or "Settings")
+
+        local ui = tab:AddSection("Interface")
+        local themeDD = ui:AddDropdown({Name = "Theme", Options = ThemeOrder(), Default = self._themeName, Flag = "_Theme",
+            Callback = function(v) if v ~= self._themeName then self:SetTheme(v) end end})
+        self:RegisterThemed(function() themeDD:Set(self._themeName, true) end, themeDD.Instance)
+
+        if not mobile then
+            ui:AddKeybind({Name = "Toggle UI key", Default = self._toggleKey, Flag = "_ToggleKey", Tooltip = "Клавиша показа/скрытия меню",
+                OnChanged = function(k) if k then self:SetToggleKey(k) end end})
+        end
+        ui:AddSlider({Name = "UI Scale", Min = 50, Max = 150, Default = math.floor(self._userScale * 100 + 0.5), Suffix = "%", Flag = "_Scale",
+            Callback = function(v) self:SetScale(v / 100) end})
+        ui:AddToggle({Name = "Watermark (FPS / ping)", Default = false, Flag = "_Watermark", Callback = function(v) self:SetWatermark(v) end})
+
+        local cfg = tab:AddSection("Configs")
+        local nameBox = cfg:AddTextbox({Name = "Config name", Placeholder = "default"})
+        local listDD = cfg:AddDropdown({Name = "Saved", Options = self:GetConfigs(), Callback = function(v) nameBox:Set(v, true) end})
+        local function refresh() listDD:Refresh(self:GetConfigs(), true) end
+        local function chosen()
+            local n = nameBox:Get()
+            if n == "" then n = listDD:Get() end
+            if n == "" or n == "None" then n = "default" end
+            return SafeName(n)
+        end
+        cfg:AddButton("Save", function()
+            local ok, err = self:SaveConfig(chosen())
+            self:Notify({Title = "Config", Content = ok and ("Saved '" .. chosen() .. "'") or ("Save failed: " .. tostring(err)), Type = ok and "Success" or "Error"})
+            refresh()
+        end)
+        cfg:AddButton("Load", function()
+            local ok, err = self:LoadConfig(chosen())
+            self:Notify({Title = "Config", Content = ok and ("Loaded '" .. chosen() .. "'") or ("Load failed: " .. tostring(err)), Type = ok and "Success" or "Error"})
+        end)
+        cfg:AddButton("Delete", function()
+            local n = chosen()
+            self:Dialog({Title = "Delete config", Content = "Delete config '" .. n .. "'? This can't be undone.", Buttons = {
+                {Text = "Delete", Callback = function()
+                    local ok = self:DeleteConfig(n)
+                    self:Notify({Title = "Config", Content = ok and ("Deleted '" .. n .. "'") or "Nothing to delete", Type = ok and "Warning" or "Error"})
+                    refresh()
+                end},
+                {Text = "Cancel"},
+            }})
+        end)
+        cfg:AddButton("Refresh list", refresh)
+        cfg:AddToggle({Name = "Auto save", Default = self._autoSave, Tooltip = "Сохранять изменения в 'autosave' автоматически", Callback = function(v) self._autoSave = v end})
+        return tab
+    end
+
+    -- ================================================================
     -- NOTIFICATIONS
     -- ================================================================
     local notifCounter = 0
-    function self:Notify(title, message, duration)
+    local notifTypeColors = {
+        Success = Color3.fromRGB(85, 200, 90), Warning = Color3.fromRGB(240, 180, 50), Error = Color3.fromRGB(220, 70, 60),
+    }
+    function self:Notify(title, message, duration, ntype)
         if type(title) == "table" then
             local o = title
-            title, message, duration = o.Title or o.Name, o.Content or o.Message or o.Text, o.Duration
+            title, message, duration, ntype = o.Title or o.Name, o.Content or o.Message or o.Text, o.Duration, o.Type
         end
         local t = self._theme
+        local accent = notifTypeColors[ntype] or t.NotifAccent
         duration = tonumber(duration) or 4
         notifCounter += 1
 
@@ -1791,30 +1939,18 @@ function MinecraftLib:CreateWindow(title, config)
         end
 
         local Wrapper = Create("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = notifCounter, ZIndex = 25, Parent = self._notifContainer})
-        local notif = Create("Frame", {
-            Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Position = UDim2.new(0, 320, 0, 0),
-            BackgroundColor3 = t.Notification, BackgroundTransparency = 0.15, BorderSizePixel = 0, ZIndex = 25, Parent = Wrapper,
-        })
+        local notif = Create("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Position = UDim2.new(0, 320, 0, 0), BackgroundColor3 = t.Notification, BackgroundTransparency = 0.15, BorderSizePixel = 0, ZIndex = 25, Parent = Wrapper})
         PixelBevel(notif, t, 2)
-        Create("Frame", {Size = UDim2.new(0, 4, 1, 0), BackgroundColor3 = t.NotifAccent, BorderSizePixel = 0, ZIndex = 26, Parent = notif})
-
+        Create("Frame", {Size = UDim2.new(0, 4, 1, 0), BackgroundColor3 = accent, BorderSizePixel = 0, ZIndex = 26, Parent = notif})
         local Inner = Create("Frame", {Size = UDim2.new(1, -10, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Position = UDim2.new(0, 10, 0, 0), BackgroundTransparency = 1, ZIndex = 26, Parent = notif})
         AddPadding(Inner, 8, 10, 8, 8)
         Create("UIListLayout", {Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder, Parent = Inner})
-
-        local tl = Create("TextLabel", {
-            Size = UDim2.new(1, 0, 0, 18), BackgroundTransparency = 1, Text = tostring(title or "Notification"), TextColor3 = t.NotifAccent, TextSize = 13,
-            Font = FONT, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, LayoutOrder = 1, ZIndex = 27, Parent = Inner,
-        })
+        local tl = Create("TextLabel", {Size = UDim2.new(1, 0, 0, 18), BackgroundTransparency = 1, Text = tostring(title or "Notification"), TextColor3 = accent, TextSize = 13, Font = FONT, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, LayoutOrder = 1, ZIndex = 27, Parent = Inner})
         PixelText(tl)
-        local ml = Create("TextLabel", {
-            Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Text = tostring(message or ""),
-            TextColor3 = t.TextSecondary, TextSize = 11, Font = FONT, TextXAlignment = Enum.TextXAlignment.Left, TextWrapped = true, LayoutOrder = 2, ZIndex = 27, Parent = Inner,
-        })
+        local ml = Create("TextLabel", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Text = tostring(message or ""), TextColor3 = t.TextSecondary, TextSize = 11, Font = FONT, TextXAlignment = Enum.TextXAlignment.Left, TextWrapped = true, LayoutOrder = 2, ZIndex = 27, Parent = Inner})
         PixelText(ml)
-
         local ProgBG = Create("Frame", {Size = UDim2.new(1, 0, 0, 2), Position = UDim2.new(0, 0, 1, -2), BackgroundColor3 = t.SliderBG, BackgroundTransparency = 0.5, BorderSizePixel = 0, ZIndex = 27, Parent = notif})
-        local Prog = Create("Frame", {Size = UDim2.new(1, 0, 1, 0), BackgroundColor3 = t.NotifAccent, BorderSizePixel = 0, ZIndex = 28, Parent = ProgBG})
+        local Prog = Create("Frame", {Size = UDim2.new(1, 0, 1, 0), BackgroundColor3 = accent, BorderSizePixel = 0, ZIndex = 28, Parent = ProgBG})
 
         Tween(notif, {Position = UDim2.new(0, 0, 0, 0)}, 0.35, Enum.EasingStyle.Back)
         Tween(Prog, {Size = UDim2.new(0, 0, 1, 0)}, duration, Enum.EasingStyle.Linear)
@@ -1833,9 +1969,7 @@ function MinecraftLib:CreateWindow(title, config)
                 task.delay(0.16, function() if Wrapper.Parent then Wrapper:Destroy() end end)
             end)
         end
-        notif.InputBegan:Connect(function(inp)
-            if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then Dismiss() end
-        end)
+        notif.InputBegan:Connect(function(inp) if IsPress(inp) then Dismiss() end end)
         task.delay(duration, Dismiss)
         return {Dismiss = Dismiss}
     end
@@ -1852,6 +1986,7 @@ function MinecraftLib:CreateWindow(title, config)
             if vc then vc:Disconnect() end
             self._getViewportConn = nil
         end
+        if self._stopWatermark then self._stopWatermark() end
         table.clear(self._keybinds); table.clear(self._themedRefreshers); table.clear(self._flags)
         if self._gui then self._gui:Destroy(); self._gui = nil end
     end
