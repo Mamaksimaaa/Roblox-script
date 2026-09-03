@@ -4,16 +4,16 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/Mamaksimaaa/Roblox-sc
 
 local MinecraftLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/Mamaksimaaa/Roblox-script/refs/heads/main/Lib/load.lua"))()
 
-local Players          = game:GetService("Players")
-local RunService       = game:GetService("RunService")
-local Lighting         = game:GetService("Lighting")
-local VirtualUser      = game:GetService("VirtualUser")
+local Players             = game:GetService("Players")
+local RunService          = game:GetService("RunService")
+local Lighting            = game:GetService("Lighting")
+local VirtualUser         = game:GetService("VirtualUser")
 local VirtualInputManager = game:GetService("VirtualInputManager")
-local UIS              = game:GetService("UserInputService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace        = game:GetService("Workspace")
-local Camera           = Workspace.CurrentCamera
-local lp               = Players.LocalPlayer
+local UIS                 = game:GetService("UserInputService")
+local ReplicatedStorage   = game:GetService("ReplicatedStorage")
+local Workspace           = game:GetService("Workspace")
+local Camera              = Workspace.CurrentCamera
+local lp                  = Players.LocalPlayer
 
 local NextbotFolders = {"Players"}
 
@@ -80,37 +80,49 @@ lp.Idled:Connect(function()
     end)
 end)
 
+-- ============================================================
+-- СОСТОЯНИЕ
+-- ============================================================
+
 local Speeds            = false
-local Power            = 50
-local JumpEnabled      = false
-local JumpPower        = 50
+local Power             = 50
+local JumpEnabled       = false
+local JumpPower         = 50
 local OriginalJumpPower = 50
-local ESP              = false
-local DownedESP        = false
-local NextbotESP       = false
-local Safe             = false
-local AutoRevive       = false
-local AutoFollow       = true
-local LastPos          = nil
-local Plate            = nil
-local safeZoneToggle   = nil
-local flyToggle        = nil
-local autoReviveToggle = nil
-local autoFollowToggle = nil
-local speedToggle      = nil
-local jumpToggle       = nil
-local avoidToggle      = nil
-local playerESPToggle  = nil
-local downedESPToggle  = nil
-local nextbotESPToggle = nil
-local fpsToggle        = nil
-local fogToggle        = nil
-local skyToggle        = nil
-local speedSlider      = nil
-local jumpSlider       = nil
-local flySpeedSlider   = nil
+local ESP               = false
+local DownedESP         = false
+local NextbotESP        = false
+local Safe              = false
+local AutoRevive        = false
+local AutoFollow        = true
+local LastPos           = nil
+local Plate             = nil
+
+-- ESP цвета (управляются через ColorPicker)
+local ESPColor          = Color3.fromRGB(0, 200, 255)   -- цвет outline живых игроков
+local DownedESPColor    = Color3.fromRGB(255, 50, 50)   -- цвет outline downed игроков
+local NextbotESPColor   = Color3.fromRGB(255, 0, 0)     -- цвет nextbot ESP (Drawing)
+
+-- Ссылки на элементы UI
+local safeZoneToggle      = nil
+local flyToggle           = nil
+local autoReviveToggle    = nil
+local autoFollowToggle    = nil
+local speedToggle         = nil
+local jumpToggle          = nil
+local avoidToggle         = nil
+local playerESPToggle     = nil
+local downedESPToggle     = nil
+local nextbotESPToggle    = nil
+local fpsToggle           = nil
+local fogToggle           = nil
+local skyToggle           = nil
+local speedSlider         = nil
+local jumpSlider          = nil
+local flySpeedSlider      = nil
 local avoidDistanceSlider = nil
-local avoidSpeedSlider = nil
+local avoidSpeedSlider    = nil
+
 local AutoFarm         = false
 local autoFarmToggle   = nil
 local farmDelay        = 0.1
@@ -135,7 +147,7 @@ local RAGDOLL_DELAY    = 1.0
 
 local AvoidNextbots = false
 local AvoidDistance = 25
-local AvoidSpeed = 60
+local AvoidSpeed    = 60
 
 local ReviveBlacklist     = {}
 local ReviveBlacklistTime = {}
@@ -146,23 +158,25 @@ local speedometerLabel    = nil
 local originalSpeedText   = nil
 local lastSpeedPosition   = nil
 
+-- ============================================================
+-- HELPERS
+-- ============================================================
+
 local function GetSpeedometerLabel()
     if speedometerLabel and speedometerLabel.Parent then
         return speedometerLabel
     end
-
-    local playerGui = lp:FindFirstChildOfClass("PlayerGui")
-    local gameGui = playerGui and playerGui:FindFirstChild("Game")
-    local hud = gameGui and gameGui:FindFirstChild("HUD")
-    local overlay = hud and hud:FindFirstChild("Overlay")
-    local status = overlay and overlay:FindFirstChild("CharacterStatus")
+    local playerGui  = lp:FindFirstChildOfClass("PlayerGui")
+    local gameGui    = playerGui and playerGui:FindFirstChild("Game")
+    local hud        = gameGui and gameGui:FindFirstChild("HUD")
+    local overlay    = hud and hud:FindFirstChild("Overlay")
+    local status     = overlay and overlay:FindFirstChild("CharacterStatus")
     local bottomLeft = status and status:FindFirstChild("BottomLeft")
     local speedometer = bottomLeft and bottomLeft:FindFirstChild("Speedometer")
-    local label = speedometer and speedometer:FindFirstChild("Speed")
-
+    local label      = speedometer and speedometer:FindFirstChild("Speed")
     if label and label:IsA("TextLabel") then
-        speedometerLabel = label
-        originalSpeedText = label.Text
+        speedometerLabel    = label
+        originalSpeedText   = label.Text
         return label
     end
     return nil
@@ -181,7 +195,7 @@ local Original = {
     FogStart      = Lighting.FogStart,
     FogEnd        = Lighting.FogEnd,
     GlobalShadows = Lighting.GlobalShadows,
-    Quality       = settings().Rendering.QualityLevel
+    Quality       = settings().Rendering.QualityLevel,
 }
 local EffectsBackup = {}
 
@@ -230,14 +244,14 @@ end
 
 lp.CharacterAdded:Connect(function(character)
     task.wait(0.2)
-    local hum    = character:WaitForChild("Humanoid", 5)
+    local hum = character:WaitForChild("Humanoid", 5)
     if hum then
         Camera.CameraType    = Enum.CameraType.Custom
         Camera.CameraSubject = hum
         if JumpEnabled then
-            hum.UseJumpPower = true
+            hum.UseJumpPower  = true
             OriginalJumpPower = hum.JumpPower
-            hum.JumpPower = JumpPower
+            hum.JumpPower     = JumpPower
         end
     end
     IsRevivingNow = false
@@ -246,18 +260,22 @@ lp.CharacterAdded:Connect(function(character)
     table.clear(ReviveBlacklistTime)
 end)
 
-local flying        = false
-local flySpeed      = 150
-local flyMaxSpeed   = 150
+-- ============================================================
+-- FLY
+-- ============================================================
+
+local flying          = false
+local flySpeed        = 150
+local flyMaxSpeed     = 150
 local flyCurrentSpeed = 0
 local flyAcceleration = 7
-local flyBrakeForce = 8
+local flyBrakeForce   = 8
 local bodyVelocity, bodyGyro
 local flyConnection, noclipConnection
-local moveVector    = Vector3.zero
-local W, A, S, D   = false, false, false, false
+local moveVector = Vector3.zero
+local W, A, S, D = false, false, false, false
 local UP, DOWN, LEFT, RIGHT = false, false, false, false
-local isMobile      = UIS.TouchEnabled and not UIS.KeyboardEnabled
+local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
 local joystickFrame, thumb
 local dragging, dragInput = false, nil
 
@@ -267,20 +285,20 @@ flyGui.ResetOnSpawn = false
 flyGui.Parent       = lp:WaitForChild("PlayerGui")
 
 joystickFrame = Instance.new("Frame")
-joystickFrame.Size                  = UDim2.new(0, 170, 0, 170)
-joystickFrame.Position              = UDim2.new(0.08, 0, 0.42, 0)
-joystickFrame.BackgroundColor3      = Color3.fromRGB(255, 255, 255)
+joystickFrame.Size                   = UDim2.new(0, 170, 0, 170)
+joystickFrame.Position               = UDim2.new(0.08, 0, 0.42, 0)
+joystickFrame.BackgroundColor3       = Color3.fromRGB(255, 255, 255)
 joystickFrame.BackgroundTransparency = 0.90
-joystickFrame.Visible               = false
-joystickFrame.Parent                = flyGui
+joystickFrame.Visible                = false
+joystickFrame.Parent                 = flyGui
 Instance.new("UICorner", joystickFrame).CornerRadius = UDim.new(1, 0)
 
 thumb = Instance.new("Frame")
-thumb.Size                  = UDim2.new(0, 55, 0, 55)
-thumb.Position              = UDim2.new(0.5, -27, 0.5, -27)
-thumb.BackgroundColor3      = Color3.fromRGB(255, 255, 255)
+thumb.Size                   = UDim2.new(0, 55, 0, 55)
+thumb.Position               = UDim2.new(0.5, -27, 0.5, -27)
+thumb.BackgroundColor3       = Color3.fromRGB(255, 255, 255)
 thumb.BackgroundTransparency = 0.60
-thumb.Parent                = joystickFrame
+thumb.Parent                 = joystickFrame
 Instance.new("UICorner", thumb).CornerRadius = UDim.new(1, 0)
 
 UIS.InputBegan:Connect(function(input, gp)
@@ -421,6 +439,10 @@ local function stopFly()
     end
 end
 
+-- ============================================================
+-- SAFE ZONE
+-- ============================================================
+
 local function DisableSafeZone()
     if Plate then Plate:Destroy() Plate = nil end
     local char = lp.Character
@@ -464,6 +486,10 @@ local function ignoreTeleportFor(ms)
         ignoreTeleportTimer = nil
     end)
 end
+
+-- ============================================================
+-- NEXTBOT / PLAYER HELPERS
+-- ============================================================
 
 local function IsNextbotNear(position, radius)
     radius = radius or 40
@@ -622,10 +648,10 @@ local function StartFollowing()
     followBodyPos.D        = 800
     followBodyPos.Parent   = root
 
-    followBodyGyro             = Instance.new("BodyGyro")
-    followBodyGyro.MaxTorque   = Vector3.new(math.huge, math.huge, math.huge)
-    followBodyGyro.P           = 30000
-    followBodyGyro.Parent      = root
+    followBodyGyro           = Instance.new("BodyGyro")
+    followBodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+    followBodyGyro.P         = 30000
+    followBodyGyro.Parent    = root
 
     followNoclipConn = RunService.PreSimulation:Connect(function()
         if not IsFollowing then
@@ -684,17 +710,21 @@ StopFollowing = function()
     GoToSafeZone()
 end
 
+-- ============================================================
+-- AUTO REVIVE
+-- ============================================================
+
 local function PerformRevive(targetPlayer)
     if not targetPlayer or not targetPlayer.Parent or not targetPlayer.Character then return end
     if IsRevivingNow then return end
     IsRevivingNow = true
     DisableSafeZone()
 
-    local myChar  = lp.Character
+    local myChar = lp.Character
     if not myChar then IsRevivingNow = false return end
-    local myRoot  = myChar:FindFirstChild("HumanoidRootPart")
-    local myHum   = myChar:FindFirstChildOfClass("Humanoid")
-    local tRoot   = targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+    local myHum  = myChar:FindFirstChildOfClass("Humanoid")
+    local tRoot  = targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart")
     if not myRoot or not myHum or not tRoot then IsRevivingNow = false return end
 
     pcall(function()
@@ -753,9 +783,9 @@ local function PerformRevive(targetPlayer)
         end
     end)
 
-    local reviveStart    = tick()
-    local stuckCheck     = tick()
-    local lastCheckPos   = myRoot.Position
+    local reviveStart  = tick()
+    local stuckCheck   = tick()
+    local lastCheckPos = myRoot.Position
 
     while tick() - reviveStart < HOLD_DURATION and AutoRevive and IsPlayerDowned(targetPlayer) and IsRevivingNow do
         if not targetPlayer.Parent or not targetPlayer.Character or not targetPlayer.Character.Parent then break end
@@ -842,6 +872,10 @@ task.spawn(function()
     end
 end)
 
+-- ============================================================
+-- SKY / ENVIRONMENT
+-- ============================================================
+
 local function ApplyWarmSky()
     if not SkyEnabled then return end
     for _, obj in pairs(Lighting:GetChildren()) do
@@ -863,9 +897,9 @@ local function ApplyWarmSky()
     Sky.SkyboxRt  = "rbxassetid://7018684934"
     Sky.SkyboxUp  = "rbxassetid://7018686777"
     Sky.Parent    = Lighting
-    Instance.new("Atmosphere", Lighting).Color = Color3.fromRGB(199, 172, 120)
-    Instance.new("BloomEffect", Lighting).Intensity = 0.15
-    Instance.new("SunRaysEffect", Lighting).Intensity = 0.08
+    Instance.new("Atmosphere", Lighting).Color           = Color3.fromRGB(199, 172, 120)
+    Instance.new("BloomEffect", Lighting).Intensity      = 0.15
+    Instance.new("SunRaysEffect", Lighting).Intensity    = 0.08
     Instance.new("ColorCorrectionEffect", Lighting).TintColor = Color3.fromRGB(255, 220, 180)
     Lighting.ClockTime = 17.8
 end
@@ -904,6 +938,10 @@ task.spawn(function()
     end
 end)
 
+-- ============================================================
+-- MOVEMENT LOOP
+-- ============================================================
+
 RunService.RenderStepped:Connect(function()
     local char = lp.Character
     if not char then return end
@@ -914,7 +952,7 @@ RunService.RenderStepped:Connect(function()
     local moveDir = hum.MoveDirection
 
     if AvoidNextbots and not flying and not IsFollowing and not IsRevivingNow and not Safe then
-        local pos = root.Position
+        local pos     = root.Position
         local nearest = nil
         local minDist = AvoidDistance
         for model in pairs(GetNextbots()) do
@@ -928,7 +966,7 @@ RunService.RenderStepped:Connect(function()
             end
         end
         if nearest then
-            local dir = (pos - nearest.Position) * Vector3.new(1,0,1)
+            local dir = (pos - nearest.Position) * Vector3.new(1, 0, 1)
             if dir.Magnitude > 0.1 then
                 moveDir = dir.Unit
             end
@@ -970,14 +1008,12 @@ RunService.Heartbeat:Connect(function(deltaTime)
         lastSpeedPosition = nil
         return
     end
-
-    local root = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+    local root  = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
     local label = GetSpeedometerLabel()
     if not root or not label or deltaTime <= 0 then
         lastSpeedPosition = nil
         return
     end
-
     if lastSpeedPosition then
         local delta = root.Position - lastSpeedPosition
         local horizontalSpeed = Vector3.new(delta.X, 0, delta.Z).Magnitude / deltaTime
@@ -988,32 +1024,37 @@ RunService.Heartbeat:Connect(function(deltaTime)
     lastSpeedPosition = root.Position
 end)
 
+-- ============================================================
+-- INFINITE JUMP
+-- ============================================================
+
 local lastInfiniteJump = 0
 
 local function DoInfiniteJump()
     if not JumpEnabled or tick() - lastInfiniteJump < 0.08 then return end
     local hum = lp.Character and lp.Character:FindFirstChildOfClass("Humanoid")
     if not hum or hum.Health <= 0 or hum.Sit then return end
-
     lastInfiniteJump = tick()
     hum.UseJumpPower = true
-    hum.JumpPower = JumpPower
-    hum.Jump = true
+    hum.JumpPower    = JumpPower
+    hum.Jump         = true
     hum:ChangeState(Enum.HumanoidStateType.Jumping)
 end
 
 UIS.JumpRequest:Connect(DoInfiniteJump)
+
+-- ============================================================
+-- NEXTBOT ESP (Drawing)
+-- ============================================================
 
 local nextbotDrawings = {}
 
 local function ClearNextbotDrawings()
     for _, data in pairs(nextbotDrawings) do
         if data.Square then data.Square:Remove() end
-        if data.Label then data.Label:Remove() end
-        if data.Lines then
-            for _, line in ipairs(data.Lines) do
-                line:Remove()
-            end
+        if data.Label  then data.Label:Remove()  end
+        if data.Lines  then
+            for _, line in ipairs(data.Lines) do line:Remove() end
         end
     end
     table.clear(nextbotDrawings)
@@ -1033,11 +1074,9 @@ local function UpdateNextbotESP_Drawing()
     for model, data in pairs(nextbotDrawings) do
         if not models[model] or not model.Parent then
             if data.Square then data.Square:Remove() end
-            if data.Label then data.Label:Remove() end
-            if data.Lines then
-                for _, line in ipairs(data.Lines) do
-                    line:Remove()
-                end
+            if data.Label  then data.Label:Remove()  end
+            if data.Lines  then
+                for _, line in ipairs(data.Lines) do line:Remove() end
             end
             nextbotDrawings[model] = nil
         end
@@ -1053,10 +1092,10 @@ local function UpdateNextbotESP_Drawing()
         local maxX, maxY = -math.huge, -math.huge
         local visiblePoint = false
         for _, offset in ipairs({
-            Vector3.new(-half.X, -half.Y, -half.Z), Vector3.new(-half.X, -half.Y, half.Z),
-            Vector3.new(-half.X, half.Y, -half.Z), Vector3.new(-half.X, half.Y, half.Z),
-            Vector3.new(half.X, -half.Y, -half.Z), Vector3.new(half.X, -half.Y, half.Z),
-            Vector3.new(half.X, half.Y, -half.Z), Vector3.new(half.X, half.Y, half.Z)
+            Vector3.new(-half.X, -half.Y, -half.Z), Vector3.new(-half.X, -half.Y,  half.Z),
+            Vector3.new(-half.X,  half.Y, -half.Z), Vector3.new(-half.X,  half.Y,  half.Z),
+            Vector3.new( half.X, -half.Y, -half.Z), Vector3.new( half.X, -half.Y,  half.Z),
+            Vector3.new( half.X,  half.Y, -half.Z), Vector3.new( half.X,  half.Y,  half.Z),
         }) do
             local point, onScreen = camera:WorldToViewportPoint((boxCFrame * CFrame.new(offset)).Position)
             if onScreen and point.Z > 0 then
@@ -1070,74 +1109,73 @@ local function UpdateNextbotESP_Drawing()
             local data = nextbotDrawings[model]
             if data then
                 if data.Square then data.Square.Visible = false end
-                if data.Label then data.Label.Visible = false end
-                if data.Lines then
-                    for _, line in ipairs(data.Lines) do
-                        line.Visible = false
-                    end
+                if data.Label  then data.Label.Visible  = false end
+                if data.Lines  then
+                    for _, line in ipairs(data.Lines) do line.Visible = false end
                 end
             end
             continue
         end
 
         local padding = math.clamp((maxY - minY) * 0.04, 3, 10)
-        local x, y = minX - padding, minY - padding
-        local width, height = (maxX - minX) + padding * 2, (maxY - minY) + padding * 2
+        local x, y   = minX - padding, minY - padding
+        local width   = (maxX - minX) + padding * 2
+        local height  = (maxY - minY) + padding * 2
 
         local data = nextbotDrawings[model]
         if not data then
             data = {}
             local sq = Drawing.new("Square")
-            sq.Filled = true
-            sq.Color = Color3.fromRGB(255, 0, 0)
+            sq.Filled       = true
+            sq.Color        = NextbotESPColor   -- управляется ColorPicker
             sq.Transparency = 0.18
-            sq.Thickness = 0
+            sq.Thickness    = 0
             local lines = {}
-            for i = 1, 4 do
+            for _ = 1, 4 do
                 local line = Drawing.new("Line")
-                line.Color = Color3.fromRGB(255, 255, 255)
-                line.Thickness = 2
+                line.Color        = NextbotESPColor
+                line.Thickness    = 2
                 line.Transparency = 1
                 table.insert(lines, line)
             end
             local label = Drawing.new("Text")
-            label.Center = true
+            label.Center  = true
             label.Outline = true
-            label.Color = Color3.fromRGB(255, 80, 80)
-            label.Font = 2
-            label.Size = 14
+            label.Color   = NextbotESPColor
+            label.Font    = 2
+            label.Size    = 14
             data.Square = sq
-            data.Lines = lines
-            data.Label = label
+            data.Lines  = lines
+            data.Label  = label
             nextbotDrawings[model] = data
+        else
+            -- Обновляем цвет в реальном времени из ColorPicker
+            data.Square.Color = NextbotESPColor
+            for _, line in ipairs(data.Lines) do
+                line.Color = NextbotESPColor
+            end
+            data.Label.Color = NextbotESPColor
         end
 
         local sq = data.Square
         sq.Position = Vector2.new(x, y)
-        sq.Size = Vector2.new(width, height)
-        sq.Visible = true
+        sq.Size     = Vector2.new(width, height)
+        sq.Visible  = true
 
         local distance = (camera.CFrame.Position - primary.Position).Magnitude
         local botType, botName = GetNextbotInfo(model)
         local label = data.Label
-        label.Text = string.format("Type: %s\n%s  [%dm]", botType, botName, math.floor(distance))
+        label.Text     = string.format("Type: %s\n%s  [%dm]", botType, botName, math.floor(distance))
         label.Position = Vector2.new(x + width / 2, y - 28)
-        label.Size = 13
-        label.Visible = true
+        label.Size     = 13
+        label.Visible  = true
 
         local lines = data.Lines
-        lines[1].From = Vector2.new(x, y)
-        lines[1].To = Vector2.new(x + width, y)
-        lines[1].Visible = true
-        lines[2].From = Vector2.new(x + width, y)
-        lines[2].To = Vector2.new(x + width, y + height)
-        lines[2].Visible = true
-        lines[3].From = Vector2.new(x + width, y + height)
-        lines[3].To = Vector2.new(x, y + height)
-        lines[3].Visible = true
-        lines[4].From = Vector2.new(x, y + height)
-        lines[4].To = Vector2.new(x, y)
-        lines[4].Visible = true
+        lines[1].From = Vector2.new(x, y)             lines[1].To = Vector2.new(x + width, y)
+        lines[2].From = Vector2.new(x + width, y)     lines[2].To = Vector2.new(x + width, y + height)
+        lines[3].From = Vector2.new(x + width, y + height) lines[3].To = Vector2.new(x, y + height)
+        lines[4].From = Vector2.new(x, y + height)    lines[4].To = Vector2.new(x, y)
+        for i = 1, 4 do lines[i].Visible = true end
     end
 end
 
@@ -1150,7 +1188,9 @@ end)
 
 RunService.RenderStepped:Connect(UpdateNextbotESP_Drawing)
 
--- ========== УЛУЧШЕННЫЙ PLAYER ESP ==========
+-- ============================================================
+-- PLAYER ESP (Highlight + BillboardGui)
+-- ============================================================
 
 local IRY_LOGO_URL = "https://i.postimg.cc/wv2hpwyM/Bez-nazvania8-20260824103816.png"
 
@@ -1167,145 +1207,123 @@ task.spawn(function()
         task.wait(0.15)
         if not ESP then
             for _, v in pairs(Players:GetPlayers()) do
-                if v ~= lp and v.Character then
-                    ClearPlayerESP(v.Character)
-                end
+                if v ~= lp and v.Character then ClearPlayerESP(v.Character) end
             end
             continue
         end
         for _, v in pairs(Players:GetPlayers()) do
             if v ~= lp and v.Character then
-                local char   = v.Character
-                local humT   = char:FindFirstChildOfClass("Humanoid")
-                local root   = char:FindFirstChild("HumanoidRootPart")
+                local char = v.Character
+                local humT = char:FindFirstChildOfClass("Humanoid")
+                local root = char:FindFirstChild("HumanoidRootPart")
 
                 if humT and root and humT.Health > 0 and not IsPlayerDowned(v) then
                     local pct = math.clamp(humT.Health / humT.MaxHealth, 0, 1)
 
-                    -- Цвет: зелёный -> оранжевый -> красный
-                    local color
+                    -- HP-цвет (зелёный → оранжевый → красный) поверх outline-цвета из ColorPicker
+                    local hpColor
                     if pct > 0.5 then
                         local t = (pct - 0.5) * 2
-                        color = Color3.fromRGB(
-                            math.floor(255 * (1 - t)),
-                            255,
-                            0
-                        )
+                        hpColor = Color3.fromRGB(math.floor(255 * (1 - t)), 255, 0)
                     else
                         local t = pct * 2
-                        color = Color3.fromRGB(
-                            255,
-                            math.floor(255 * t),
-                            0
-                        )
+                        hpColor = Color3.fromRGB(255, math.floor(255 * t), 0)
                     end
 
-                    -- Highlight
                     local highlight = char:FindFirstChild("ESP_Highlight")
                     if not highlight then
                         highlight = Instance.new("Highlight")
-                        highlight.Name = "ESP_Highlight"
-                        highlight.Adornee = char
-                        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                        highlight.Name             = "ESP_Highlight"
+                        highlight.Adornee          = char
+                        highlight.DepthMode        = Enum.HighlightDepthMode.AlwaysOnTop
                         highlight.OutlineTransparency = 0
                         highlight.FillTransparency = 0.72
-                        highlight.Parent = char
+                        highlight.Parent           = char
                     end
-                    highlight.FillColor    = color
-                    highlight.OutlineColor = color
+                    highlight.FillColor    = ESPColor    -- из ColorPicker
+                    highlight.OutlineColor = ESPColor    -- из ColorPicker
 
-                    -- BillboardGui тег
                     local tag = char:FindFirstChild("ESP_Name")
                     if not tag then
                         tag = Instance.new("BillboardGui")
-                        tag.Name            = "ESP_Name"
-                        tag.Adornee         = root
-                        tag.AlwaysOnTop     = true
-                        tag.MaxDistance     = 2000
-                        tag.Size            = UDim2.new(0, 100, 0, 40)
-                        tag.StudsOffset     = Vector3.new(0, 3.0, 0)
-                        tag.Parent          = char
+                        tag.Name        = "ESP_Name"
+                        tag.Adornee     = root
+                        tag.AlwaysOnTop = true
+                        tag.MaxDistance = 2000
+                        tag.Size        = UDim2.new(0, 100, 0, 40)
+                        tag.StudsOffset = Vector3.new(0, 3.0, 0)
+                        tag.Parent      = char
 
-                        -- Фон
                         local bg = Instance.new("Frame")
-                        bg.Name                  = "BG"
-                        bg.Size                  = UDim2.fromScale(1, 1)
-                        bg.BackgroundColor3      = Color3.fromRGB(10, 10, 15)
+                        bg.Name                   = "BG"
+                        bg.Size                   = UDim2.fromScale(1, 1)
+                        bg.BackgroundColor3       = Color3.fromRGB(10, 10, 15)
                         bg.BackgroundTransparency = 0.38
                         bg.BorderSizePixel        = 0
                         bg.Parent                 = tag
-                        local bgCorner = Instance.new("UICorner")
-                        bgCorner.CornerRadius = UDim.new(0, 8)
-                        bgCorner.Parent = bg
+                        Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 8)
 
-                        -- Логотип IRY HUB
                         local logo = Instance.new("ImageLabel")
-                        logo.Name                = "Logo"
-                        logo.Size                = UDim2.new(0, 18, 0, 18)
-                        logo.Position            = UDim2.new(0, 3, 0.5, -9)
+                        logo.Name                   = "Logo"
+                        logo.Size                   = UDim2.new(0, 18, 0, 18)
+                        logo.Position               = UDim2.new(0, 3, 0.5, -9)
                         logo.BackgroundTransparency = 1
-                        logo.Image               = IRY_LOGO_URL
-                        logo.ScaleType           = Enum.ScaleType.Fit
-                        logo.Parent              = bg
+                        logo.Image                  = IRY_LOGO_URL
+                        logo.ScaleType              = Enum.ScaleType.Fit
+                        logo.Parent                 = bg
 
-                        -- Имя игрока
                         local nameLabel = Instance.new("TextLabel")
-                        nameLabel.Name               = "NameLabel"
-                        nameLabel.Size               = UDim2.new(1, -26, 0, 14)
-                        nameLabel.Position           = UDim2.new(0, 24, 0, 2)
+                        nameLabel.Name                   = "NameLabel"
+                        nameLabel.Size                   = UDim2.new(1, -26, 0, 14)
+                        nameLabel.Position               = UDim2.new(0, 24, 0, 2)
                         nameLabel.BackgroundTransparency = 1
-                        nameLabel.Font               = Enum.Font.GothamBold
-                        nameLabel.TextSize           = 9
-                        nameLabel.TextXAlignment     = Enum.TextXAlignment.Left
+                        nameLabel.Font                   = Enum.Font.GothamBold
+                        nameLabel.TextSize               = 9
+                        nameLabel.TextXAlignment         = Enum.TextXAlignment.Left
                         nameLabel.TextStrokeTransparency = 0.4
-                        nameLabel.TextStrokeColor3   = Color3.fromRGB(0, 0, 0)
-                        nameLabel.Parent             = bg
+                        nameLabel.TextStrokeColor3       = Color3.fromRGB(0, 0, 0)
+                        nameLabel.Parent                 = bg
 
-                        -- Статус / дистанция
                         local statusLabel = Instance.new("TextLabel")
-                        statusLabel.Name               = "StatusLabel"
-                        statusLabel.Size               = UDim2.new(1, -26, 0, 10)
-                        statusLabel.Position           = UDim2.new(0, 24, 0, 16)
+                        statusLabel.Name                   = "StatusLabel"
+                        statusLabel.Size                   = UDim2.new(1, -26, 0, 10)
+                        statusLabel.Position               = UDim2.new(0, 24, 0, 16)
                         statusLabel.BackgroundTransparency = 1
-                        statusLabel.Font               = Enum.Font.Gotham
-                        statusLabel.TextSize           = 7
-                        statusLabel.TextXAlignment     = Enum.TextXAlignment.Left
-                        statusLabel.TextColor3         = Color3.fromRGB(200, 200, 200)
+                        statusLabel.Font                   = Enum.Font.Gotham
+                        statusLabel.TextSize               = 7
+                        statusLabel.TextXAlignment         = Enum.TextXAlignment.Left
+                        statusLabel.TextColor3             = Color3.fromRGB(200, 200, 200)
                         statusLabel.TextStrokeTransparency = 0.5
-                        statusLabel.TextStrokeColor3   = Color3.fromRGB(0, 0, 0)
-                        statusLabel.Parent             = bg
+                        statusLabel.TextStrokeColor3       = Color3.fromRGB(0, 0, 0)
+                        statusLabel.Parent                 = bg
 
-                        -- HP бар (фон)
                         local hpBarBG = Instance.new("Frame")
-                        hpBarBG.Name                  = "HPBarBG"
-                        hpBarBG.Size                  = UDim2.new(1, -48, 0, 4)
-                        hpBarBG.Position              = UDim2.new(0, 48, 1, -12)
-                        hpBarBG.BackgroundColor3      = Color3.fromRGB(40, 40, 40)
+                        hpBarBG.Name                   = "HPBarBG"
+                        hpBarBG.Size                   = UDim2.new(1, -48, 0, 4)
+                        hpBarBG.Position               = UDim2.new(0, 48, 1, -12)
+                        hpBarBG.BackgroundColor3       = Color3.fromRGB(40, 40, 40)
                         hpBarBG.BackgroundTransparency = 0.3
                         hpBarBG.BorderSizePixel        = 0
                         hpBarBG.Parent                 = bg
                         Instance.new("UICorner", hpBarBG).CornerRadius = UDim.new(1, 0)
 
-                        -- HP бар (заполнение)
                         local hpBar = Instance.new("Frame")
-                        hpBar.Name                 = "HPBar"
-                        hpBar.Size                 = UDim2.new(1, 0, 1, 0)
-                        hpBar.BackgroundColor3     = Color3.fromRGB(0, 255, 80)
-                        hpBar.BorderSizePixel       = 0
-                        hpBar.Parent               = hpBarBG
+                        hpBar.Name             = "HPBar"
+                        hpBar.Size             = UDim2.new(1, 0, 1, 0)
+                        hpBar.BackgroundColor3 = Color3.fromRGB(0, 255, 80)
+                        hpBar.BorderSizePixel  = 0
+                        hpBar.Parent           = hpBarBG
                         Instance.new("UICorner", hpBar).CornerRadius = UDim.new(1, 0)
 
-                        -- Боковая цветная полоска
                         local accent = Instance.new("Frame")
-                        accent.Name                = "Accent"
-                        accent.Size                = UDim2.new(0, 2, 1, -6)
-                        accent.Position            = UDim2.new(0, 1, 0, 3) 
-                        accent.BorderSizePixel      = 0
-                        accent.Parent              = bg
+                        accent.Name           = "Accent"
+                        accent.Size           = UDim2.new(0, 2, 1, -6)
+                        accent.Position       = UDim2.new(0, 1, 0, 3)
+                        accent.BorderSizePixel = 0
+                        accent.Parent         = bg
                         Instance.new("UICorner", accent).CornerRadius = UDim.new(1, 0)
                     end
 
-                    -- Обновляем данные каждый тик
                     local bg          = tag:FindFirstChild("BG")
                     local nameLabel   = bg and bg:FindFirstChild("NameLabel")
                     local statusLabel = bg and bg:FindFirstChild("StatusLabel")
@@ -1313,21 +1331,10 @@ task.spawn(function()
                     local accent      = bg and bg:FindFirstChild("Accent")
                     local distance    = math.floor((Camera.CFrame.Position - root.Position).Magnitude)
 
-                    if nameLabel then
-                        nameLabel.Text       = v.DisplayName
-                        nameLabel.TextColor3 = color
-                    end
-                    if statusLabel then
-                        statusLabel.Text = string.format("● ALIVE  |  %dm  |  %d%%", distance, math.floor(pct * 100))
-                    end
-                    if hpBar then
-                        hpBar.Size           = UDim2.new(pct, 0, 1, 0)
-                        hpBar.BackgroundColor3 = color
-                    end
-                    if accent then
-                        accent.BackgroundColor3 = color
-                    end
-
+                    if nameLabel   then nameLabel.Text = v.DisplayName; nameLabel.TextColor3 = ESPColor end
+                    if statusLabel then statusLabel.Text = string.format("● ALIVE  |  %dm  |  %d%%", distance, math.floor(pct * 100)) end
+                    if hpBar       then hpBar.Size = UDim2.new(pct, 0, 1, 0); hpBar.BackgroundColor3 = hpColor end
+                    if accent      then accent.BackgroundColor3 = ESPColor end
                 else
                     ClearPlayerESP(v.Character)
                 end
@@ -1336,7 +1343,9 @@ task.spawn(function()
     end
 end)
 
--- ========== УЛУЧШЕННЫЙ DOWNED ESP ==========
+-- ============================================================
+-- DOWNED ESP
+-- ============================================================
 
 local IRY_LOGO_URL_DOWNED = "https://i.postimg.cc/wv2hpwyM/Bez-nazvania8-20260824103816.png"
 
@@ -1353,9 +1362,7 @@ task.spawn(function()
         task.wait(0.15)
         if not DownedESP then
             for _, player in ipairs(Players:GetPlayers()) do
-                if player ~= lp and player.Character then
-                    ClearDownedESP(player.Character)
-                end
+                if player ~= lp and player.Character then ClearDownedESP(player.Character) end
             end
             continue
         end
@@ -1366,121 +1373,103 @@ task.spawn(function()
                 local humT = character:FindFirstChildOfClass("Humanoid")
 
                 if root and humT and IsPlayerDowned(player) then
-                    local pct = math.clamp(humT.Health / humT.MaxHealth, 0, 1)
+                    local pct   = math.clamp(humT.Health / humT.MaxHealth, 0, 1)
+                    local color = DownedESPColor    -- из ColorPicker
 
-                    -- Красный градиент для downed (ярко-красный -> тёмно-красный)
-                    local color = Color3.fromRGB(
-                        255,
-                        math.floor(70 * pct),
-                        math.floor(70 * pct)
-                    )
-
-                    -- Highlight
                     local highlight = character:FindFirstChild("DownedESP_Highlight")
                     if not highlight then
                         highlight = Instance.new("Highlight")
-                        highlight.Name = "DownedESP_Highlight"
-                        highlight.Adornee = character
-                        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                        highlight.Name             = "DownedESP_Highlight"
+                        highlight.Adornee          = character
+                        highlight.DepthMode        = Enum.HighlightDepthMode.AlwaysOnTop
                         highlight.FillTransparency = 0.72
                         highlight.OutlineTransparency = 0
-                        highlight.Parent = character
+                        highlight.Parent           = character
                     end
                     highlight.FillColor    = color
                     highlight.OutlineColor = color
 
-                    -- BillboardGui тег
                     local tag = character:FindFirstChild("DownedESP_Name")
                     if not tag then
                         tag = Instance.new("BillboardGui")
-                        tag.Name            = "DownedESP_Name"
-                        tag.Adornee         = root
-                        tag.AlwaysOnTop     = true
-                        tag.MaxDistance     = 2000
-                        tag.Size            = UDim2.new(0, 100, 0, 40)
-                        tag.StudsOffset     = Vector3.new(0, 3.0, 0)
-                        tag.Parent          = character
+                        tag.Name        = "DownedESP_Name"
+                        tag.Adornee     = root
+                        tag.AlwaysOnTop = true
+                        tag.MaxDistance = 2000
+                        tag.Size        = UDim2.new(0, 100, 0, 40)
+                        tag.StudsOffset = Vector3.new(0, 3.0, 0)
+                        tag.Parent      = character
 
-                        -- Фон
                         local bg = Instance.new("Frame")
-                        bg.Name                  = "BG"
-                        bg.Size                  = UDim2.fromScale(1, 1)
-                        bg.BackgroundColor3      = Color3.fromRGB(25, 5, 5)
+                        bg.Name                   = "BG"
+                        bg.Size                   = UDim2.fromScale(1, 1)
+                        bg.BackgroundColor3       = Color3.fromRGB(25, 5, 5)
                         bg.BackgroundTransparency = 0.38
                         bg.BorderSizePixel        = 0
                         bg.Parent                 = tag
-                        local bgCorner = Instance.new("UICorner")
-                        bgCorner.CornerRadius = UDim.new(0, 8)
-                        bgCorner.Parent = bg
+                        Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 8)
 
-                        -- Логотип IRY HUB
                         local logo = Instance.new("ImageLabel")
-                        logo.Name                = "Logo"
-                        logo.Size                = UDim2.new(0, 18, 0, 18)
-                        logo.Position            = UDim2.new(0, 3, 0.5, -9)
+                        logo.Name                   = "Logo"
+                        logo.Size                   = UDim2.new(0, 18, 0, 18)
+                        logo.Position               = UDim2.new(0, 3, 0.5, -9)
                         logo.BackgroundTransparency = 1
-                        logo.Image               = IRY_LOGO_URL_DOWNED
-                        logo.ScaleType           = Enum.ScaleType.Fit
-                        logo.Parent              = bg
+                        logo.Image                  = IRY_LOGO_URL_DOWNED
+                        logo.ScaleType              = Enum.ScaleType.Fit
+                        logo.Parent                 = bg
 
-                        -- Имя игрока
                         local nameLabel = Instance.new("TextLabel")
-                        nameLabel.Name               = "NameLabel"
-                        nameLabel.Size               = UDim2.new(1, -26, 0, 14)
-                        nameLabel.Position           = UDim2.new(0, 24, 0, 2)
+                        nameLabel.Name                   = "NameLabel"
+                        nameLabel.Size                   = UDim2.new(1, -26, 0, 14)
+                        nameLabel.Position               = UDim2.new(0, 24, 0, 2)
                         nameLabel.BackgroundTransparency = 1
-                        nameLabel.Font               = Enum.Font.GothamBold
-                        nameLabel.TextSize           = 9
-                        nameLabel.TextXAlignment     = Enum.TextXAlignment.Left
+                        nameLabel.Font                   = Enum.Font.GothamBold
+                        nameLabel.TextSize               = 9
+                        nameLabel.TextXAlignment         = Enum.TextXAlignment.Left
                         nameLabel.TextStrokeTransparency = 0.4
-                        nameLabel.TextStrokeColor3   = Color3.fromRGB(0, 0, 0)
-                        nameLabel.Parent             = bg
+                        nameLabel.TextStrokeColor3       = Color3.fromRGB(0, 0, 0)
+                        nameLabel.Parent                 = bg
 
-                        -- Статус / дистанция
                         local statusLabel = Instance.new("TextLabel")
-                        statusLabel.Name               = "StatusLabel"
-                        statusLabel.Size               = UDim2.new(1, -26, 0, 10)
-                        statusLabel.Position           = UDim2.new(0, 24, 0, 16)
+                        statusLabel.Name                   = "StatusLabel"
+                        statusLabel.Size                   = UDim2.new(1, -26, 0, 10)
+                        statusLabel.Position               = UDim2.new(0, 24, 0, 16)
                         statusLabel.BackgroundTransparency = 1
-                        statusLabel.Font               = Enum.Font.Gotham
-                        statusLabel.TextSize           = 7
-                        statusLabel.TextXAlignment     = Enum.TextXAlignment.Left
-                        statusLabel.TextColor3         = Color3.fromRGB(255, 180, 180)
+                        statusLabel.Font                   = Enum.Font.Gotham
+                        statusLabel.TextSize               = 7
+                        statusLabel.TextXAlignment         = Enum.TextXAlignment.Left
+                        statusLabel.TextColor3             = Color3.fromRGB(255, 180, 180)
                         statusLabel.TextStrokeTransparency = 0.5
-                        statusLabel.TextStrokeColor3   = Color3.fromRGB(0, 0, 0)
-                        statusLabel.Parent             = bg
+                        statusLabel.TextStrokeColor3       = Color3.fromRGB(0, 0, 0)
+                        statusLabel.Parent                 = bg
 
-                        -- HP бар (фон)
                         local hpBarBG = Instance.new("Frame")
-                        hpBarBG.Name                  = "HPBarBG"
-                        hpBarBG.Size                  = UDim2.new(1, -48, 0, 4)
-                        hpBarBG.Position              = UDim2.new(0, 48, 1, -12)
-                        hpBarBG.BackgroundColor3      = Color3.fromRGB(60, 20, 20)
+                        hpBarBG.Name                   = "HPBarBG"
+                        hpBarBG.Size                   = UDim2.new(1, -48, 0, 4)
+                        hpBarBG.Position               = UDim2.new(0, 48, 1, -12)
+                        hpBarBG.BackgroundColor3       = Color3.fromRGB(60, 20, 20)
                         hpBarBG.BackgroundTransparency = 0.3
                         hpBarBG.BorderSizePixel        = 0
                         hpBarBG.Parent                 = bg
                         Instance.new("UICorner", hpBarBG).CornerRadius = UDim.new(1, 0)
 
-                        -- HP бар (заполнение)
                         local hpBar = Instance.new("Frame")
-                        hpBar.Name                 = "HPBar"
-                        hpBar.Size                 = UDim2.new(1, 0, 1, 0)
-                        hpBar.BackgroundColor3     = Color3.fromRGB(255, 50, 50)
-                        hpBar.BorderSizePixel       = 0
-                        hpBar.Parent               = hpBarBG
+                        hpBar.Name             = "HPBar"
+                        hpBar.Size             = UDim2.new(1, 0, 1, 0)
+                        hpBar.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+                        hpBar.BorderSizePixel  = 0
+                        hpBar.Parent           = hpBarBG
                         Instance.new("UICorner", hpBar).CornerRadius = UDim.new(1, 0)
 
-                        -- Боковая цветная полоска
                         local accent = Instance.new("Frame")
-                        accent.Name                = "Accent"
-                        accent.Size                = UDim2.new(0, 2, 1, -6)
-                        accent.Position            = UDim2.new(0, 1, 0, 3) 
-                        accent.BorderSizePixel      = 0
-                        accent.Parent              = bg
+                        accent.Name           = "Accent"
+                        accent.Size           = UDim2.new(0, 2, 1, -6)
+                        accent.Position       = UDim2.new(0, 1, 0, 3)
+                        accent.BorderSizePixel = 0
+                        accent.Parent         = bg
                         Instance.new("UICorner", accent).CornerRadius = UDim.new(1, 0)
                     end
 
-                    -- Обновляем данные каждый тик
                     local bg          = tag:FindFirstChild("BG")
                     local nameLabel   = bg and bg:FindFirstChild("NameLabel")
                     local statusLabel = bg and bg:FindFirstChild("StatusLabel")
@@ -1488,21 +1477,10 @@ task.spawn(function()
                     local accent      = bg and bg:FindFirstChild("Accent")
                     local distance    = math.floor((Camera.CFrame.Position - root.Position).Magnitude)
 
-                    if nameLabel then
-                        nameLabel.Text       = player.DisplayName
-                        nameLabel.TextColor3 = color
-                    end
-                    if statusLabel then
-                        statusLabel.Text = string.format("● DOWNED  |  %dm  |  %d%%", distance, math.floor(pct * 100))
-                    end
-                    if hpBar then
-                        hpBar.Size           = UDim2.new(pct, 0, 1, 0)
-                        hpBar.BackgroundColor3 = color
-                    end
-                    if accent then
-                        accent.BackgroundColor3 = color
-                    end
-
+                    if nameLabel   then nameLabel.Text = player.DisplayName; nameLabel.TextColor3 = color end
+                    if statusLabel then statusLabel.Text = string.format("● DOWNED  |  %dm  |  %d%%", distance, math.floor(pct * 100)) end
+                    if hpBar       then hpBar.Size = UDim2.new(pct, 0, 1, 0); hpBar.BackgroundColor3 = color end
+                    if accent      then accent.BackgroundColor3 = color end
                 else
                     ClearDownedESP(character)
                 end
@@ -1511,17 +1489,17 @@ task.spawn(function()
     end
 end)
 
--- ========== AUTO FARM (TICKETS / VISUAL) ==========
+-- ============================================================
+-- AUTO FARM
+-- ============================================================
 
 local function GetTicketVisuals()
-    local found = {}
+    local found   = {}
     local effects = Workspace:FindFirstChild("Effects")
     local tickets = effects and effects:FindFirstChild("Tickets")
     if not tickets then return found end
     for _, obj in ipairs(tickets:GetDescendants()) do
-        if obj.Name == "Visual" then
-            table.insert(found, obj)
-        end
+        if obj.Name == "Visual" then table.insert(found, obj) end
     end
     return found
 end
@@ -1544,7 +1522,6 @@ local function FarmPullMode()
     local root = char:FindFirstChild("HumanoidRootPart")
     if not root then return end
     local targetCF = root.CFrame
-
     for _, visual in ipairs(GetTicketVisuals()) do
         pcall(function()
             if not visual or not visual.Parent then return end
@@ -1572,7 +1549,7 @@ local function FarmFastSwapMode()
     if not char then return end
     local root = char:FindFirstChild("HumanoidRootPart")
     if not root then return end
-    local hum  = char:FindFirstChildOfClass("Humanoid")
+    local hum = char:FindFirstChildOfClass("Humanoid")
     if not hum or hum.Health <= 0 then return end
 
     local visuals = GetTicketVisuals()
@@ -1600,8 +1577,7 @@ local function FarmFastSwapMode()
 
         local touchFired = false
         pcall(function()
-            local parts = visual:IsA("BasePart") and {visual}
-                       or visual:GetDescendants()
+            local parts = visual:IsA("BasePart") and {visual} or visual:GetDescendants()
             for _, p in ipairs(parts) do
                 if p:IsA("BasePart") then
                     firetouchinterest(root, p, 0)
@@ -1629,7 +1605,6 @@ local function FarmFastSwapMode()
         end
     end
     hum.PlatformStand = false
-
     task.wait(0.05)
     Camera.CameraType = savedCamType
 end
@@ -1639,7 +1614,6 @@ local function FarmWorldPilotMode()
     if not char then return end
     local root = char:FindFirstChild("HumanoidRootPart")
     if not root then return end
-
     for _, visual in ipairs(GetTicketVisuals()) do
         if not AutoFarm then break end
         local cf = GetObjectCFrame(visual)
@@ -1652,9 +1626,7 @@ local function FarmWorldPilotMode()
                     piloted = true
                 end
             end)
-            if not piloted then
-                root.CFrame = CFrame.new(targetPos)
-            end
+            if not piloted then root.CFrame = CFrame.new(targetPos) end
             task.wait(farmDelay)
         end
     end
@@ -1670,13 +1642,9 @@ task.spawn(function()
             if not char then return end
             local hum = char:FindFirstChildOfClass("Humanoid")
             if not hum or hum.Health <= 0 then return end
-
-            if FarmMode == 1 then
-                FarmPullMode()
-            elseif FarmMode == 2 then
-                FarmFastSwapMode()
-            elseif FarmMode == 3 then
-                FarmWorldPilotMode()
+            if FarmMode == 1 then FarmPullMode()
+            elseif FarmMode == 2 then FarmFastSwapMode()
+            elseif FarmMode == 3 then FarmWorldPilotMode()
             end
         end)
     end
@@ -1687,7 +1655,20 @@ lp.CharacterAdded:Connect(function()
     DestroyRemoteHitbox()
 end)
 
-local Window = MinecraftLib:CreateWindow("IRY HUB | Evade", {Theme = "Nether"})
+-- ============================================================
+-- UI  (новый синтаксис MinecraftLib v3.3)
+-- ============================================================
+
+local Window = MinecraftLib:CreateWindow({
+    Title        = "IRY HUB | Evade",
+    Theme        = "Nether",
+    ToggleKey    = "RightShift",
+    ConfigFolder = "inlawry_Evade",
+    AutoSave     = false,
+    AutoLoad     = false,
+})
+
+Window:SetWatermark(true, "IRY HUB v2.0")
 
 local MainTab   = Window:AddTab("Main")
 local VisualTab = Window:AddTab("Visual")
@@ -1695,221 +1676,432 @@ local OptTab    = Window:AddTab("Optim")
 local ConfigTab = Window:AddTab("Configs")
 local AboutTab  = Window:AddTab("inlawry")
 
-MainTab:AddSeparator("Movement")
+-- ============================================================
+-- MAIN TAB
+-- ============================================================
 
-speedToggle = MainTab:AddToggle("Speed Hack", false, function(value)
-    Speeds = value
-    if not value then
-        speedCurrent = 0
-        RestoreSpeedometer()
-    else
-        lastSpeedPosition = nil
-        GetSpeedometerLabel()
-    end
-end)
+local moveSec = MainTab:AddSection("Movement")
 
-speedSlider = MainTab:AddSlider("Speed Value", 16, 105, 50, function(value)
-    Power = value
-end)
-
-jumpToggle = MainTab:AddToggle("Infinite Jump", false, function(value)
-    JumpEnabled = value
-    local Hum = lp.Character and lp.Character:FindFirstChild("Humanoid")
-    if Hum then
-        if value then
-            OriginalJumpPower = Hum.JumpPower
-            Hum.UseJumpPower = true
-            Hum.JumpPower = JumpPower
+speedToggle = moveSec:AddToggle({
+    Name    = "Speed Hack",
+    Default = false,
+    Flag    = "speed_hack",
+    Callback = function(value)
+        Speeds = value
+        if not value then
+            speedCurrent = 0
+            RestoreSpeedometer()
         else
-            Hum.JumpPower = OriginalJumpPower
+            lastSpeedPosition = nil
+            GetSpeedometerLabel()
         end
-    end
-end)
+    end,
+})
 
-jumpSlider = MainTab:AddSlider("Jump Power", 1, 100, 50, function(value)
-    JumpPower = value
-    if JumpEnabled then
+speedSlider = moveSec:AddSlider({
+    Name     = "Speed Value",
+    Min      = 16,
+    Max      = 105,
+    Default  = 50,
+    Step     = 1,
+    Flag     = "speed_value",
+    Callback = function(value) Power = value end,
+})
+
+jumpToggle = moveSec:AddToggle({
+    Name    = "Infinite Jump",
+    Default = false,
+    Flag    = "inf_jump",
+    Callback = function(value)
+        JumpEnabled = value
         local Hum = lp.Character and lp.Character:FindFirstChild("Humanoid")
-        if Hum then Hum.JumpPower = value end
-    end
-end)
-
-MainTab:AddSeparator("Fly")
-
-flyToggle = MainTab:AddToggle("Fly", false, function(value)
-    flying = value
-    if value then startFly() else stopFly() end
-end)
-
-flySpeedSlider = MainTab:AddSlider("Fly Speed", 50, 175, 150, function(value)
-    flySpeed    = value
-    flyMaxSpeed = value
-end)
-
-MainTab:AddKeybind("Fly Key", "X", function()
-    flying = not flying
-    if flying then startFly() else stopFly() end
-    if flyToggle then flyToggle:Set(flying) end
-end)
-
-MainTab:AddSeparator("Safety & Auto")
-
-safeZoneToggle = MainTab:AddToggle("Safe Zone", false, function(value)
-    Safe = value
-    if value then
-        if flying then
-            flying = false
-            if flyToggle then flyToggle:Set(false) end
-            stopFly()
-        end
-        ignoreTeleportFor(500)
-        EnableSafeZone()
-    else
-        DisableSafeZone()
-    end
-end)
-
-autoFollowToggle = MainTab:AddToggle("Auto Follow [Beta]", true, function(value)
-    AutoFollow = value
-    if not value and IsFollowing then StopFollowing() end
-end)
-
-autoReviveToggle = MainTab:AddToggle("Auto Revive [Beta]", false, function(value)
-    AutoRevive = value
-    if not value then
-        IsRevivingNow = false
-        table.clear(DownedCache)
-        table.clear(DownedCacheTime)
-        table.clear(ReviveBlacklist)
-        table.clear(ReviveBlacklistTime)
-        pcall(function()
-            local char = lp.Character
-            if char then
-                local hum = char:FindFirstChildOfClass("Humanoid")
-                if hum then
-                    hum.PlatformStand = false
-                    hum:SetStateEnabled(Enum.HumanoidStateType.GettingUp, true)
-                    hum:SetStateEnabled(Enum.HumanoidStateType.Running,   true)
-                    hum:SetStateEnabled(Enum.HumanoidStateType.Jumping,   true)
-                end
-                for _, v in pairs(char:GetDescendants()) do
-                    if v:IsA("BasePart") then v.CanCollide = true end
-                end
+        if Hum then
+            if value then
+                OriginalJumpPower = Hum.JumpPower
+                Hum.UseJumpPower  = true
+                Hum.JumpPower     = JumpPower
+            else
+                Hum.JumpPower = OriginalJumpPower
             end
-        end)
-        DisableSafeZone()
-    end
-end)
-
-MainTab:AddButton("Beta Message", function()
-    Window:Notify(
-        "Auto Revive — Beta",
-        "Not 100% AFK. E may fire multiple times — this is normal and helps complete the revive. Still in development.",
-        12
-    )
-end)
-
-MainTab:AddKeybind("Safe Zone Key", "V", function()
-    Safe = not Safe
-    if Safe then
-        if flying then
-            flying = false
-            if flyToggle then flyToggle:Set(false) end
-            stopFly()
         end
-        ignoreTeleportFor(500)
-        EnableSafeZone()
-    else
-        DisableSafeZone()
-    end
-    if safeZoneToggle then safeZoneToggle:Set(Safe) end
-end)
+    end,
+})
 
-MainTab:AddSeparator("Avoid Nextbots")
-avoidToggle = MainTab:AddToggle("Avoid Nextbots", false, function(value)
-    AvoidNextbots = value
-end)
-avoidDistanceSlider = MainTab:AddSlider("Avoid Distance", 10, 50, 25, function(value)
-    AvoidDistance = value
-end)
-avoidSpeedSlider = MainTab:AddSlider("Avoid Speed", 30, 150, 60, function(value)
-    AvoidSpeed = value
-end)
+jumpSlider = moveSec:AddSlider({
+    Name     = "Jump Power",
+    Min      = 1,
+    Max      = 100,
+    Default  = 50,
+    Step     = 1,
+    Flag     = "jump_power",
+    Callback = function(value)
+        JumpPower = value
+        if JumpEnabled then
+            local Hum = lp.Character and lp.Character:FindFirstChild("Humanoid")
+            if Hum then Hum.JumpPower = value end
+        end
+    end,
+})
 
-VisualTab:AddSeparator("Auto Farm")
+local flySec = MainTab:AddSection("Fly")
 
-farmModeDropdown = VisualTab:AddDropdown("Режим фарма", {
-    "1: Models to Player (DONT WORK) ",
-    "2: Quick swap  (DONT WORK)",
-    "3: TELEPORT (recommended)",
-}, function(value)
-    if value:sub(1,1) == "1" then FarmMode = 1
-    elseif value:sub(1,1) == "2" then FarmMode = 2
-    else FarmMode = 3 end
-    if FarmMode ~= 2 then DestroyRemoteHitbox() end
-end)
+flyToggle = flySec:AddToggle({
+    Name    = "Fly",
+    Default = false,
+    Flag    = "fly_enabled",
+    Callback = function(value)
+        flying = value
+        if value then startFly() else stopFly() end
+    end,
+})
 
-autoFarmToggle = VisualTab:AddToggle("Auto Farm [EVENT COINS]", false, function(value)
-    AutoFarm = value
-    if value then
+flySpeedSlider = flySec:AddSlider({
+    Name     = "Fly Speed",
+    Min      = 50,
+    Max      = 175,
+    Default  = 150,
+    Step     = 1,
+    Flag     = "fly_speed",
+    Callback = function(value)
+        flySpeed    = value
+        flyMaxSpeed = value
+    end,
+})
+
+flySec:AddKeybind({
+    Name     = "Fly Key",
+    Default  = "X",
+    Mode     = "Press",
+    Flag     = "fly_key",
+    Callback = function()
+        flying = not flying
+        if flying then startFly() else stopFly() end
+        if flyToggle then flyToggle:Set(flying) end
+    end,
+})
+
+local safeSec = MainTab:AddSection("Safety & Auto")
+
+safeZoneToggle = safeSec:AddToggle({
+    Name    = "Safe Zone",
+    Default = false,
+    Flag    = "safe_zone",
+    Callback = function(value)
+        Safe = value
+        if value then
+            if flying then
+                flying = false
+                if flyToggle then flyToggle:Set(false) end
+                stopFly()
+            end
+            ignoreTeleportFor(500)
+            EnableSafeZone()
+        else
+            DisableSafeZone()
+        end
+    end,
+})
+
+autoFollowToggle = safeSec:AddToggle({
+    Name    = "Auto Follow [Beta]",
+    Default = true,
+    Flag    = "auto_follow",
+    Callback = function(value)
+        AutoFollow = value
+        if not value and IsFollowing then StopFollowing() end
+    end,
+})
+
+autoReviveToggle = safeSec:AddToggle({
+    Name    = "Auto Revive [Beta]",
+    Default = false,
+    Flag    = "auto_revive",
+    Callback = function(value)
+        AutoRevive = value
+        if not value then
+            IsRevivingNow = false
+            table.clear(DownedCache)
+            table.clear(DownedCacheTime)
+            table.clear(ReviveBlacklist)
+            table.clear(ReviveBlacklistTime)
+            pcall(function()
+                local char = lp.Character
+                if char then
+                    local hum = char:FindFirstChildOfClass("Humanoid")
+                    if hum then
+                        hum.PlatformStand = false
+                        hum:SetStateEnabled(Enum.HumanoidStateType.GettingUp, true)
+                        hum:SetStateEnabled(Enum.HumanoidStateType.Running,   true)
+                        hum:SetStateEnabled(Enum.HumanoidStateType.Jumping,   true)
+                    end
+                    for _, v in pairs(char:GetDescendants()) do
+                        if v:IsA("BasePart") then v.CanCollide = true end
+                    end
+                end
+            end)
+            DisableSafeZone()
+        end
+    end,
+})
+
+safeSec:AddButton({
+    Name    = "Beta Message",
+    Callback = function()
+        Window:Notify({
+            Title   = "Auto Revive — Beta",
+            Content = "Not 100% AFK. E may fire multiple times — this is normal and helps complete the revive. Still in development.",
+            Duration = 12,
+        })
+    end,
+})
+
+safeSec:AddKeybind({
+    Name     = "Safe Zone Key",
+    Default  = "V",
+    Mode     = "Press",
+    Flag     = "safe_key",
+    Callback = function()
+        Safe = not Safe
+        if Safe then
+            if flying then
+                flying = false
+                if flyToggle then flyToggle:Set(false) end
+                stopFly()
+            end
+            ignoreTeleportFor(500)
+            EnableSafeZone()
+        else
+            DisableSafeZone()
+        end
+        if safeZoneToggle then safeZoneToggle:Set(Safe) end
+    end,
+})
+
+local avoidSec = MainTab:AddSection("Avoid Nextbots")
+
+avoidToggle = avoidSec:AddToggle({
+    Name    = "Avoid Nextbots",
+    Default = false,
+    Flag    = "avoid_nextbots",
+    Callback = function(value) AvoidNextbots = value end,
+})
+
+avoidDistanceSlider = avoidSec:AddSlider({
+    Name     = "Avoid Distance",
+    Min      = 10,
+    Max      = 50,
+    Default  = 25,
+    Step     = 1,
+    Suffix   = " studs",
+    Flag     = "avoid_dist",
+    Callback = function(value) AvoidDistance = value end,
+})
+
+avoidSpeedSlider = avoidSec:AddSlider({
+    Name     = "Avoid Speed",
+    Min      = 30,
+    Max      = 150,
+    Default  = 60,
+    Step     = 1,
+    Flag     = "avoid_speed",
+    Callback = function(value) AvoidSpeed = value end,
+})
+
+-- ============================================================
+-- VISUAL TAB
+-- ============================================================
+
+local farmSec = VisualTab:AddSection("Auto Farm")
+
+farmModeDropdown = farmSec:AddDropdown({
+    Name    = "Farm Mode",
+    Options = {
+        "1: Models to Player (DONT WORK)",
+        "2: Quick swap  (DONT WORK)",
+        "3: TELEPORT (recommended)",
+    },
+    Default  = "3: TELEPORT (recommended)",
+    Flag     = "farm_mode",
+    Callback = function(value)
+        if value:sub(1, 1) == "1" then FarmMode = 1
+        elseif value:sub(1, 1) == "2" then FarmMode = 2
+        else FarmMode = 3 end
+        if FarmMode ~= 2 then DestroyRemoteHitbox() end
+    end,
+})
+
+autoFarmToggle = farmSec:AddToggle({
+    Name    = "Auto Farm [EVENT COINS]",
+    Default = false,
+    Flag    = "auto_farm",
+    Callback = function(value)
+        AutoFarm = value
+        if value then
+            local count   = #GetTicketVisuals()
+            local modeStr = FarmMode == 1 and "Pull Models" or FarmMode == 2 and "Fast Swap" or "Teleport"
+            Window:Notify({
+                Title   = "Auto Farm",
+                Content = "Mode: " .. modeStr .. " | Visuals: " .. count,
+                Duration = 4,
+            })
+        else
+            if FarmMode == 2 then DestroyRemoteHitbox() end
+        end
+    end,
+})
+
+farmSec:AddButton({
+    Name    = "Check Visual models",
+    Callback = function()
         local count = #GetTicketVisuals()
-        local modeStr = FarmMode == 1 and "Pull Models"
-                     or FarmMode == 2 and "Fast Swap"
-                     or "WorldPilot"
-        Window:Notify(
-            "Auto Farm",
-            "Режим: " .. modeStr .. " | Visual: " .. count,
-            4
-        )
-    else
-        if FarmMode == 2 then DestroyRemoteHitbox() end
-    end
-end)
+        Window:Notify({
+            Title   = "Auto Farm",
+            Content = "Found: " .. count .. " visuals (Workspace.Effects.Tickets)",
+            Duration = 4,
+        })
+    end,
+})
 
-VisualTab:AddButton("Проверить Visual модели", function()
-    local count = #GetTicketVisuals()
-    Window:Notify(
-        "Auto Farm",
-        "Найдено Visual: " .. count .. " (Workspace.Effects.Tickets)",
-        4
-    )
-end)
+farmSec:AddButton({
+    Name    = "Delete Hitbox",
+    Callback = function()
+        DestroyRemoteHitbox()
+        Window:Notify({Title = "Auto Farm", Content = "Hitbox removed.", Duration = 2})
+    end,
+})
 
-VisualTab:AddButton("Удалить хитбокс", function()
-    DestroyRemoteHitbox()
-    Window:Notify("Auto Farm", "Хитбокс удалён.", 2)
-end)
+local envSec = VisualTab:AddSection("Environment")
 
-VisualTab:AddSeparator("Environment")
-skyToggle = VisualTab:AddToggle("Sky Mode + FullBright", false, function(value)
-    ToggleSky(value)
-end)
+skyToggle = envSec:AddToggle({
+    Name    = "Sky Mode + FullBright",
+    Default = false,
+    Flag    = "sky_mode",
+    Callback = function(value) ToggleSky(value) end,
+})
 
-VisualTab:AddSeparator("ESP")
-playerESPToggle = VisualTab:AddToggle("ESP Players", false, function(value)
-    ESP = value
-    if not value then
-        for _, x in pairs(Players:GetPlayers()) do
-            ClearPlayerESP(x.Character)
+-- ====== ESP ======
+
+local espSec = VisualTab:AddSection("Player ESP")
+
+playerESPToggle = espSec:AddToggle({
+    Name    = "ESP Players",
+    Default = false,
+    Flag    = "esp_players",
+    Callback = function(value)
+        ESP = value
+        if not value then
+            for _, x in pairs(Players:GetPlayers()) do ClearPlayerESP(x.Character) end
         end
-    end
-end)
+    end,
+})
 
-downedESPToggle = VisualTab:AddToggle("Downed Player ESP", false, function(value)
-    DownedESP = value
-    if not value then
-        for _, player in ipairs(Players:GetPlayers()) do
-            ClearDownedESP(player.Character)
+-- ColorPicker для живых игроков (outline + accent)
+espSec:AddColorPicker({
+    Name    = "Player ESP Color",
+    Default = Color3.fromRGB(0, 200, 255),
+    Flag    = "esp_color",
+    Tooltip = "Цвет highlight-а живых игроков",
+    Callback = function(color)
+        ESPColor = color
+    end,
+})
+
+local downedSec = VisualTab:AddSection("Downed ESP")
+
+downedESPToggle = downedSec:AddToggle({
+    Name    = "Downed Player ESP",
+    Default = false,
+    Flag    = "esp_downed",
+    Callback = function(value)
+        DownedESP = value
+        if not value then
+            for _, player in ipairs(Players:GetPlayers()) do ClearDownedESP(player.Character) end
         end
-    end
-end)
+    end,
+})
 
-nextbotESPToggle = VisualTab:AddToggle("Nextbot ESP (Drawing)", false, function(value)
-    NextbotESP = value
-    if not value then
-        ClearNextbotDrawings()
-    end
-end)
+-- ColorPicker для downed игроков
+downedSec:AddColorPicker({
+    Name    = "Downed ESP Color",
+    Default = Color3.fromRGB(255, 50, 50),
+    Flag    = "esp_downed_color",
+    Tooltip = "Цвет highlight-а упавших игроков",
+    Callback = function(color)
+        DownedESPColor = color
+    end,
+})
+
+local nextbotSec = VisualTab:AddSection("Nextbot ESP")
+
+nextbotESPToggle = nextbotSec:AddToggle({
+    Name    = "Nextbot ESP (Drawing)",
+    Default = false,
+    Flag    = "esp_nextbot",
+    Callback = function(value)
+        NextbotESP = value
+        if not value then ClearNextbotDrawings() end
+    end,
+})
+
+-- ColorPicker для nextbot Drawing
+nextbotSec:AddColorPicker({
+    Name    = "Nextbot ESP Color",
+    Default = Color3.fromRGB(255, 0, 0),
+    Flag    = "esp_nextbot_color",
+    Tooltip = "Цвет Drawing-боксов nextbot-ов",
+    Callback = function(color)
+        NextbotESPColor = color
+        -- Обновляем уже существующие Drawing-объекты
+        for _, data in pairs(nextbotDrawings) do
+            if data.Square then data.Square.Color = color end
+            if data.Lines  then
+                for _, line in ipairs(data.Lines) do line.Color = color end
+            end
+            if data.Label  then data.Label.Color  = color end
+        end
+    end,
+})
+
+-- ============================================================
+-- OPTIM TAB
+-- ============================================================
+
+local perfSec = OptTab:AddSection("Performance")
+
+fpsToggle = perfSec:AddToggle({
+    Name    = "FPS Booster",
+    Default = false,
+    Flag    = "fps_boost",
+    Callback = function(value)
+        FPSBoosted = value
+        FPSBooster(value)
+    end,
+})
+
+fogToggle = perfSec:AddToggle({
+    Name    = "Disable Fog",
+    Default = false,
+    Flag    = "no_fog",
+    Callback = function(value)
+        FogDisabled = value
+        DisableFog(value)
+    end,
+})
+
+perfSec:AddButton({
+    Name    = "Anti GamePaused",
+    Callback = function()
+        task.spawn(function()
+            Window:Notify({Title = "Anti GamePaused", Content = "Unlocking game...", Duration = 2})
+            repeat task.wait() until lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+            Window:Notify({Title = "Anti GamePaused", Content = "Done!", Duration = 3, Type = "Success"})
+        end)
+    end,
+})
+
+-- ============================================================
+-- CONFIGS TAB
+-- ============================================================
 
 local ConfigFolder = "inlawry_Evade/configs"
 local AutoloadPath = "inlawry_Evade/autoload.json"
@@ -1919,7 +2111,7 @@ local selectedConfig = ""
 local function EnsureConfigFolder()
     if not isfolder or not makefolder or not writefile or not readfile or not isfile then return false end
     if not isfolder("inlawry_Evade") then makefolder("inlawry_Evade") end
-    if not isfolder(ConfigFolder) then makefolder(ConfigFolder) end
+    if not isfolder(ConfigFolder)    then makefolder(ConfigFolder)    end
     return true
 end
 
@@ -1950,60 +2142,60 @@ end
 
 local function SaveConfig(name)
     if not EnsureConfigFolder() then
-        Window:Notify("Configs", "Executor does not support file saving.", 4)
+        Window:Notify({Title = "Configs", Content = "Executor does not support file saving.", Duration = 4})
         return
     end
     name = NormalizeConfigName(name)
-    if name == "" then Window:Notify("Configs", "Enter a config name first.", 3) return end
+    if name == "" then Window:Notify({Title = "Configs", Content = "Enter a config name first.", Duration = 3}) return end
     local config = {
         version = 1, Speeds = Speeds, Power = Power, JumpEnabled = JumpEnabled, JumpPower = JumpPower,
         flying = flying, flySpeed = flySpeed, Safe = Safe, AutoFollow = AutoFollow, AutoRevive = AutoRevive,
         AvoidNextbots = AvoidNextbots, AvoidDistance = AvoidDistance, AvoidSpeed = AvoidSpeed,
         SkyEnabled = SkyEnabled, ESP = ESP, DownedESP = DownedESP, NextbotESP = NextbotESP,
-        FPSBoosted = FPSBoosted, FogDisabled = FogDisabled, AutoFarm = AutoFarm
+        FPSBoosted = FPSBoosted, FogDisabled = FogDisabled, AutoFarm = AutoFarm,
     }
     local ok, encoded = pcall(function() return game:GetService("HttpService"):JSONEncode(config) end)
-    if not ok then Window:Notify("Configs", "Could not encode config.", 4) return end
+    if not ok then Window:Notify({Title = "Configs", Content = "Could not encode config.", Duration = 4}) return end
     writefile(ConfigFolder .. "/" .. name .. ".json", encoded)
     selectedConfig = name
     if configNameBox then configNameBox:Set(name) end
-    Window:Notify("Configs", "Saved: " .. name, 3)
+    Window:Notify({Title = "Configs", Content = "Saved: " .. name, Duration = 3, Type = "Success"})
 end
 
 local function LoadConfig(name, silent)
     if not EnsureConfigFolder() then
-        if not silent then Window:Notify("Configs", "Executor does not support file loading.", 4) end
+        if not silent then Window:Notify({Title = "Configs", Content = "Executor does not support file loading.", Duration = 4}) end
         return
     end
     name = NormalizeConfigName(name)
-    if name == "" then if not silent then Window:Notify("Configs", "Choose a config first.", 3) end return end
+    if name == "" then if not silent then Window:Notify({Title = "Configs", Content = "Choose a config first.", Duration = 3}) end return end
     local path = ConfigFolder .. "/" .. name .. ".json"
-    if not isfile(path) then if not silent then Window:Notify("Configs", "Config not found: " .. name, 3) end return end
+    if not isfile(path) then if not silent then Window:Notify({Title = "Configs", Content = "Config not found: " .. name, Duration = 3}) end return end
     local ok, config = pcall(function() return game:GetService("HttpService"):JSONDecode(readfile(path)) end)
-    if not ok or type(config) ~= "table" then if not silent then Window:Notify("Configs", "Invalid config file.", 4) end return end
+    if not ok or type(config) ~= "table" then if not silent then Window:Notify({Title = "Configs", Content = "Invalid config file.", Duration = 4}) end return end
 
-    if config.Power and speedSlider then speedSlider:Set(config.Power) end
-    if config.JumpPower and jumpSlider then jumpSlider:Set(config.JumpPower) end
-    if config.flySpeed and flySpeedSlider then flySpeedSlider:Set(config.flySpeed) end
-    if config.AvoidDistance and avoidDistanceSlider then avoidDistanceSlider:Set(config.AvoidDistance) end
-    if config.AvoidSpeed and avoidSpeedSlider then avoidSpeedSlider:Set(config.AvoidSpeed) end
-    if speedToggle then speedToggle:Set(config.Speeds == true) end
-    if jumpToggle then jumpToggle:Set(config.JumpEnabled == true) end
-    if flyToggle then flyToggle:Set(config.flying == true) end
-    if safeZoneToggle then safeZoneToggle:Set(config.Safe == true) end
-    if autoFollowToggle then autoFollowToggle:Set(config.AutoFollow ~= false) end
-    if autoReviveToggle then autoReviveToggle:Set(config.AutoRevive == true) end
-    if avoidToggle then avoidToggle:Set(config.AvoidNextbots == true) end
-    if skyToggle then skyToggle:Set(config.SkyEnabled == true) end
-    if playerESPToggle then playerESPToggle:Set(config.ESP == true) end
-    if downedESPToggle then downedESPToggle:Set(config.DownedESP == true) end
-    if nextbotESPToggle then nextbotESPToggle:Set(config.NextbotESP == true) end
-    if fpsToggle then fpsToggle:Set(config.FPSBoosted == true) end
-    if fogToggle then fogToggle:Set(config.FogDisabled == true) end
-    if autoFarmToggle then autoFarmToggle:Set(config.AutoFarm == true) end
+    if config.Power         and speedSlider         then speedSlider:Set(config.Power) end
+    if config.JumpPower     and jumpSlider           then jumpSlider:Set(config.JumpPower) end
+    if config.flySpeed      and flySpeedSlider       then flySpeedSlider:Set(config.flySpeed) end
+    if config.AvoidDistance and avoidDistanceSlider  then avoidDistanceSlider:Set(config.AvoidDistance) end
+    if config.AvoidSpeed    and avoidSpeedSlider     then avoidSpeedSlider:Set(config.AvoidSpeed) end
+    if speedToggle         then speedToggle:Set(config.Speeds == true) end
+    if jumpToggle          then jumpToggle:Set(config.JumpEnabled == true) end
+    if flyToggle           then flyToggle:Set(config.flying == true) end
+    if safeZoneToggle      then safeZoneToggle:Set(config.Safe == true) end
+    if autoFollowToggle    then autoFollowToggle:Set(config.AutoFollow ~= false) end
+    if autoReviveToggle    then autoReviveToggle:Set(config.AutoRevive == true) end
+    if avoidToggle         then avoidToggle:Set(config.AvoidNextbots == true) end
+    if skyToggle           then skyToggle:Set(config.SkyEnabled == true) end
+    if playerESPToggle     then playerESPToggle:Set(config.ESP == true) end
+    if downedESPToggle     then downedESPToggle:Set(config.DownedESP == true) end
+    if nextbotESPToggle    then nextbotESPToggle:Set(config.NextbotESP == true) end
+    if fpsToggle           then fpsToggle:Set(config.FPSBoosted == true) end
+    if fogToggle           then fogToggle:Set(config.FogDisabled == true) end
+    if autoFarmToggle      then autoFarmToggle:Set(config.AutoFarm == true) end
     selectedConfig = name
     if configNameBox then configNameBox:Set(name) end
-    if not silent then Window:Notify("Configs", "Loaded: " .. name, 3) end
+    if not silent then Window:Notify({Title = "Configs", Content = "Loaded: " .. name, Duration = 3, Type = "Success"}) end
 end
 
 local function DeleteConfig(name)
@@ -2017,51 +2209,95 @@ local function DeleteConfig(name)
         end
         selectedConfig = ""
         if configNameBox then configNameBox:Set("") end
-        Window:Notify("Configs", "Deleted: " .. name, 3)
+        Window:Notify({Title = "Configs", Content = "Deleted: " .. name, Duration = 3})
     else
-        Window:Notify("Configs", "Config not found: " .. name, 3)
+        Window:Notify({Title = "Configs", Content = "Config not found: " .. name, Duration = 3, Type = "Error"})
     end
 end
 
 local configOptions = GetConfigNames()
 if #configOptions == 0 then configOptions = {"No saved configs"} end
 
-ConfigTab:AddSeparator("Configuration Manager")
-configNameBox = ConfigTab:AddTextbox("Config Name", "example: legit", function(value)
-    selectedConfig = NormalizeConfigName(value)
-end)
-configDropdown = ConfigTab:AddDropdown("Saved Configs", configOptions, function(name)
-    if name ~= "No saved configs" then
-        selectedConfig = name
-        configNameBox:Set(name)
-    end
-end)
-ConfigTab:AddButton("Save Config", function() SaveConfig(CurrentConfigName()) end)
-ConfigTab:AddButton("Load Config", function() LoadConfig(CurrentConfigName()) end)
-ConfigTab:AddButton("Delete Config", function() DeleteConfig(CurrentConfigName()) end)
+local cfgManagerSec = ConfigTab:AddSection("Configuration Manager")
 
-ConfigTab:AddSeparator("Autoload")
-autoloadToggle = ConfigTab:AddToggle("Autoload on Startup", false, function(value)
-    if not EnsureConfigFolder() then Window:Notify("Configs", "Executor does not support file saving.", 4) return end
-    if value then
-        local name = CurrentConfigName()
-        if name == "" or not isfile(ConfigFolder .. "/" .. name .. ".json") then
-            Window:Notify("Configs", "Save or choose a config first.", 3)
-            autoloadToggle:Set(false)
+configNameBox = cfgManagerSec:AddTextbox({
+    Name        = "Config Name",
+    Placeholder = "example: legit",
+    Flag        = "cfg_name",
+    Callback    = function(value)
+        selectedConfig = NormalizeConfigName(value)
+    end,
+})
+
+configDropdown = cfgManagerSec:AddDropdown({
+    Name    = "Saved Configs",
+    Options = configOptions,
+    Flag    = "cfg_dropdown",
+    Callback = function(name)
+        if name ~= "No saved configs" then
+            selectedConfig = name
+            configNameBox:Set(name)
+        end
+    end,
+})
+
+cfgManagerSec:AddButton({
+    Name    = "Save Config",
+    Callback = function() SaveConfig(CurrentConfigName()) end,
+})
+
+cfgManagerSec:AddButton({
+    Name    = "Load Config",
+    Callback = function() LoadConfig(CurrentConfigName()) end,
+})
+
+cfgManagerSec:AddButton({
+    Name    = "Delete Config",
+    Callback = function() DeleteConfig(CurrentConfigName()) end,
+})
+
+local autoloadSec = ConfigTab:AddSection("Autoload")
+
+autoloadToggle = autoloadSec:AddToggle({
+    Name    = "Autoload on Startup",
+    Default = false,
+    Flag    = "autoload",
+    Callback = function(value)
+        if not EnsureConfigFolder() then
+            Window:Notify({Title = "Configs", Content = "Executor does not support file saving.", Duration = 4})
             return
         end
-        writefile(AutoloadPath, game:GetService("HttpService"):JSONEncode({name = name}))
-        Window:Notify("Configs", "Autoload set: " .. name, 3)
-    elseif delfile and isfile(AutoloadPath) then
-        delfile(AutoloadPath)
-        Window:Notify("Configs", "Autoload disabled.", 3)
-    end
-end)
-ConfigTab:AddButton("Load Autoload Config", function()
-    if not isfile or not isfile(AutoloadPath) then Window:Notify("Configs", "Autoload is not configured.", 3) return end
-    local ok, data = pcall(function() return game:GetService("HttpService"):JSONDecode(readfile(AutoloadPath)) end)
-    if ok and data and data.name then LoadConfig(data.name) else Window:Notify("Configs", "Autoload file is invalid.", 3) end
-end)
+        if value then
+            local name = CurrentConfigName()
+            if name == "" or not isfile(ConfigFolder .. "/" .. name .. ".json") then
+                Window:Notify({Title = "Configs", Content = "Save or choose a config first.", Duration = 3})
+                autoloadToggle:Set(false)
+                return
+            end
+            writefile(AutoloadPath, game:GetService("HttpService"):JSONEncode({name = name}))
+            Window:Notify({Title = "Configs", Content = "Autoload set: " .. name, Duration = 3})
+        elseif delfile and isfile(AutoloadPath) then
+            delfile(AutoloadPath)
+            Window:Notify({Title = "Configs", Content = "Autoload disabled.", Duration = 3})
+        end
+    end,
+})
+
+autoloadSec:AddButton({
+    Name    = "Load Autoload Config",
+    Callback = function()
+        if not isfile or not isfile(AutoloadPath) then
+            Window:Notify({Title = "Configs", Content = "Autoload is not configured.", Duration = 3})
+            return
+        end
+        local ok, data = pcall(function() return game:GetService("HttpService"):JSONDecode(readfile(AutoloadPath)) end)
+        if ok and data and data.name then
+            LoadConfig(data.name)
+        else
+            Window:Notify({Title = "Configs", Content = "Autoload file is invalid.", Duration = 3, Type = "Error"})
+        end
+    end,
+})
 
 task.defer(function()
     pcall(function()
@@ -2072,45 +2308,45 @@ task.defer(function()
             configNameBox:Set(data.name)
             autoloadToggle:Set(true)
             LoadConfig(data.name, true)
-            Window:Notify("Configs", "Autoloaded: " .. data.name, 3)
+            Window:Notify({Title = "Configs", Content = "Autoloaded: " .. data.name, Duration = 3, Type = "Success"})
         end
     end)
 end)
 
-OptTab:AddSeparator("Performance")
-fpsToggle = OptTab:AddToggle("FPS Booster", false, function(value)
-    FPSBoosted = value
-    FPSBooster(value)
-end)
-fogToggle = OptTab:AddToggle("Disable Fog", false, function(value)
-    FogDisabled = value
-    DisableFog(value)
-end)
-OptTab:AddButton("Anti GamePaused", function()
-    task.spawn(function()
-        Window:Notify("Anti GamePaused", "Unlocking game...", 2)
-        repeat task.wait() until lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
-        Window:Notify("Anti GamePaused", "Done!", 3)
-    end)
-end)
+-- ============================================================
+-- ABOUT / INLAWRY TAB
+-- ============================================================
 
-AboutTab:AddSeparator("Community")
-AboutTab:AddButton("Copy Telegram", function()
-    setclipboard("https://t.me/inlawryDEV")
-    Window:Notify("Telegram", "Link copied to clipboard!", 2)
-end)
+local communitySec = AboutTab:AddSection("Community")
 
-AboutTab:AddSeparator("Security")
-AboutTab:AddButton("Mod Detector (Auto-Leave)", function()
-    Players.PlayerAdded:Connect(function(plr)
-        if plr.UserId == game.CreatorId then lp:Kick("Moderator Joined") end
-    end)
-    Window:Notify("Mod Detector", "Active — auto-leave if moderator joins", 3)
-end)
+communitySec:AddButton({
+    Name    = "Copy Telegram",
+    Callback = function()
+        setclipboard("https://t.me/inlawryDEV")
+        Window:Notify({Title = "Telegram", Content = "Link copied to clipboard!", Duration = 2})
+    end,
+})
 
-AboutTab:AddSeparator("Info")
-AboutTab:AddLabel("Anti AFK active in background")
-AboutTab:AddLabel("IRY HUB | Evade — Minecraft UI Port")
+local securitySec = AboutTab:AddSection("Security")
+
+securitySec:AddButton({
+    Name    = "Mod Detector (Auto-Leave)",
+    Callback = function()
+        Players.PlayerAdded:Connect(function(plr)
+            if plr.UserId == game.CreatorId then lp:Kick("Moderator Joined") end
+        end)
+        Window:Notify({Title = "Mod Detector", Content = "Active — auto-leave if moderator joins", Duration = 3})
+    end,
+})
+
+local infoSec = AboutTab:AddSection("Info")
+
+infoSec:AddLabel("Anti AFK active in background")
+infoSec:AddLabel("IRY HUB | Evade — Minecraft UI Port")
+
+-- ============================================================
+-- KEYBINDS
+-- ============================================================
 
 UIS.InputBegan:Connect(function(input, gp)
     if gp then return end
@@ -2119,8 +2355,17 @@ UIS.InputBegan:Connect(function(input, gp)
     end
 end)
 
+-- ============================================================
+-- STARTUP
+-- ============================================================
+
 task.delay(1, function()
-    Window:Notify("IRY HUB | Evade", "Loaded! RightShift / R — toggle UI", 4)
+    Window:Notify({
+        Title   = "IRY HUB | Evade",
+        Content = "Loaded! RightShift / R — toggle UI",
+        Duration = 4,
+        Type    = "Success",
+    })
 end)
 
-print("[IRY HUB] Evade Loaded have a good use ")
+print("[IRY HUB] Evade Loaded have a good use")
