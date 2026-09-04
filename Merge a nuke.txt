@@ -1,12 +1,10 @@
---[[
-    ╔══════════════════════════════════════════════════════════════════════╗
-    ║           NUKE AUTO UPGRADE  —  MinecraftLib  •  LocalScript       ║
-    ║           Переход с WindUI на MinecraftLib                         ║
-    ╚══════════════════════════════════════════════════════════════════════╝
-]]
+--[[ ╔══════════════════════════════════════════════════════════════════════╗
+     ║ NUKE AUTO UPGRADE — MinecraftLib • LocalScript                      ║
+     ║ Переход с WindUI на MinecraftLib                                    ║
+     ╚══════════════════════════════════════════════════════════════════════╝ ]]
 
 -- ─── Загрузка библиотеки MinecraftLib ────────────────────────────────────
-local Lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/Mamaksimaaa/Roblox-script/refs/heads/main/Minecraft%20library/Minecraftlibrary.lua"))()
+local Lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/Mamaksimaaa/Roblox-script/refs/heads/main/Lib/load.lua"))()
 
 -- ─── REMOTES ─────────────────────────────────────────────────────────────
 local PurchaseUpgrade = game:GetService("ReplicatedStorage")
@@ -19,14 +17,14 @@ local RequestLockBase = game:GetService("ReplicatedStorage")
 
 -- ─── СОСТОЯНИЕ ────────────────────────────────────────────────────────────
 local State = {
-    running             = false,
-    thread              = nil,
-    interval            = 100,          -- мс
-    doLockbase          = true,
-    doTier              = true,
-    doMax               = true,
-    doRequestLockBase   = true,
-    totalFires          = 0,
+    running = false,
+    thread = nil,
+    interval = 100,        -- мс
+    doLockbase = true,
+    doTier = true,
+    doMax = true,
+    doRequestLockBase = true,
+    totalFires = 0,
 }
 
 -- ─── ЛОГИКА АПГРЕЙДОВ ────────────────────────────────────────────────────
@@ -49,7 +47,7 @@ local function fireUpgrades()
     end
 end
 
-local statusLabel  -- будет заполнено после создания UI
+local statusLabel
 
 local function runLoop()
     while State.running do
@@ -81,15 +79,12 @@ end
 
 -- ─── СКРЫТИЕ NotifFrame ─────────────────────────────────────────────────
 local function hideNotifFrames()
-    local playerGui = game:GetService("Players").LocalPlayer
-        :WaitForChild("PlayerGui")
-
+    local playerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
     for _, obj in ipairs(playerGui:GetDescendants()) do
         if obj:IsA("Frame") and obj.Name:lower():find("notif") then
             obj.Visible = false
         end
     end
-
     playerGui.DescendantAdded:Connect(function(obj)
         if obj:IsA("Frame") and obj.Name:lower():find("notif") then
             task.defer(function()
@@ -98,67 +93,62 @@ local function hideNotifFrames()
         end
     end)
 end
-
 task.spawn(hideNotifFrames)
 
 -- ─── СОЗДАНИЕ ОКНА ───────────────────────────────────────────────────────
-local Window = Lib:CreateWindow("Nuke Auto Upgrade", { Theme = "Overworld" })
+local Window = Lib:CreateWindow({
+    Title = "Nuke Auto Upgrade",
+    Theme = "Overworld"
+})
 
 -- ─── ВКЛАДКИ ─────────────────────────────────────────────────────────────
 local MainTab = Window:AddTab("Main")
 local SettTab = Window:AddTab("Settings")
 
 -- ════════════════════════════════════════════════════════════
---  MAIN TAB
+-- MAIN TAB
 -- ════════════════════════════════════════════════════════════
 
--- Раздел: цели апгрейда
-MainTab:AddLabel("═══ Upgrade Targets ═══")  -- заголовок секции
+MainTab:AddLabel("═══ Upgrade Targets ═══")
 
 local lockbaseToggle = MainTab:AddToggle("LOCKBASE", true, function(v)
     State.doLockbase = v
 end)
-
-MainTab:AddLabel("")  -- отступ
+MainTab:AddLabel("")
 
 local tierToggle = MainTab:AddToggle("TIER", true, function(v)
     State.doTier = v
 end)
-
 MainTab:AddLabel("")
 
 local maxToggle = MainTab:AddToggle("MAX", true, function(v)
     State.doMax = v
 end)
-
 MainTab:AddLabel("")
 
 local reqLockToggle = MainTab:AddToggle("RequestLockBase", true, function(v)
     State.doRequestLockBase = v
 end)
+MainTab:AddSeparator()
 
-MainTab:AddSeparator()  -- разделитель
-
--- Раздел: управление
 MainTab:AddLabel("═══ Control ═══")
 
-local startStopBtn  -- сохраним для изменения текста
-startStopBtn = MainTab:AddButton("▶  Start Auto Upgrade", function()
+local startStopBtn
+startStopBtn = MainTab:AddButton("▶ Start Auto Upgrade", function()
     if State.running then
         stopLoop()
-        startStopBtn.Text = "▶  Start Auto Upgrade"
+        startStopBtn:SetText("▶ Start Auto Upgrade")
         Window:Notify("Остановлено", "Цикл апгрейдов остановлен.", 2)
     else
         startLoop()
         if State.running then
-            startStopBtn.Text = "⏹  Stop Auto Upgrade"
+            startStopBtn:SetText("⏹ Stop Auto Upgrade")
             Window:Notify("Запущено", "Цикл апгрейдов активен!", 2)
         end
     end
 end)
 
 MainTab:AddLabel("")
-
 MainTab:AddButton("Однократный запуск", function()
     local before = State.totalFires
     fireUpgrades()
@@ -171,39 +161,28 @@ end)
 
 MainTab:AddSeparator()
 
--- Раздел: статус
 MainTab:AddLabel("═══ Status ═══")
-
 statusLabel = MainTab:AddLabel("Ожидание запуска...")
--- обновим начальное значение
 statusLabel:Set("Всего отправлено: 0")
-
 MainTab:AddLabel("NotifFrame скрывается автоматически ✓")
 
 -- ════════════════════════════════════════════════════════════
---  SETTINGS TAB
+-- SETTINGS TAB
 -- ════════════════════════════════════════════════════════════
 
--- Раздел: интервал
 SettTab:AddLabel("═══ Interval ═══")
-
 local intervalSlider = SettTab:AddSlider("Delay (мс)", 50, 2000, 100, function(v)
     State.interval = v
 end)
-
 SettTab:AddSeparator()
 
--- Раздел: уведомления
 SettTab:AddLabel("═══ Notifications ═══")
-
 SettTab:AddToggle("Скрывать NotifFrame", true, function(v)
     if v then
         task.spawn(hideNotifFrames)
     end
 end)
-
 SettTab:AddLabel("")
-
 SettTab:AddButton("Скрыть NotifFrame сейчас", function()
     local count = 0
     local playerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
@@ -215,12 +194,9 @@ SettTab:AddButton("Скрыть NotifFrame сейчас", function()
     end
     Window:Notify("NotifFrame", "Скрыто фреймов: " .. count, 3)
 end)
-
 SettTab:AddSeparator()
 
--- Раздел: прочее
 SettTab:AddLabel("═══ Misc ═══")
-
 SettTab:AddButton("Сбросить счётчик", function()
     State.totalFires = 0
     if statusLabel then
