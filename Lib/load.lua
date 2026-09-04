@@ -871,7 +871,7 @@ function MinecraftLib:CreateWindow(title, config)
         PixelText(SPTitle)
         local SPCloseBtn = Create("TextButton", {
             Size = UDim2.new(0, mobile and 26 or 30, 0, mobile and 26 or 30),
-            Position = UDim2.new(1, -mobile and 32 or -36, 0.5, -(mobile and 13 or 15)),
+            Position = UDim2.new(1, -(mobile and 32 or 36), 0.5, -(mobile and 13 or 15)),
             BackgroundColor3 = self._theme.CloseBtn, Text = "×", TextColor3 = Color3.fromRGB(255,255,255),
             TextSize = 14, Font = FONT, BorderSizePixel = 0, ZIndex = 53, Parent = SPHeader,
         })
