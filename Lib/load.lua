@@ -532,6 +532,18 @@ function MinecraftLib:CreateWindow(title, config)
     local ThemeBtn    = TitleButton("Theme", "OW", -BtnSize * 3 - (mobile and 82 or 100), self._theme.SecondaryBG, mobile and 52 or 64, mobile and 20 or 22)
     ThemeBtn.TextColor3 = self._theme.TextSecondary
     self:_AttachTooltip(ThemeBtn, "Сменить тему")
+
+    -- ---------------- theme helpers (declared early for Settings Panel) ----------------
+    local function ThemeOrder()
+        local order = {"Overworld", "Nether", "End", "Sea", "Sky"}
+        local extra = {}
+        for name in pairs(Themes) do if not table.find(order, name) then table.insert(extra, name) end end
+        table.sort(extra)
+        for _, n in ipairs(extra) do table.insert(order, n) end
+        return order
+    end
+    local themeShort = {Overworld = "OW", Nether = "NT", End = "ED", Sea = "SE", Sky = "SK"}
+    local function ShortName(n) return themeShort[n] or n:sub(1, 2):upper() end
     self:_AttachTooltip(MinimizeBtn, "Свернуть (двойной клик по заголовку — развернуть)")
     self:_AttachTooltip(SettingsBtn, "Настройки")
 
@@ -1331,16 +1343,6 @@ function MinecraftLib:CreateWindow(title, config)
     end -- end settings panel block
 
     -- ---------------- theme button ----------------
-    local function ThemeOrder()
-        local order = {"Overworld", "Nether", "End", "Sea", "Sky"}
-        local extra = {}
-        for name in pairs(Themes) do if not table.find(order, name) then table.insert(extra, name) end end
-        table.sort(extra)
-        for _, n in ipairs(extra) do table.insert(order, n) end
-        return order
-    end
-    local themeShort = {Overworld = "OW", Nether = "NT", End = "ED", Sea = "SE", Sky = "SK"}
-    local function ShortName(n) return themeShort[n] or n:sub(1, 2):upper() end
     ThemeBtn.Text = ShortName(self._themeName)
     ThemeBtn.Activated:Connect(function()
         local order = ThemeOrder()
