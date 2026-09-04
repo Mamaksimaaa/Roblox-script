@@ -371,6 +371,13 @@ function MinecraftLib:CreateWindow(title, config)
     self._viewportScale = 1
     self._userScale = math.clamp(tonumber(config.Scale) or 1, 0.5, 1.5)
 
+    -- Forward stubs — real implementations assigned below after Main/UIScaleInst are ready.
+    -- These allow CloseBtn, keybind handler, etc. to reference self:Hide/Show/ToggleVisible
+    -- before those functions are fully defined.
+    function self:Hide() end
+    function self:Show() end
+    function self:ToggleVisible() end
+
     function self:RegisterThemed(refreshFn, watchInstance)
         table.insert(self._themedRefreshers, refreshFn)
         if watchInstance then
