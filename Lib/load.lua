@@ -528,10 +528,12 @@ function MinecraftLib:CreateWindow(title, config)
     end
     local CloseBtn    = TitleButton("Close", "×", -BtnSize - 6, self._theme.CloseBtn)
     local MinimizeBtn = TitleButton("Minimize", "–", -BtnSize * 2 - 10, self._theme.SecondaryBG)
-    local ThemeBtn    = TitleButton("Theme", "OW", -BtnSize * 2 - (mobile and 76 or 90), self._theme.SecondaryBG, mobile and 52 or 64, mobile and 20 or 22)
+    local SettingsBtn = TitleButton("Settings", "⚙", -BtnSize * 3 - 14, self._theme.SecondaryBG)
+    local ThemeBtn    = TitleButton("Theme", "OW", -BtnSize * 3 - (mobile and 82 or 100), self._theme.SecondaryBG, mobile and 52 or 64, mobile and 20 or 22)
     ThemeBtn.TextColor3 = self._theme.TextSecondary
     self:_AttachTooltip(ThemeBtn, "Сменить тему")
     self:_AttachTooltip(MinimizeBtn, "Свернуть (двойной клик по заголовку — развернуть)")
+    self:_AttachTooltip(SettingsBtn, "Настройки")
 
     -- ================================================================
     -- TAB BAR / CONTENT  (vertical + horizontal modes)
@@ -813,6 +815,521 @@ function MinecraftLib:CreateWindow(title, config)
         task.delay(0.3, function() self:Destroy() end)
     end)
 
+    -- ================================================================
+    -- BUILT-IN SETTINGS PANEL (opens via ⚙ button in title bar)
+    -- ================================================================
+    do
+        -- Overlay that dims the content area
+        local SPOverlay = Create("TextButton", {
+            Name = "SettingsOverlay", Size = UDim2.new(1, 0, 1, -TITLE_H), Position = UDim2.new(0, 0, 0, TITLE_H),
+            BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1,
+            Text = "", AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 50, Visible = false, Parent = Main,
+        })
+
+        -- Panel frame that slides in from the right
+        local SPanelW = math.min(math.floor((mobile and 300 or 340)), WIN_W - 20)
+        local SPanel = Create("Frame", {
+            Name = "SettingsPanel",
+            Size = UDim2.new(0, SPanelW, 1, -TITLE_H),
+            Position = UDim2.new(1, 0, 0, TITLE_H),   -- starts off-screen right
+            BackgroundColor3 = self._theme.Background,
+            BackgroundTransparency = 0.04, BorderSizePixel = 0, ZIndex = 51, Visible = false, Parent = Main,
+        })
+        PixelBevel(SPanel, self._theme, 2)
+        SPanel:SetAttribute("MC_Role_BG", true)
+
+        -- Panel header
+        local SPHeader = Create("Frame", {
+            Size = UDim2.new(1, 0, 0, mobile and 32 or 36),
+            BackgroundColor3 = self._theme.TertiaryBG, BorderSizePixel = 0, ZIndex = 52, Parent = SPanel,
+        })
+        PixelBevel(SPHeader, self._theme, 1)
+        local SPTitle = Create("TextLabel", {
+            Size = UDim2.new(1, -44, 1, 0), Position = UDim2.new(0, 12, 0, 0),
+            BackgroundTransparency = 1, Text = "⚙  Settings", TextColor3 = self._theme.Title,
+            TextSize = FONT_TITLE, Font = FONT, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 53, Parent = SPHeader,
+        })
+        PixelText(SPTitle)
+        local SPCloseBtn = Create("TextButton", {
+            Size = UDim2.new(0, mobile and 26 or 30, 0, mobile and 26 or 30),
+            Position = UDim2.new(1, -mobile and 32 or -36, 0.5, -(mobile and 13 or 15)),
+            BackgroundColor3 = self._theme.CloseBtn, Text = "×", TextColor3 = Color3.fromRGB(255,255,255),
+            TextSize = 14, Font = FONT, BorderSizePixel = 0, ZIndex = 53, Parent = SPHeader,
+        })
+        PixelText(SPCloseBtn); PixelBevel(SPCloseBtn, self._theme, 1)
+
+        -- Scrollable content
+        local SPScroll = Create("ScrollingFrame", {
+            Size = UDim2.new(1, 0, 1, -(mobile and 32 or 36)),
+            Position = UDim2.new(0, 0, 0, mobile and 32 or 36),
+            BackgroundTransparency = 1, BorderSizePixel = 0,
+            ScrollBarThickness = mobile and 5 or 4,
+            ScrollBarImageColor3 = self._theme.Scrollbar,
+            CanvasSize = UDim2.new(0,0,0,0), AutomaticCanvasSize = Enum.AutomaticSize.Y,
+            ScrollingDirection = Enum.ScrollingDirection.Y, ZIndex = 52, Parent = SPanel,
+        })
+        Create("UIListLayout", {Padding = UDim.new(0, 0), SortOrder = Enum.SortOrder.LayoutOrder, Parent = SPScroll})
+
+        -- ---- Helper: make a row inside settings panel ----
+        local spOrder = 0
+        local function SPRow(h) spOrder += 1
+            local r = Create("Frame", {
+                Size = UDim2.new(1, 0, 0, h or (mobile and 38 or 34)),
+                BackgroundColor3 = self._theme.Glass, BackgroundTransparency = 0.35,
+                BorderSizePixel = 0, LayoutOrder = spOrder, ZIndex = 53, Parent = SPScroll,
+            })
+            PixelBevel(r, self._theme, 1, true)
+            return r
+        end
+        local function SPSeparator(label)
+            spOrder += 1
+            local sep = Create("Frame", {
+                Size = UDim2.new(1, 0, 0, mobile and 24 or 22),
+                BackgroundColor3 = self._theme.TertiaryBG, BackgroundTransparency = 0.2,
+                BorderSizePixel = 0, LayoutOrder = spOrder, ZIndex = 53, Parent = SPScroll,
+            })
+            PixelBevel(sep, self._theme, 1)
+            local l = Create("TextLabel", {
+                Size = UDim2.new(1, -16, 1, 0), Position = UDim2.new(0, 10, 0, 0),
+                BackgroundTransparency = 1, Text = label, TextColor3 = self._theme.Accent,
+                TextSize = FONT_BODY, Font = FONT, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 54, Parent = sep,
+            })
+            PixelText(l, self._theme.Accent)
+            return sep
+        end
+        local function SPLabel(row, text, xOff, w, color)
+            local l = Create("TextLabel", {
+                Size = UDim2.new(0, w or 130, 1, 0), Position = UDim2.new(0, xOff or 10, 0, 0),
+                BackgroundTransparency = 1, Text = text, TextColor3 = color or self._theme.TextPrimary,
+                TextSize = FONT_BODY, Font = FONT, TextXAlignment = Enum.TextXAlignment.Left,
+                TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 54, Parent = row,
+            })
+            PixelText(l); return l
+        end
+
+        -- register all SP elements for theme refresh
+        local spRefreshers = {}
+        local function SPThemed(fn) table.insert(spRefreshers, fn) end
+
+        -- ============================================================
+        --  SECTION: Interface
+        -- ============================================================
+        SPSeparator("Interface")
+
+        -- Theme dropdown row
+        do
+            local row = SPRow()
+            SPLabel(row, "Theme")
+            -- Build a small in-panel dropdown-like button that cycles themes
+            local themeShortDD = ThemeOrder and ThemeOrder() or {"Overworld"}
+            local themeValLbl = Create("TextButton", {
+                Size = UDim2.new(0, SPanelW - 150, 0, mobile and 26 or 22),
+                Position = UDim2.new(0, SPanelW - (SPanelW - 145), 0.5, -(mobile and 13 or 11)),
+                BackgroundColor3 = self._theme.SecondaryBG, Text = self._themeName,
+                TextColor3 = self._theme.TextSecondary, TextSize = FONT_BODY - 1, Font = FONT,
+                BorderSizePixel = 0, TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 54, Parent = row,
+            })
+            PixelText(themeValLbl); PixelBevel(themeValLbl, self._theme, 1)
+            themeValLbl.Activated:Connect(function()
+                local order = ThemeOrder()
+                local idx = table.find(order, self._themeName) or 1
+                self:SetTheme(order[(idx % #order) + 1])
+                themeValLbl.Text = self._themeName
+            end)
+            SPThemed(function(t) row.BackgroundColor3 = t.Glass; themeValLbl.BackgroundColor3 = t.SecondaryBG; themeValLbl.TextColor3 = t.TextSecondary; themeValLbl.Text = self._themeName end)
+        end
+
+        -- Custom background URL
+        do
+            local rowH2 = mobile and 52 or 46
+            spOrder += 1
+            local row = Create("Frame", {
+                Size = UDim2.new(1, 0, 0, rowH2), BackgroundColor3 = self._theme.Glass,
+                BackgroundTransparency = 0.35, BorderSizePixel = 0, LayoutOrder = spOrder, ZIndex = 53, Parent = SPScroll,
+            })
+            PixelBevel(row, self._theme, 1, true)
+            local lbl = Create("TextLabel", {
+                Size = UDim2.new(1, -16, 0, mobile and 18 or 16), Position = UDim2.new(0, 10, 0, 4),
+                BackgroundTransparency = 1, Text = "Background URL",
+                TextColor3 = self._theme.TextSecondary, TextSize = FONT_BODY - 1, Font = FONT,
+                TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 54, Parent = row,
+            })
+            PixelText(lbl)
+            local bgBox = Create("TextBox", {
+                Size = UDim2.new(1, -18, 0, mobile and 22 or 18),
+                Position = UDim2.new(0, 9, 0, mobile and 26 or 24),
+                BackgroundColor3 = self._theme.Background, BackgroundTransparency = 0.3,
+                Text = "", PlaceholderText = "https://...",
+                PlaceholderColor3 = self._theme.TextDisabled, TextColor3 = self._theme.TextPrimary,
+                TextSize = FONT_BODY - 1, Font = FONT, TextXAlignment = Enum.TextXAlignment.Left,
+                ClearTextOnFocus = false, BorderSizePixel = 0, ZIndex = 54, Parent = row,
+            })
+            AddPadding(bgBox, 0, 0, 5, 5); PixelBevel(bgBox, self._theme, 1, true)
+            bgBox.Focused:Connect(function() Tween(bgBox, {BackgroundColor3 = self._theme.SecondaryBG}, 0.15) end)
+            bgBox.FocusLost:Connect(function(enter)
+                Tween(bgBox, {BackgroundColor3 = self._theme.Background}, 0.15)
+                if enter and bgBox.Text ~= "" then
+                    self:SetCustomBackground(bgBox.Text)
+                    self:Notify({Title = "Settings", Content = "Background applied!", Type = "Success"})
+                end
+            end)
+            SPThemed(function(t) row.BackgroundColor3 = t.Glass; lbl.TextColor3 = t.TextSecondary; bgBox.BackgroundColor3 = t.Background; bgBox.TextColor3 = t.TextPrimary; bgBox.PlaceholderColor3 = t.TextDisabled end)
+        end
+
+        -- Accent color hex
+        do
+            local rowH2 = mobile and 52 or 46
+            spOrder += 1
+            local row = Create("Frame", {
+                Size = UDim2.new(1, 0, 0, rowH2), BackgroundColor3 = self._theme.Glass,
+                BackgroundTransparency = 0.35, BorderSizePixel = 0, LayoutOrder = spOrder, ZIndex = 53, Parent = SPScroll,
+            })
+            PixelBevel(row, self._theme, 1, true)
+            local lbl = Create("TextLabel", {
+                Size = UDim2.new(1, -16, 0, mobile and 18 or 16), Position = UDim2.new(0, 10, 0, 4),
+                BackgroundTransparency = 1, Text = "Accent color (#RRGGBB)",
+                TextColor3 = self._theme.TextSecondary, TextSize = FONT_BODY - 1, Font = FONT,
+                TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 54, Parent = row,
+            })
+            PixelText(lbl)
+            local acBox = Create("TextBox", {
+                Size = UDim2.new(1, -18, 0, mobile and 22 or 18),
+                Position = UDim2.new(0, 9, 0, mobile and 26 or 24),
+                BackgroundColor3 = self._theme.Background, BackgroundTransparency = 0.3,
+                Text = "", PlaceholderText = "#50C82D",
+                PlaceholderColor3 = self._theme.TextDisabled, TextColor3 = self._theme.TextPrimary,
+                TextSize = FONT_BODY - 1, Font = FONT, TextXAlignment = Enum.TextXAlignment.Left,
+                ClearTextOnFocus = false, BorderSizePixel = 0, ZIndex = 54, Parent = row,
+            })
+            AddPadding(acBox, 0, 0, 5, 5); PixelBevel(acBox, self._theme, 1, true)
+            acBox.Focused:Connect(function() Tween(acBox, {BackgroundColor3 = self._theme.SecondaryBG}, 0.15) end)
+            acBox.FocusLost:Connect(function(enter)
+                Tween(acBox, {BackgroundColor3 = self._theme.Background}, 0.15)
+                if enter then
+                    local c = FromHex(acBox.Text)
+                    if c then
+                        local t2 = self._theme
+                        t2.Accent = c
+                        t2.AccentHover = Color3.new(math.min(c.R*1.25,1), math.min(c.G*1.25,1), math.min(c.B*1.25,1))
+                        t2.AccentPress = Color3.new(c.R*0.78, c.G*0.78, c.B*0.78)
+                        t2.SliderFill = c; t2.ToggleOn = c; t2.NotifAccent = c
+                        for _, rf in ipairs(self._themedRefreshers) do pcall(rf, t2) end
+                        self:Notify({Title = "Settings", Content = "Accent color updated!", Type = "Success"})
+                    else
+                        self:Notify({Title = "Settings", Content = "Invalid hex color", Type = "Error"})
+                    end
+                end
+            end)
+            SPThemed(function(t) row.BackgroundColor3 = t.Glass; lbl.TextColor3 = t.TextSecondary; acBox.BackgroundColor3 = t.Background; acBox.TextColor3 = t.TextPrimary; acBox.PlaceholderColor3 = t.TextDisabled end)
+        end
+
+        -- UI Scale slider (simple +/- buttons)
+        do
+            local row = SPRow()
+            SPLabel(row, "UI Scale")
+            local scalePct = math.floor(self._userScale * 100 + 0.5)
+            local scaleValLbl = Create("TextLabel", {
+                Size = UDim2.new(0, 40, 1, 0), Position = UDim2.new(0.5, -20, 0, 0),
+                BackgroundTransparency = 1, Text = tostring(scalePct) .. "%",
+                TextColor3 = self._theme.TextPrimary, TextSize = FONT_BODY, Font = FONT, ZIndex = 54, Parent = row,
+            })
+            PixelText(scaleValLbl)
+            local function makeScaleBtn(txt, xPos, delta)
+                local b = Create("TextButton", {
+                    Size = UDim2.new(0, mobile and 28 or 24, 0, mobile and 24 or 20),
+                    Position = UDim2.new(0, xPos, 0.5, -(mobile and 12 or 10)),
+                    BackgroundColor3 = self._theme.SecondaryBG, Text = txt,
+                    TextColor3 = self._theme.TextPrimary, TextSize = 14, Font = FONT, BorderSizePixel = 0, ZIndex = 54, Parent = row,
+                })
+                PixelText(b); PixelBevel(b, self._theme, 1)
+                b.Activated:Connect(function()
+                    scalePct = math.clamp(scalePct + delta, 50, 150)
+                    scaleValLbl.Text = tostring(scalePct) .. "%"
+                    self:SetScale(scalePct / 100)
+                end)
+                SPThemed(function(t) b.BackgroundColor3 = t.SecondaryBG; b.TextColor3 = t.TextPrimary end)
+                return b
+            end
+            local midX = SPanelW / 2
+            makeScaleBtn("–", midX - 38, -5)
+            makeScaleBtn("+", midX + 14, 5)
+            SPThemed(function(t) row.BackgroundColor3 = t.Glass; scaleValLbl.TextColor3 = t.TextPrimary end)
+        end
+
+        -- Toggle key (desktop only)
+        if not mobile then
+            local row = SPRow()
+            SPLabel(row, "Toggle key")
+            local keyLbl = Create("TextLabel", {
+                Size = UDim2.new(0, 90, 1, 0), Position = UDim2.new(1, -98, 0, 0),
+                BackgroundTransparency = 1, Text = self._toggleKey and self._toggleKey.Name or "RightShift",
+                TextColor3 = self._theme.Accent, TextSize = FONT_BODY - 1, Font = FONT,
+                TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 54, Parent = row,
+            })
+            PixelText(keyLbl)
+            local listening = false
+            local setKeyBtn = Create("TextButton", {
+                Size = UDim2.new(0, mobile and 28 or 24, 0, mobile and 24 or 20),
+                Position = UDim2.new(1, -(mobile and 36 or 32), 0.5, -(mobile and 12 or 10)),
+                BackgroundColor3 = self._theme.SecondaryBG, Text = "✎",
+                TextColor3 = self._theme.TextSecondary, TextSize = 12, Font = FONT, BorderSizePixel = 0, ZIndex = 54, Parent = row,
+            })
+            PixelBevel(setKeyBtn, self._theme, 1)
+            setKeyBtn.Activated:Connect(function()
+                if listening then return end
+                listening = true
+                keyLbl.Text = "..."; keyLbl.TextColor3 = self._theme.AccentHover
+                local conn
+                conn = UserInputService.InputBegan:Connect(function(inp, gp)
+                    if gp then return end
+                    if inp.UserInputType == Enum.UserInputType.Keyboard then
+                        conn:Disconnect(); listening = false
+                        self:SetToggleKey(inp.KeyCode)
+                        keyLbl.Text = inp.KeyCode.Name; keyLbl.TextColor3 = self._theme.Accent
+                    end
+                end)
+            end)
+            SPThemed(function(t) row.BackgroundColor3 = t.Glass; keyLbl.TextColor3 = t.Accent; setKeyBtn.BackgroundColor3 = t.SecondaryBG end)
+        end
+
+        -- Watermark toggle
+        do
+            local row = SPRow()
+            SPLabel(row, "Watermark (FPS/ping)")
+            local wmState = false
+            local trackW = mobile and 44 or 38
+            local Track = Create("Frame", {
+                Size = UDim2.new(0, trackW, 0, 18),
+                Position = UDim2.new(1, -trackW - 10, 0.5, -9),
+                BackgroundColor3 = wmState and self._theme.ToggleOn or self._theme.ToggleOff,
+                BackgroundTransparency = 0.3, BorderSizePixel = 0, ZIndex = 54, Parent = row,
+            })
+            PixelBevel(Track, self._theme, 1)
+            local Knob = Create("Frame", {
+                Size = UDim2.new(0, 12, 0, 12),
+                Position = wmState and UDim2.new(1,-15,0,3) or UDim2.new(0,3,0,3),
+                BackgroundColor3 = Color3.fromRGB(240,240,240), BorderSizePixel = 0, ZIndex = 55, Parent = Track,
+            })
+            PixelBevel(Knob, self._theme, 1)
+            local Hit = Create("TextButton", {Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Text = "", ZIndex = 56, Parent = row})
+            Hit.Activated:Connect(function()
+                wmState = not wmState
+                Tween(Track, {BackgroundColor3 = wmState and self._theme.ToggleOn or self._theme.ToggleOff}, 0.2)
+                Tween(Knob, {Position = wmState and UDim2.new(1,-15,0,3) or UDim2.new(0,3,0,3)}, 0.2, Enum.EasingStyle.Back)
+                self:SetWatermark(wmState)
+            end)
+            SPThemed(function(t) row.BackgroundColor3 = t.Glass; Track.BackgroundColor3 = wmState and t.ToggleOn or t.ToggleOff end)
+        end
+
+        -- ============================================================
+        --  SECTION: Layout
+        -- ============================================================
+        SPSeparator("Layout")
+
+        -- Horizontal tabs toggle
+        do
+            local row = SPRow()
+            SPLabel(row, "Horizontal tabs")
+            local trackW = mobile and 44 or 38
+            local Track = Create("Frame", {
+                Size = UDim2.new(0, trackW, 0, 18),
+                Position = UDim2.new(1, -trackW - 10, 0.5, -9),
+                BackgroundColor3 = _hTabMode and self._theme.ToggleOn or self._theme.ToggleOff,
+                BackgroundTransparency = 0.3, BorderSizePixel = 0, ZIndex = 54, Parent = row,
+            })
+            PixelBevel(Track, self._theme, 1)
+            local Knob = Create("Frame", {
+                Size = UDim2.new(0, 12, 0, 12),
+                Position = _hTabMode and UDim2.new(1,-15,0,3) or UDim2.new(0,3,0,3),
+                BackgroundColor3 = Color3.fromRGB(240,240,240), BorderSizePixel = 0, ZIndex = 55, Parent = Track,
+            })
+            PixelBevel(Knob, self._theme, 1)
+            local Hit = Create("TextButton", {Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Text = "", ZIndex = 56, Parent = row})
+            Hit.Activated:Connect(function()
+                _hTabMode = not _hTabMode
+                Tween(Track, {BackgroundColor3 = _hTabMode and self._theme.ToggleOn or self._theme.ToggleOff}, 0.2)
+                Tween(Knob, {Position = _hTabMode and UDim2.new(1,-15,0,3) or UDim2.new(0,3,0,3)}, 0.2, Enum.EasingStyle.Back)
+                self:SetTabMode(_hTabMode)
+            end)
+            SPThemed(function(t) row.BackgroundColor3 = t.Glass; Track.BackgroundColor3 = _hTabMode and t.ToggleOn or t.ToggleOff end)
+        end
+
+        -- Window size presets
+        do
+            local row = SPRow()
+            SPLabel(row, "Window size")
+            local presets = {"Small", "Default", "Large", "Wide"}
+            local presetSizes = {Small={480,360}, Default={600,440}, Large={750,520}, Wide={820,420}}
+            local btnW = math.floor((SPanelW - 20) / #presets) - 3
+            for i, pname in ipairs(presets) do
+                local b = Create("TextButton", {
+                    Size = UDim2.new(0, btnW, 0, mobile and 26 or 22),
+                    Position = UDim2.new(0, 10 + (i-1) * (btnW + 3), 0.5, -(mobile and 13 or 11)),
+                    BackgroundColor3 = self._theme.SecondaryBG, Text = pname,
+                    TextColor3 = self._theme.TextSecondary, TextSize = FONT_BODY - 2, Font = FONT,
+                    BorderSizePixel = 0, TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 54, Parent = row,
+                })
+                PixelText(b); PixelBevel(b, self._theme, 1)
+                b.Activated:Connect(function()
+                    local sz = presetSizes[pname]
+                    if sz then Tween(Main, {Size = UDim2.new(0, sz[1], 0, sz[2])}, 0.25, Enum.EasingStyle.Back) end
+                end)
+                SPThemed(function(t) b.BackgroundColor3 = t.SecondaryBG; b.TextColor3 = t.TextSecondary end)
+            end
+            SPThemed(function(t) row.BackgroundColor3 = t.Glass end)
+        end
+
+        -- ============================================================
+        --  SECTION: Configs
+        -- ============================================================
+        SPSeparator("Configs")
+
+        -- Config name input + save/load/delete buttons
+        do
+            local rowH2 = mobile and 52 or 46
+            spOrder += 1
+            local row = Create("Frame", {
+                Size = UDim2.new(1, 0, 0, rowH2), BackgroundColor3 = self._theme.Glass,
+                BackgroundTransparency = 0.35, BorderSizePixel = 0, LayoutOrder = spOrder, ZIndex = 53, Parent = SPScroll,
+            })
+            PixelBevel(row, self._theme, 1, true)
+            local lbl = Create("TextLabel", {
+                Size = UDim2.new(1,-16, 0, mobile and 18 or 16), Position = UDim2.new(0,10,0,4),
+                BackgroundTransparency = 1, Text = "Config name",
+                TextColor3 = self._theme.TextSecondary, TextSize = FONT_BODY-1, Font = FONT,
+                TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 54, Parent = row,
+            })
+            PixelText(lbl)
+            local cfgBox = Create("TextBox", {
+                Size = UDim2.new(1,-18,0,mobile and 22 or 18), Position = UDim2.new(0,9,0,mobile and 26 or 24),
+                BackgroundColor3 = self._theme.Background, BackgroundTransparency = 0.3,
+                Text = "", PlaceholderText = "default",
+                PlaceholderColor3 = self._theme.TextDisabled, TextColor3 = self._theme.TextPrimary,
+                TextSize = FONT_BODY-1, Font = FONT, TextXAlignment = Enum.TextXAlignment.Left,
+                ClearTextOnFocus = false, BorderSizePixel = 0, ZIndex = 54, Parent = row,
+            })
+            AddPadding(cfgBox,0,0,5,5); PixelBevel(cfgBox, self._theme, 1, true)
+            cfgBox.Focused:Connect(function() Tween(cfgBox, {BackgroundColor3 = self._theme.SecondaryBG}, 0.15) end)
+            cfgBox.FocusLost:Connect(function() Tween(cfgBox, {BackgroundColor3 = self._theme.Background}, 0.15) end)
+            SPThemed(function(t) row.BackgroundColor3 = t.Glass; lbl.TextColor3 = t.TextSecondary; cfgBox.BackgroundColor3 = t.Background; cfgBox.TextColor3 = t.TextPrimary; cfgBox.PlaceholderColor3 = t.TextDisabled end)
+
+            -- Save / Load / Delete buttons row
+            local btnRow = SPRow(mobile and 38 or 32)
+            local cfgBtns = {{"Save", "Success"}, {"Load", "Warning"}, {"Delete", "Error"}}
+            local bw = math.floor((SPanelW - 20) / 3) - 3
+            for i, info in ipairs(cfgBtns) do
+                local bname, btype = info[1], info[2]
+                local bc = btype == "Success" and self._theme.Accent or (btype == "Error" and self._theme.CloseBtn or self._theme.SecondaryBG)
+                local b = Create("TextButton", {
+                    Size = UDim2.new(0, bw, 0, mobile and 28 or 24),
+                    Position = UDim2.new(0, 10 + (i-1)*(bw+3), 0.5, -(mobile and 14 or 12)),
+                    BackgroundColor3 = bc, Text = bname,
+                    TextColor3 = Color3.fromRGB(255,255,255), TextSize = FONT_BODY-1, Font = FONT,
+                    BorderSizePixel = 0, ZIndex = 54, Parent = btnRow,
+                })
+                PixelText(b); PixelBevel(b, self._theme, 1)
+                b.Activated:Connect(function()
+                    local n = cfgBox.Text ~= "" and SafeName(cfgBox.Text) or "default"
+                    if bname == "Save" then
+                        local ok, err = self:SaveConfig(n)
+                        self:Notify({Title = "Config", Content = ok and ("Saved '"..n.."'") or ("Error: "..tostring(err)), Type = ok and "Success" or "Error"})
+                    elseif bname == "Load" then
+                        local ok, err = self:LoadConfig(n)
+                        self:Notify({Title = "Config", Content = ok and ("Loaded '"..n.."'") or ("Error: "..tostring(err)), Type = ok and "Success" or "Error"})
+                    elseif bname == "Delete" then
+                        self:Dialog({Title = "Delete config", Content = "Delete '"..n.."'?", Buttons = {
+                            {Text = "Delete", Callback = function()
+                                local ok = self:DeleteConfig(n)
+                                self:Notify({Title = "Config", Content = ok and "Deleted" or "Not found", Type = ok and "Warning" or "Error"})
+                            end},
+                            {Text = "Cancel"},
+                        }})
+                    end
+                end)
+                SPThemed(function(t)
+                    btnRow.BackgroundColor3 = t.Glass
+                    b.BackgroundColor3 = bname == "Save" and t.Accent or (bname == "Delete" and t.CloseBtn or t.SecondaryBG)
+                end)
+            end
+        end
+
+        -- Auto save toggle
+        do
+            local row = SPRow()
+            SPLabel(row, "Auto save")
+            local asState = self._autoSave
+            local trackW = mobile and 44 or 38
+            local Track = Create("Frame", {
+                Size = UDim2.new(0, trackW, 0, 18),
+                Position = UDim2.new(1, -trackW-10, 0.5, -9),
+                BackgroundColor3 = asState and self._theme.ToggleOn or self._theme.ToggleOff,
+                BackgroundTransparency = 0.3, BorderSizePixel = 0, ZIndex = 54, Parent = row,
+            })
+            PixelBevel(Track, self._theme, 1)
+            local Knob = Create("Frame", {
+                Size = UDim2.new(0,12,0,12),
+                Position = asState and UDim2.new(1,-15,0,3) or UDim2.new(0,3,0,3),
+                BackgroundColor3 = Color3.fromRGB(240,240,240), BorderSizePixel = 0, ZIndex = 55, Parent = Track,
+            })
+            PixelBevel(Knob, self._theme, 1)
+            local Hit = Create("TextButton", {Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, Text="", ZIndex=56, Parent=row})
+            Hit.Activated:Connect(function()
+                asState = not asState; self._autoSave = asState
+                Tween(Track, {BackgroundColor3 = asState and self._theme.ToggleOn or self._theme.ToggleOff}, 0.2)
+                Tween(Knob, {Position = asState and UDim2.new(1,-15,0,3) or UDim2.new(0,3,0,3)}, 0.2, Enum.EasingStyle.Back)
+            end)
+            SPThemed(function(t) row.BackgroundColor3 = t.Glass; Track.BackgroundColor3 = asState and t.ToggleOn or t.ToggleOff end)
+        end
+
+        -- ============================================================
+        --  Open / Close animation
+        -- ============================================================
+        local _spOpen = false
+        local function OpenSP()
+            if _spOpen then return end
+            _spOpen = true
+            SettingsBtn.BackgroundColor3 = self._theme.Accent
+            SPOverlay.Visible = true; SPanel.Visible = true
+            SPanel.Position = UDim2.new(1, 0, 0, TITLE_H)
+            Tween(SPOverlay, {BackgroundTransparency = 0.55}, 0.2)
+            Tween(SPanel, {Position = UDim2.new(1, -SPanelW, 0, TITLE_H)}, 0.28, Enum.EasingStyle.Back)
+        end
+        local function CloseSP()
+            if not _spOpen then return end
+            _spOpen = false
+            SettingsBtn.BackgroundColor3 = self._theme.SecondaryBG
+            Tween(SPOverlay, {BackgroundTransparency = 1}, 0.18)
+            Tween(SPanel, {Position = UDim2.new(1, 0, 0, TITLE_H)}, 0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+            task.delay(0.21, function() if not _spOpen then SPOverlay.Visible = false; SPanel.Visible = false end end)
+        end
+        local function ToggleSP() if _spOpen then CloseSP() else OpenSP() end end
+
+        SettingsBtn.Activated:Connect(ToggleSP)
+        SettingsBtn.MouseEnter:Connect(function() if not _spOpen then Tween(SettingsBtn, {BackgroundColor3 = self._theme.AccentHover}, 0.15) end end)
+        SettingsBtn.MouseLeave:Connect(function() if not _spOpen then Tween(SettingsBtn, {BackgroundColor3 = self._theme.SecondaryBG}, 0.15) end end)
+        SPCloseBtn.Activated:Connect(CloseSP)
+        SPOverlay.Activated:Connect(CloseSP)
+
+        -- Theme refresh for settings panel
+        self:RegisterThemed(function(t)
+            SPanel.BackgroundColor3 = t.Background
+            SPHeader.BackgroundColor3 = t.TertiaryBG
+            SPTitle.TextColor3 = t.Title
+            SPCloseBtn.BackgroundColor3 = t.CloseBtn
+            SPScroll.ScrollBarImageColor3 = t.Scrollbar
+            SettingsBtn.BackgroundColor3 = _spOpen and t.Accent or t.SecondaryBG
+            for _, fn in ipairs(spRefreshers) do pcall(fn, t) end
+            -- update separators
+            for _, child in ipairs(SPScroll:GetChildren()) do
+                if child:IsA("Frame") and child.Name == "Frame" then
+                    -- content rows handled by spRefreshers
+                end
+            end
+        end, SPanel)
+
+        self._settingsPanel = {Open = OpenSP, Close = CloseSP, Toggle = ToggleSP}
+    end -- end settings panel block
+
     -- ---------------- theme button ----------------
     local function ThemeOrder()
         local order = {"Overworld", "Nether", "End", "Sea", "Sky"}
@@ -982,6 +1499,7 @@ function MinecraftLib:CreateWindow(title, config)
         MinimizeBtn.BackgroundColor3 = t.SecondaryBG
         ThemeBtn.BackgroundColor3 = t.SecondaryBG
         ThemeBtn.TextColor3 = t.TextSecondary
+        SettingsBtn.BackgroundColor3 = t.SecondaryBG
         ResizeHandle.BackgroundColor3 = t.Accent
         Tooltip.BackgroundColor3 = t.Notification
         Tooltip.TextColor3 = t.TextPrimary
@@ -1023,7 +1541,10 @@ function MinecraftLib:CreateWindow(title, config)
     function self:GetTheme() return self._theme, self._themeName end
     function self:GetThemes() return ThemeOrder() end
 
-    -- Switch horizontal / vertical tab layout
+    -- Public access to built-in settings panel
+    function self:OpenSettings()  if self._settingsPanel then self._settingsPanel.Open() end end
+    function self:CloseSettings() if self._settingsPanel then self._settingsPanel.Close() end end
+    function self:ToggleSettings() if self._settingsPanel then self._settingsPanel.Toggle() end end
     function self:SetTabMode(horizontal)
         _hTabMode = horizontal and true or false
         _ApplyTabLayout()
