@@ -1,13 +1,15 @@
 local MinecraftLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/Mamaksimaaa/Roblox-script/refs/heads/main/Lib/load.lua"))()
 
-local Window = MinecraftLib:CreateWindow("IRY HUB", {
+local Window = MinecraftLib:CreateWindow({
+    Title = "IRY HUB",
     Theme = "Overworld",
-    Size = UDim2.fromOffset(570, 370),
-    Transparency = 0.2,
-    Blurring = true,
-    MinimizeKeybind = Enum.KeyCode.LeftAlt
+    Size = {X = 570, Y = 370},
+    ToggleKey = "LeftAlt",      -- клавиша показа/скрытия
+    Transparency = 0.2,         -- не документировано, но оставлено
+    Blurring = true,            -- не документировано, но оставлено
 })
 
+-- Остальной код без изменений (синтаксически корректен)
 local a = game.Players.LocalPlayer
 local b = game:GetService('Players')
 local c = game:GetService('RunService')
