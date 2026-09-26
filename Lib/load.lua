@@ -1,4 +1,4 @@
--- MinecraftLib v3.4t
+-- MinecraftLib v3.4
 local MinecraftLib = {}
 MinecraftLib.__index = MinecraftLib
 MinecraftLib.Version = "3.4"
@@ -623,7 +623,9 @@ function MinecraftLib:CreateWindow(title, config)
     -- ---- content area (position/size updated by _ApplyTabLayout) ----
     local ContentArea = Create("Frame", {
         Name = "Content", Size = UDim2.new(1, -TAB_W - 6, 1, -(TITLE_H + SEARCH_H + 8)), Position = UDim2.new(0, TAB_W + 3, 0, TITLE_H + SEARCH_H + 4),
-        BackgroundColor3 = self._theme.Glass, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 2, Parent = Main,
+        BackgroundColor3 = self._theme.Glass, BackgroundTransparency = 0.35, BorderSizePixel = 0,
+        ClipsDescendants = true,  -- required: masks panels sliding in/out during tab transitions
+        ZIndex = 2, Parent = Main,
     })
     PixelBevel(ContentArea, self._theme, 1, true)
     self._contentArea = ContentArea
@@ -2096,24 +2098,97 @@ function MinecraftLib:CreateWindow(title, config)
         local tabInfo = {name = name, btn = TabBtn, hbtn = HTabBtn, content = ContentScroll, activeBar = ActiveBar, hActiveBar = HActiveBar}
         table.insert(self._tabs, tabInfo)
 
+        -- ---- Tab transition engine ------------------------------------------------
+        -- Direction is determined by index: if the new tab is to the RIGHT of the
+        -- previous one, old content slides LEFT out / new content enters from RIGHT.
+        -- This mirrors the spatial mental model the user has from the tab bar order.
+        --
+        -- Technique: ContentArea has ClipsDescendants = true by design, so tweening
+        -- a ScrollingFrame's Position outside the area boundary is invisible outside
+        -- the clip — giving us a clean full-panel wipe for free with no extra frames.
+        --
+        -- Timings chosen for Minecraft's blocky feel:
+        --   OUT:  0.18 s  Quart In   — panel yanked away fast, no linger
+        --   IN:   0.20 s  Quart Out  — panel arrives with a confident settle
+        --
+        -- Edge cases handled:
+        --   • Same tab re-selected → early return (no flicker)
+        --   • First tab (no previous) → instant show, no animation
+        --   • Rapid click mid-transition → previous out-tween is orphaned (it will
+        --     finish naturally and hide itself; it never corrupts the new panel)
+        -- -------------------------------------------------------------------------
         local function SelectThis()
+            if self._activeTab == tabInfo then return end
             ClosePopups()
             local th = self._theme
+
+            -- Determine direction: +1 = new tab is to the right, -1 = to the left.
+            local prevInfo  = self._activeTab
+            local prevIndex = 0
+            local newIndex  = 0
+            for i, ti in ipairs(self._tabs) do
+                if ti == prevInfo then prevIndex = i end
+                if ti == tabInfo  then newIndex  = i end
+            end
+            local direction = (newIndex > prevIndex) and 1 or -1
+            local doAnim    = (prevInfo ~= nil)
+
+            -- 1. Update all button styles immediately.
             for _, ti in ipairs(self._tabs) do
-                Tween(ti.btn,  {BackgroundColor3 = th.TabInactive}, 0.18); ti.btn.TextColor3  = th.TextSecondary
-                Tween(ti.hbtn, {BackgroundColor3 = th.TabInactive}, 0.18); ti.hbtn.TextColor3 = th.TextSecondary
+                Tween(ti.btn,  {BackgroundColor3 = th.TabInactive}, 0.18)
+                ti.btn.TextColor3  = th.TextSecondary
+                Tween(ti.hbtn, {BackgroundColor3 = th.TabInactive}, 0.18)
+                ti.hbtn.TextColor3 = th.TextSecondary
                 ti.activeBar.Visible  = false
                 ti.hActiveBar.Visible = false
-                ti.content.Visible    = false
             end
-            Tween(TabBtn,  {BackgroundColor3 = th.TabActive}, 0.18); TabBtn.TextColor3  = th.TextPrimary
-            Tween(HTabBtn, {BackgroundColor3 = th.TabActive}, 0.18); HTabBtn.TextColor3 = th.TextPrimary
+            Tween(TabBtn,  {BackgroundColor3 = th.TabActive}, 0.18)
+            TabBtn.TextColor3  = th.TextPrimary
+            Tween(HTabBtn, {BackgroundColor3 = th.TabActive}, 0.18)
+            HTabBtn.TextColor3 = th.TextPrimary
             ActiveBar.Visible  = true
             HActiveBar.Visible = true
-            ContentScroll.Visible = true
+
+            -- 2. Commit new active tab before animation so rapid clicks are safe.
             self._activeTab = tabInfo
-            -- reset search when switching tabs
+
+            -- Reset search so the new tab shows all items.
             if SearchBox.Text ~= "" then SearchBox.Text = "" end
+
+            if not doAnim then
+                -- First tab — just show, no animation.
+                ContentScroll.Position = UDim2.new(0, 0, 0, 0)
+                ContentScroll.Visible  = true
+                return
+            end
+
+            -- 3. Slide distance = full content-area width in screen pixels.
+            local slideW = ContentArea.AbsoluteSize.X
+
+            -- 4. Slide OUT the previous panel (left when going right, vice versa).
+            if prevInfo and prevInfo.content and prevInfo.content.Parent then
+                local outX = -direction * slideW
+                prevInfo.content.Position = UDim2.new(0, 0, 0, 0)
+                Tween(prevInfo.content,
+                    {Position = UDim2.new(0, outX, 0, 0)},
+                    0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+                task.delay(0.18, function()
+                    if prevInfo.content and prevInfo.content.Parent then
+                        prevInfo.content.Visible  = false
+                        prevInfo.content.Position = UDim2.new(0, 0, 0, 0)
+                    end
+                end)
+            end
+
+            -- 5. Slide IN the new panel from the opposite side.
+            ContentScroll.Position = UDim2.new(0, direction * slideW, 0, 0)
+            ContentScroll.Visible  = true
+            task.defer(function()
+                if not ContentScroll.Parent then return end
+                Tween(ContentScroll,
+                    {Position = UDim2.new(0, 0, 0, 0)},
+                    0.20, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+            end)
         end
         tabInfo.select = SelectThis
         TabBtn.Activated:Connect(SelectThis)
