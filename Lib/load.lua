@@ -1,4 +1,4 @@
--- MinecraftLib v3.4
+-- MinecraftLib v3.4t
 local MinecraftLib = {}
 MinecraftLib.__index = MinecraftLib
 MinecraftLib.Version = "3.4"
