@@ -1,4 +1,4 @@
--- MinecraftLib v3.4
+-- MinecraftLib v3.4в
 local MinecraftLib = {}
 MinecraftLib.__index = MinecraftLib
 MinecraftLib.Version = "3.4"
@@ -2099,30 +2099,36 @@ function MinecraftLib:CreateWindow(title, config)
         table.insert(self._tabs, tabInfo)
 
         -- ---- Tab transition engine ------------------------------------------------
-        -- Direction is determined by index: if the new tab is to the RIGHT of the
-        -- previous one, old content slides LEFT out / new content enters from RIGHT.
-        -- This mirrors the spatial mental model the user has from the tab bar order.
+        -- Race-condition-safe directional slide.
         --
-        -- Technique: ContentArea has ClipsDescendants = true by design, so tweening
-        -- a ScrollingFrame's Position outside the area boundary is invisible outside
-        -- the clip — giving us a clean full-panel wipe for free with no extra frames.
+        -- Root cause of the "buttons disappear on fast clicks" bug:
+        --   task.delay(0.18, hide_prev) fires AFTER a second SelectThis already ran.
+        --   That delayed callback has no idea the panel it's about to hide has since
+        --   been re-selected, so it blindly sets Visible = false on the now-active
+        --   panel. Buttons become invisible because activeBar is a child of the panel.
         --
-        -- Timings chosen for Minecraft's blocky feel:
-        --   OUT:  0.18 s  Quart In   — panel yanked away fast, no linger
-        --   IN:   0.20 s  Quart Out  — panel arrives with a confident settle
+        -- Fix: a window-level generation counter (_tabGeneration) is incremented at
+        -- the very start of every SelectThis call. Every deferred/delayed callback
+        -- captures the generation at the moment it was created and bails out if the
+        -- counter has moved on. This makes all in-flight async work from previous
+        -- calls cancel themselves automatically — no timers to cancel, no tweens to
+        -- track, just a single integer comparison.
         --
-        -- Edge cases handled:
-        --   • Same tab re-selected → early return (no flicker)
-        --   • First tab (no previous) → instant show, no animation
-        --   • Rapid click mid-transition → previous out-tween is orphaned (it will
-        --     finish naturally and hide itself; it never corrupts the new panel)
+        -- Additionally: all panels that are NOT the current destination are snapped
+        -- to hidden + Position(0,0) at the start of each call, so no orphaned panel
+        -- can ever remain visible regardless of what previous tweens were doing.
         -- -------------------------------------------------------------------------
         local function SelectThis()
             if self._activeTab == tabInfo then return end
             ClosePopups()
             local th = self._theme
 
-            -- Determine direction: +1 = new tab is to the right, -1 = to the left.
+            -- Bump generation. Any delayed work from the previous call will see a
+            -- different number and abort before touching Visible or Position.
+            self._tabGeneration = (self._tabGeneration or 0) + 1
+            local myGen = self._tabGeneration
+
+            -- Determine direction: +1 = new is to the right, -1 = to the left.
             local prevInfo  = self._activeTab
             local prevIndex = 0
             local newIndex  = 0
@@ -2133,61 +2139,85 @@ function MinecraftLib:CreateWindow(title, config)
             local direction = (newIndex > prevIndex) and 1 or -1
             local doAnim    = (prevInfo ~= nil)
 
-            -- 1. Update all button styles immediately.
+            -- Commit the new active tab BEFORE any async work.
+            self._activeTab = tabInfo
+
+            -- 1. Hard-reset every panel that is NOT the destination.
+            --    This is the critical safety net: no matter what previous tweens
+            --    were doing, orphaned panels are killed immediately.
             for _, ti in ipairs(self._tabs) do
-                Tween(ti.btn,  {BackgroundColor3 = th.TabInactive}, 0.18)
-                ti.btn.TextColor3  = th.TextSecondary
-                Tween(ti.hbtn, {BackgroundColor3 = th.TabInactive}, 0.18)
-                ti.hbtn.TextColor3 = th.TextSecondary
+                if ti ~= tabInfo then
+                    ti.content.Visible  = false
+                    ti.content.Position = UDim2.new(0, 0, 0, 0)
+                end
+            end
+
+            -- 2. Update button styles (all inactive, then activate ours).
+            for _, ti in ipairs(self._tabs) do
+                Tween(ti.btn,  {BackgroundColor3 = th.TabInactive}, 0.15)
+                ti.btn.TextColor3     = th.TextSecondary
+                Tween(ti.hbtn, {BackgroundColor3 = th.TabInactive}, 0.15)
+                ti.hbtn.TextColor3    = th.TextSecondary
                 ti.activeBar.Visible  = false
                 ti.hActiveBar.Visible = false
             end
-            Tween(TabBtn,  {BackgroundColor3 = th.TabActive}, 0.18)
+            Tween(TabBtn,  {BackgroundColor3 = th.TabActive}, 0.15)
             TabBtn.TextColor3  = th.TextPrimary
-            Tween(HTabBtn, {BackgroundColor3 = th.TabActive}, 0.18)
+            Tween(HTabBtn, {BackgroundColor3 = th.TabActive}, 0.15)
             HTabBtn.TextColor3 = th.TextPrimary
             ActiveBar.Visible  = true
             HActiveBar.Visible = true
-
-            -- 2. Commit new active tab before animation so rapid clicks are safe.
-            self._activeTab = tabInfo
 
             -- Reset search so the new tab shows all items.
             if SearchBox.Text ~= "" then SearchBox.Text = "" end
 
             if not doAnim then
-                -- First tab — just show, no animation.
+                -- First tab ever — just show, no animation.
                 ContentScroll.Position = UDim2.new(0, 0, 0, 0)
                 ContentScroll.Visible  = true
                 return
             end
 
-            -- 3. Slide distance = full content-area width in screen pixels.
-            local slideW = ContentArea.AbsoluteSize.X
+            -- 3. Slide distance = full content-area width.
+            local slideW = math.max(ContentArea.AbsoluteSize.X, 100)
 
-            -- 4. Slide OUT the previous panel (left when going right, vice versa).
+            -- 4. Slide OUT the previous panel.
+            --    prevInfo.content is already hidden by step 1, but we make it
+            --    briefly visible again to play the exit animation. We only do
+            --    this when the previous panel was actually at rest (Position ~0),
+            --    otherwise skip the exit animation to avoid visual weirdness.
             if prevInfo and prevInfo.content and prevInfo.content.Parent then
-                local outX = -direction * slideW
-                prevInfo.content.Position = UDim2.new(0, 0, 0, 0)
-                Tween(prevInfo.content,
-                    {Position = UDim2.new(0, outX, 0, 0)},
-                    0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
-                task.delay(0.18, function()
-                    if prevInfo.content and prevInfo.content.Parent then
-                        prevInfo.content.Visible  = false
-                        prevInfo.content.Position = UDim2.new(0, 0, 0, 0)
-                    end
-                end)
+                local px = prevInfo.content.Position.X.Offset
+                if math.abs(px) < 4 then  -- was at rest, safe to animate out
+                    prevInfo.content.Visible  = true
+                    prevInfo.content.Position = UDim2.new(0, 0, 0, 0)
+                    local outX = -direction * slideW
+                    Tween(prevInfo.content,
+                        {Position = UDim2.new(0, outX, 0, 0)},
+                        0.14, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+                    task.delay(0.14, function()
+                        -- Only clean up if nobody else has taken over since.
+                        if self._tabGeneration ~= myGen then return end
+                        if prevInfo.content and prevInfo.content.Parent then
+                            prevInfo.content.Visible  = false
+                            prevInfo.content.Position = UDim2.new(0, 0, 0, 0)
+                        end
+                    end)
+                end
+                -- If it wasn't at rest, step 1 already hid it — nothing to do.
             end
 
-            -- 5. Slide IN the new panel from the opposite side.
+            -- 5. Slide IN the new panel.
             ContentScroll.Position = UDim2.new(0, direction * slideW, 0, 0)
             ContentScroll.Visible  = true
+            -- task.defer gives Roblox one render step to apply the start position
+            -- before the tween fires, preventing the panel from flashing at 0,0.
             task.defer(function()
+                if self._tabGeneration ~= myGen then return end
                 if not ContentScroll.Parent then return end
                 Tween(ContentScroll,
                     {Position = UDim2.new(0, 0, 0, 0)},
-                    0.20, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+                    0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
             end)
         end
         tabInfo.select = SelectThis
