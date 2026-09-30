@@ -159,8 +159,19 @@ Window:SetWatermark(true, "MM2 • Basalt")
 -- ============================================================
 -- Константы China Hat
 -- ============================================================
-local HAT_STYLES      = {"Wireframe", "Web", "Rings", "Spiral", "Solid", "Halo", "Diamond", "Fan", "Crown", "Orbit", "Starburst", "DoubleCone"}
-local HAT_COLOR_MODES = {"Teal", "Pink", "Purple", "Gradient", "Rainbow", "Wave", "Pulse"}
+local HAT_STYLES = {
+    "Wireframe", "Web", "Rings", "Spiral", "Solid", "Halo", "Diamond", "Fan",
+    "Crown", "Orbit", "Starburst", "DoubleCone", "DevilHorns", "RamHorns",
+    "Antlers", "CatEars", "AngelWings", "BatWings", "Trident", "UFO",
+}
+local HAT_COLOR_MODES = {
+    "Teal", "Pink", "Purple", "Red", "Orange", "Yellow", "Green", "Lime",
+    "Cyan", "Blue", "Navy", "White", "Black", "Gold", "Silver", "Rose",
+    "Mint", "Lavender", "Coral", "Amber", "Turquoise", "Burgundy", "Ivory", "Violet",
+    "Gradient", "Rainbow", "Wave", "Pulse", "Sunset", "Ocean", "Aurora",
+    "Fire", "Ice", "Candy", "Galaxy", "Matrix", "Lava", "Electric", "Disco",
+    "NeonShift", "Toxic", "Sakura", "Solar",
+}
 local HAT_SIZE_LABELS = {"0.75x", "1x", "1.25x", "1.5x"}
 local HAT_SPEED_LABELS= {"0.5x", "1x", "2x", "3x"}
 local HAT_SIZE_MAP    = {["0.75x"]=0.75, ["1x"]=1, ["1.25x"]=1.25, ["1.5x"]=1.5}
@@ -170,8 +181,35 @@ local HAT_STATIC = {
     Teal   = Color3.fromRGB(0, 255, 170),
     Pink   = Color3.fromRGB(255, 90, 200),
     Purple = Color3.fromRGB(150, 90, 255),
+    Red    = Color3.fromRGB(255, 50, 65),
+    Orange = Color3.fromRGB(255, 145, 35),
+    Yellow = Color3.fromRGB(255, 235, 55),
+    Green  = Color3.fromRGB(45, 210, 90),
+    Lime   = Color3.fromRGB(165, 255, 40),
+    Cyan   = Color3.fromRGB(35, 230, 255),
+    Blue   = Color3.fromRGB(60, 125, 255),
+    Navy   = Color3.fromRGB(35, 55, 145),
+    White  = Color3.fromRGB(245, 245, 255),
+    Black  = Color3.fromRGB(25, 25, 35),
+    Gold   = Color3.fromRGB(255, 195, 40),
+    Silver = Color3.fromRGB(180, 205, 220),
+    Rose   = Color3.fromRGB(255, 125, 145),
+    Mint = Color3.fromRGB(140, 255, 200),
+    Lavender = Color3.fromRGB(195, 165, 255),
+    Coral = Color3.fromRGB(255, 115, 105),
+    Amber = Color3.fromRGB(255, 175, 35),
+    Turquoise = Color3.fromRGB(45, 205, 195),
+    Burgundy = Color3.fromRGB(145, 25, 75),
+    Ivory = Color3.fromRGB(255, 250, 220),
+    Violet = Color3.fromRGB(195, 55, 255),
 }
-local HAT_ANIMATED = {Gradient = true, Rainbow = true, Wave = true, Pulse = true}
+local HAT_ANIMATED = {
+    Gradient = true, Rainbow = true, Wave = true, Pulse = true,
+    Sunset = true, Ocean = true, Aurora = true,
+    Fire = true, Ice = true, Candy = true, Galaxy = true,
+    Matrix = true, Lava = true, Electric = true, Disco = true,
+    NeonShift = true, Toxic = true, Sakura = true, Solar = true,
+}
 local HAT_GRADIENT_A = Color3.fromRGB(0, 255, 170)
 local HAT_GRADIENT_B = Color3.fromRGB(150, 80, 255)
 
@@ -187,6 +225,8 @@ local hatSpeed     = 1
 local hatModel
 local hatItems     = {}
 local hatElapsed   = 0
+local hatMotionPoints = {}
+local hatMotionPhase = 0
 
 -- ============================================================
 -- Утилиты
@@ -202,6 +242,52 @@ local function hatColorAt(t, angle, now)
         return Color3.fromHSV((now * 0.2 * hatSpeed + t * 0.25) % 1, 0.85, 1)
     elseif hatColorMode == "Wave" then
         return Color3.fromHSV((angle / (math.pi * 2) + now * 0.25 * hatSpeed) % 1, 0.85, 1)
+    elseif hatColorMode == "Sunset" then
+        local k = 0.5 + 0.5 * math.sin(now * hatSpeed * 1.2 - t * 3 - angle * 0.3)
+        return Color3.fromRGB(255, 110, 45):Lerp(Color3.fromRGB(185, 45, 200), k)
+    elseif hatColorMode == "Ocean" then
+        local k = 0.5 + 0.5 * math.sin(now * hatSpeed * 1.5 - t * 4 + angle)
+        return Color3.fromRGB(10, 80, 210):Lerp(Color3.fromRGB(30, 240, 220), k)
+    elseif hatColorMode == "Aurora" then
+        local k = 0.5 + 0.5 * math.sin(now * hatSpeed - t * 4 + angle * 0.5)
+        return Color3.fromRGB(45, 255, 150):Lerp(Color3.fromRGB(155, 60, 255), k)
+    elseif hatColorMode == "Fire" then
+        local k = 0.5 + 0.5 * math.sin(now * 3 * hatSpeed - t * 8 + angle * 2)
+        return Color3.fromRGB(220, 35, 15):Lerp(Color3.fromRGB(255, 220, 40), k)
+    elseif hatColorMode == "Ice" then
+        local k = 0.5 + 0.5 * math.sin(now * 1.8 * hatSpeed + t * 5 - angle)
+        return Color3.fromRGB(30, 100, 220):Lerp(Color3.fromRGB(200, 255, 255), k)
+    elseif hatColorMode == "Candy" then
+        local k = 0.5 + 0.5 * math.sin(now * 2 * hatSpeed - t * 10 + angle * 3)
+        return Color3.fromRGB(255, 80, 175):Lerp(Color3.fromRGB(100, 235, 255), k)
+    elseif hatColorMode == "Galaxy" then
+        local k = 0.5 + 0.5 * math.sin(now * hatSpeed + t * 7 + angle * 2)
+        return Color3.fromRGB(40, 25, 105):Lerp(Color3.fromRGB(190, 90, 255), k)
+    elseif hatColorMode == "Matrix" then
+        local k = (now * 0.6 * hatSpeed - t * 2 + angle / (math.pi * 2)) % 1
+        local glow = 0.18 + 0.82 * math.exp(-18 * k)
+        return Color3.fromRGB(15, 255, 60):Lerp(Color3.fromRGB(3, 35, 12), 1 - glow)
+    elseif hatColorMode == "Lava" then
+        local k = 0.5 + 0.5 * math.sin(now * 1.4 * hatSpeed - t * 6 + angle * 1.5)
+        return Color3.fromRGB(80, 12, 15):Lerp(Color3.fromRGB(255, 105, 12), k)
+    elseif hatColorMode == "Electric" then
+        local k = 0.5 + 0.5 * math.sin(now * 5 * hatSpeed - t * 9 - angle * 4)
+        return Color3.fromRGB(25, 60, 170):Lerp(Color3.fromRGB(100, 245, 255), k)
+    elseif hatColorMode == "Disco" then
+        local step = math.floor(now * 2 * hatSpeed + t * 4 + angle / (math.pi * 2) * 6)
+        return Color3.fromHSV((step * 0.19) % 1, 0.9, 1)
+    elseif hatColorMode == "NeonShift" then
+        local hue = (now * 0.12 * hatSpeed + t * 0.4 + angle / (math.pi * 4)) % 1
+        return Color3.fromHSV(hue, 1, 1)
+    elseif hatColorMode == "Toxic" then
+        local k = 0.5 + 0.5 * math.sin(now * 2 * hatSpeed + angle * 3 - t * 7)
+        return Color3.fromRGB(25, 85, 5):Lerp(Color3.fromRGB(200, 255, 20), k)
+    elseif hatColorMode == "Sakura" then
+        local k = 0.5 + 0.5 * math.sin(now * 1.3 * hatSpeed - t * 6 + angle * 2)
+        return Color3.fromRGB(255, 110, 170):Lerp(Color3.fromRGB(255, 235, 245), k)
+    elseif hatColorMode == "Solar" then
+        local k = 0.5 + 0.5 * math.sin(now * 2.5 * hatSpeed + t * 5 - angle * 2)
+        return Color3.fromRGB(240, 75, 10):Lerp(Color3.fromRGB(255, 245, 90), k)
     end
     local v = 0.35 + 0.65 * (0.5 + 0.5 * math.sin(now * 3 * hatSpeed))
     return Color3.fromHSV(0.447, 1, v)
@@ -224,6 +310,8 @@ local function removeHat()
         hatModel = nil
     end
     table.clear(hatItems)
+    table.clear(hatMotionPoints)
+    hatMotionPhase = 0
 end
 
 local function addHat(character)
@@ -303,6 +391,94 @@ local function addHat(character)
                 (i / segments) * math.pi * 2,
                 ((i + 1) / segments) * math.pi * 2
             )
+        end
+    end
+
+    -- Переиспользуем узлы сетки: меньше Attachment при той же детализации.
+    local shapePoints = {}
+    local motionGroup
+    local function shapePoint(x, y, z)
+        local key = string.format("%.4f:%.4f:%.4f", x, y, z)
+        local cached = shapePoints[key]
+        if cached then return cached end
+        local a = Instance.new("Attachment")
+        local origin = Vector3.new(x, y, z) * hatSize
+        a.Position = origin
+        a.Parent = base
+        shapePoints[key] = a
+        if motionGroup then
+            table.insert(hatMotionPoints, {attachment = a, origin = origin,
+                group = motionGroup})
+        end
+        return a
+    end
+
+    local function shapeBeam(a, b, width0, width1, t0, t1, angle)
+        local beam = Instance.new("Beam")
+        beam.Attachment0 = shapePoint(a.X, a.Y, a.Z)
+        beam.Attachment1 = shapePoint(b.X, b.Y, b.Z)
+        beam.Width0 = width0 * hatSize
+        beam.Width1 = width1 * hatSize
+        beam.FaceCamera = true
+        beam.Segments = 1
+        beam.LightEmission = 1
+        beam.Parent = base
+        table.insert(hatItems, {beam = beam, t0 = t0, t1 = t1,
+            a0 = angle, a1 = angle})
+    end
+
+    local function shapeLine(a, b, t0, t1, angle)
+        shapeBeam(a, b, 0.045, 0.045, t0, t1, angle)
+    end
+
+    local function shapePath(points, angle)
+        for i = 1, #points - 1 do
+            shapeLine(points[i], points[i + 1], (i - 1) / (#points - 1),
+                i / (#points - 1), angle)
+        end
+    end
+
+    -- Поперечные сечения повернуты перпендикулярно оси рога.
+    local function tubeRing(centers, i, r, count)
+        local tangent = (centers[math.min(i + 1, #centers)]
+            - centers[math.max(i - 1, 1)]).Unit
+        local reference = math.abs(tangent:Dot(Vector3.yAxis)) > 0.92
+            and Vector3.xAxis or Vector3.yAxis
+        local right = tangent:Cross(reference).Unit
+        local forward = tangent:Cross(right).Unit
+        local ring = {}
+        for j = 1, count do
+            local a = (j - 1) * math.pi * 2 / count
+            ring[j] = centers[i] + (right * math.cos(a)
+                + forward * math.sin(a)) * r
+        end
+        return ring
+    end
+
+    local function shapeTube(centers, radii, angle)
+        local previous
+        local sides = 6
+        for i = 1, #centers do
+            local ring = tubeRing(centers, i, radii[i], sides)
+            for j = 1, sides do
+                shapeLine(ring[j], ring[j % sides + 1], i / #centers,
+                    i / #centers, angle + j * 0.2)
+                if previous then
+                    shapeLine(previous[j], ring[j], (i - 1) / #centers,
+                        i / #centers, angle + j * 0.2)
+                end
+            end
+            previous = ring
+        end
+    end
+
+    local function detailRings(centers, radii, angle)
+        for i = 2, #centers - 1 do
+            local ring = tubeRing(centers, i, radii[i] * 1.1, 6)
+            for j = 1, 6 do
+                shapeBeam(ring[j], ring[j % 6 + 1], 0.027, 0.027,
+                    i / #centers, i / #centers, angle + 0.5)
+            end
         end
     end
 
@@ -438,6 +614,205 @@ local function addHat(character)
             local angle = (i / 48) * math.pi * 2
             local rim = attachmentAt(1, angle)
             addLine(mirrorApex, rim, 0, 1, angle, angle)
+        end
+    elseif hatStyle == "DevilHorns" then
+        for _, side in ipairs({-1, 1}) do
+            local curve = {Vector3.new(side * 0.48, 0, 0.05),
+                Vector3.new(side * 0.64, 0.3, 0.02),
+                Vector3.new(side * 0.82, 0.7, -0.06),
+                Vector3.new(side * 0.94, 1.07, -0.18),
+                Vector3.new(side * 0.91, 1.4, -0.3),
+                Vector3.new(side * 0.76, 1.7, -0.42)}
+            local radii = {0.21, 0.2, 0.17, 0.12, 0.065, 0.008}
+            shapeTube(curve, radii, side)
+            detailRings(curve, radii, side)
+        end
+    elseif hatStyle == "RamHorns" then
+        for _, side in ipairs({-1, 1}) do
+            local curl = {Vector3.new(side * 0.48, 0, 0),
+                Vector3.new(side * 0.79, 0.2, 0),
+                Vector3.new(side * 1.08, 0.52, 0.04),
+                Vector3.new(side * 1.18, 0.94, 0.1),
+                Vector3.new(side * 0.98, 1.25, 0.2),
+                Vector3.new(side * 0.69, 1.18, 0.28),
+                Vector3.new(side * 0.57, 0.87, 0.3)}
+            local radii = {0.22, 0.27, 0.29, 0.25, 0.19, 0.11, 0.008}
+            shapeTube(curl, radii, side)
+            detailRings(curl, radii, side)
+        end
+    elseif hatStyle == "Antlers" then
+        for _, side in ipairs({-1, 1}) do
+            local trunk = {Vector3.new(side * 0.42, 0, 0),
+                Vector3.new(side * 0.61, 0.4, -0.06),
+                Vector3.new(side * 0.82, 0.83, -0.1),
+                Vector3.new(side * 1.05, 1.26, -0.13),
+                Vector3.new(side * 1.22, 1.74, -0.17)}
+            shapeTube(trunk, {0.14, 0.14, 0.11, 0.075, 0.008}, side)
+            shapeTube({trunk[2], Vector3.new(side * 0.4, 0.85, -0.08),
+                Vector3.new(side * 0.35, 1.18, -0.1)}, {0.09, 0.06, 0.008}, side)
+            shapeTube({trunk[3], Vector3.new(side * 0.95, 1.29, 0.08),
+                Vector3.new(side * 0.89, 1.58, 0.16)}, {0.085, 0.05, 0.008}, side)
+            shapeTube({trunk[4], Vector3.new(side * 1.42, 1.44, -0.16),
+                Vector3.new(side * 1.63, 1.63, -0.17)}, {0.07, 0.045, 0.008}, side)
+            shapeTube({trunk[3], Vector3.new(side * 0.55, 1.25, -0.2),
+                Vector3.new(side * 0.48, 1.48, -0.22)},
+                {0.065, 0.04, 0.008}, side)
+            shapeBeam(trunk[1], trunk[3], 0.035, 0.015, 0, 0.65, side)
+        end
+    elseif hatStyle == "CatEars" then
+        for _, side in ipairs({-1, 1}) do
+            motionGroup = side
+            local outerL = Vector3.new(side * 0.3, 0.06, 0.04)
+            local tip = Vector3.new(side * 0.76, 1.18, 0.02)
+            local outerR = Vector3.new(side * 1.1, 0.06, 0.04)
+            shapePath({outerL, tip, outerR, outerL}, side)
+            local innerL = Vector3.new(side * 0.49, 0.19, -0.055)
+            local innerT = Vector3.new(side * 0.76, 0.85, -0.055)
+            local innerR = Vector3.new(side * 0.91, 0.19, -0.055)
+            shapePath({innerL, innerT, innerR, innerL}, side + 0.5)
+            for i = 1, 4 do
+                local f = i / 5
+                local left = innerL:Lerp(innerT, f)
+                local right = innerR:Lerp(innerT, f)
+                shapeBeam(left, right, 0.075, 0.075, f, f, side + 1)
+            end
+            shapeLine(outerL, innerL, 0, 0.2, side)
+            shapeLine(outerR, innerR, 0, 0.2, side)
+            shapeBeam(outerL, outerR, 0.11, 0.11, 0, 0, side)
+            shapeBeam(innerT, tip, 0.035, 0.012, 0.8, 1, side)
+        end
+    elseif hatStyle == "AngelWings" then
+        for _, side in ipairs({-1, 1}) do
+            local root = Vector3.new(side * 0.57, 0.15, -0.16)
+            local elbow = Vector3.new(side * 1.14, 0.75, -0.24)
+            local tip = Vector3.new(side * 2.36, 1.3, -0.32)
+            shapePath({root, elbow, tip}, side)
+            for i = 1, 9 do
+                local f = i / 9
+                local top = elbow:Lerp(tip, f)
+                local bottom = Vector3.new(side * (1.0 + 1.32 * f),
+                    0.1 + 0.46 * f - 0.18 * math.sin(f * math.pi), -0.34)
+                shapeBeam(top, bottom, 0.18, 0.045, f, 1 - f, side + f)
+                local shaft = top:Lerp(bottom, 0.7)
+                shapeBeam(top, shaft, 0.026, 0.012, f, 1 - f, side + 0.3)
+                if i > 1 then
+                    local prevF = (i - 1) / 9
+                    local prevTop = elbow:Lerp(tip, prevF)
+                    local prevBottom = Vector3.new(side * (1.0 + 1.32 * prevF),
+                        0.1 + 0.46 * prevF - 0.18 * math.sin(prevF * math.pi), -0.34)
+                    shapeLine(prevTop:Lerp(prevBottom, 0.42),
+                        top:Lerp(bottom, 0.42), prevF, f, side)
+                end
+            end
+            for i = 1, 4 do
+                local f = i / 5
+                shapeBeam(root:Lerp(elbow, f),
+                    Vector3.new(side * (0.66 + 0.48 * f), -0.1, -0.25),
+                    0.16, 0.035, f, 1, side)
+            end
+        end
+    elseif hatStyle == "BatWings" then
+        for _, side in ipairs({-1, 1}) do
+            local root = Vector3.new(side * 0.58, 0.11, -0.18)
+            local tips = {Vector3.new(side * 1.02, 1.04, -0.22),
+                Vector3.new(side * 1.6, 1.27, -0.28),
+                Vector3.new(side * 2.33, 0.96, -0.35)}
+            local scallops = {Vector3.new(side * 1.04, -0.25, -0.3),
+                Vector3.new(side * 1.45, 0.13, -0.33),
+                Vector3.new(side * 1.97, 0.12, -0.37)}
+            shapePath({root, tips[1], tips[2], tips[3], scallops[3],
+                scallops[2], scallops[1], root}, side)
+            for i, tip in ipairs(tips) do
+                shapeBeam(root, tip, 0.1, 0.035, 0, i / 3, side)
+                local low = scallops[i]
+                for j = 1, 4 do
+                    local f = j / 5
+                    shapeBeam(root:Lerp(tip, f), root:Lerp(low, f),
+                        0.09, 0.09, f, f, side + i * 0.2)
+                end
+                shapeBeam(tip:Lerp(root, 0.25), low:Lerp(root, 0.25),
+                    0.035, 0.035, i / 3, i / 3, side)
+                shapeBeam(tip:Lerp(root, 0.6), low:Lerp(root, 0.6),
+                    0.03, 0.03, i / 3, i / 3, side)
+            end
+        end
+    elseif hatStyle == "Trident" then
+        shapeTube({Vector3.new(0, -0.12, 0), Vector3.new(0, 0.36, 0),
+            Vector3.new(0, 0.9, 0), Vector3.new(0, 1.48, 0),
+            Vector3.new(0, 1.94, 0)}, {0.14, 0.13, 0.13, 0.1, 0.008}, 0)
+        for _, side in ipairs({-1, 1}) do
+            shapeTube({Vector3.new(0, 0.62, 0),
+                Vector3.new(side * 0.4, 0.75, 0),
+                Vector3.new(side * 0.68, 1.06, 0),
+                Vector3.new(side * 0.72, 1.53, 0),
+                Vector3.new(side * 0.72, 1.86, 0)},
+                {0.11, 0.13, 0.115, 0.065, 0.008}, side)
+        end
+        for i = 1, 3 do
+            local x = (i - 2) * 0.72
+            shapePath({Vector3.new(x - 0.09, 1.46, -0.09),
+                Vector3.new(x, 1.89, 0),
+                Vector3.new(x + 0.09, 1.46, 0.09)}, i)
+        end
+        -- Крепёж вилки и кольца на рукояти.
+        for _, y in ipairs({-0.04, 0.18, 0.4}) do
+            for j = 0, 5 do
+                local a, b = j * math.pi / 3, (j + 1) * math.pi / 3
+                shapeBeam(Vector3.new(math.cos(a) * 0.16, y, math.sin(a) * 0.16),
+                    Vector3.new(math.cos(b) * 0.16, y, math.sin(b) * 0.16),
+                    0.035, 0.035, y, y, a)
+            end
+        end
+        for _, side in ipairs({-1, 1}) do
+            shapeBeam(Vector3.new(0, 0.66, -0.1),
+                Vector3.new(side * 0.65, 1.01, -0.08), 0.045, 0.02, 0.3, 0.8, side)
+        end
+    elseif hatStyle == "UFO" then
+        motionGroup = "UFO"
+        local function ufoRing(r, y, count)
+            local points = {}
+            for i = 1, count do
+                local a = i * math.pi * 2 / count
+                points[i] = shapePoint(math.cos(a) * r, y, math.sin(a) * r)
+            end
+            for i = 1, count do
+                local a = i * math.pi * 2 / count
+                addLine(points[i], points[i % count + 1], y, y, a,
+                    (i + 1) * math.pi * 2 / count)
+            end
+        end
+        ufoRing(1.46, 0.23, 32)
+        ufoRing(1.46, 0.36, 32)
+        ufoRing(1.1, 0.48, 32)
+        ufoRing(0.7, 0.79, 24)
+        ufoRing(0.38, 1.01, 16)
+        ufoRing(0.7, 0.12, 24)
+        ufoRing(0.32, 0.05, 16)
+        shapeBeam(Vector3.new(0, 1.02, 0), Vector3.new(0, 1.24, 0),
+            0.055, 0.018, 0.8, 1, 0)
+        for i = 1, 16 do
+            local a = i * math.pi * 2 / 16
+            local c, s = math.cos(a), math.sin(a)
+            shapeBeam(Vector3.new(c * 1.46, 0.23, s * 1.46),
+                Vector3.new(c * 1.46, 0.36, s * 1.46), 0.11, 0.11, 0, 1, a)
+            shapeLine(Vector3.new(c * 1.1, 0.48, s * 1.1),
+                Vector3.new(c * 0.7, 0.79, s * 0.7), 0.4, 0.8, a)
+            shapeLine(Vector3.new(c * 0.7, 0.79, s * 0.7),
+                Vector3.new(c * 0.38, 1.01, s * 0.38), 0.8, 1, a)
+        end
+        for i = 1, 12 do
+            local a = i * math.pi * 2 / 12
+            local c, s = math.cos(a), math.sin(a)
+            shapeBeam(Vector3.new(c * 1.35, 0.29, s * 1.35),
+                Vector3.new(c * 1.19, 0.38, s * 1.19),
+                0.18, 0.18, i / 12, i / 12, a)
+        end
+        for i = 1, 8 do
+            local a = i * math.pi / 4
+            local c, s = math.cos(a), math.sin(a)
+            shapeBeam(Vector3.new(c * 1.1, 0.24, s * 1.1),
+                Vector3.new(c * 0.32, 0.05, s * 0.32),
+                0.035, 0.02, 0.3, 0.7, a)
         end
     end
 
@@ -859,8 +1234,22 @@ local autoMurder  = false
 local killMode    = "none"
 local killElapsed = 0
 local chasingTarget = false
+local pulledKnifeTargets = {}
+local knifePullId = 0
+
+local function restoreKnifeTargets()
+    knifePullId += 1
+    local targets = pulledKnifeTargets
+    pulledKnifeTargets = {}
+    for model, pivot in pairs(targets) do
+        if model.Parent then
+            pcall(function() model:PivotTo(pivot) end)
+        end
+    end
+end
 
 local function attackNearest()
+    restoreKnifeTargets()
     local character = player.Character
     local root = character and character:FindFirstChild("HumanoidRootPart")
     local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -875,23 +1264,34 @@ local function attackNearest()
         if knife.Parent ~= character then return false end
     end
 
-    local targetRoot, shortest = nil, math.huge
+    local count = 0
     for _, other in ipairs(Players:GetPlayers()) do
         if other ~= player then
             local target = other.Character
             local targetHumanoid = target and target:FindFirstChildOfClass("Humanoid")
-            local part = target and target:FindFirstChild("HumanoidRootPart")
-            if part and targetHumanoid and targetHumanoid.Health > 0 then
-                local distance = (root.Position - part.Position).Magnitude
-                if distance < shortest then
-                    shortest, targetRoot = distance, part
+            local targetRoot = target and target:FindFirstChild("HumanoidRootPart")
+            if targetRoot and targetHumanoid and targetHumanoid.Health > 0 then
+                -- Меняем только локальное положение чужого персонажа, не своего.
+                local original = target:GetPivot()
+                local front = root.Position + root.CFrame.LookVector * 2.5
+                local offset = root.CFrame.RightVector * ((count % 3 - 1) * 0.25)
+                local destination = Vector3.new(front.X, root.Position.Y, front.Z) + offset
+                local ok = pcall(function()
+                    target:PivotTo(CFrame.new(destination) * original.Rotation)
+                end)
+                if ok then
+                    pulledKnifeTargets[target] = original
+                    count += 1
                 end
             end
         end
     end
-    if not targetRoot then return false end
-    root.CFrame = CFrame.lookAt(targetRoot.Position - targetRoot.CFrame.LookVector * 2, targetRoot.Position)
+    if count == 0 then return false end
+    local pullId = knifePullId
     knife:Activate()
+    task.delay(0.2, function()
+        if knifePullId == pullId then restoreKnifeTargets() end
+    end)
     return true
 end
 
@@ -903,29 +1303,37 @@ if not aimState then
 end
 aimState.enabled = false
 
-local function knifeTargetPosition()
+-- Для мгновенного луча целимся в текущий хитбокс, без упреждения.
+local function knifeTargetPosition(isVisible)
     local character = player.Character
     local root = character and character:FindFirstChild("HumanoidRootPart")
     if not root then return nil end
-    local best, bestDistance = nil, math.huge
+    local best, bestCharacter, bestCurrent, bestDistance = nil, nil, nil, math.huge
     for _, other in ipairs(Players:GetPlayers()) do
         if other ~= player then
             local target = other.Character
             local humanoid = target and target:FindFirstChildOfClass("Humanoid")
             local head = target and target:FindFirstChild("Head")
+            local targetRoot = target and target:FindFirstChild("HumanoidRootPart")
+            local torso = target and (target:FindFirstChild("UpperTorso") or target:FindFirstChild("Torso") or targetRoot)
             local knife = findWeapon(other, "knife")
             if humanoid and humanoid.Health > 0 and head and knife then
-                local distance = (root.Position - head.Position).Magnitude
-                if distance < bestDistance then
-                    bestDistance, best = distance, head.Position
+                for _, hitPart in ipairs({torso or head, head}) do
+                    local current = hitPart.Position
+                    local distance = (root.Position - current).Magnitude
+                    if distance < bestDistance and (not isVisible or isVisible(target, current)) then
+                        bestDistance = distance
+                        bestCurrent = current
+                        best = current
+                        bestCharacter = target
+                    end
                 end
             end
         end
     end
-    return best
+    return best, bestCharacter, bestCurrent
 end
 
-aimState.getTarget = knifeTargetPosition
 aimState.player = player
 
 if not aimState.hooked then
@@ -947,25 +1355,32 @@ if not aimState.hooked then
             local serviceShot = self.Name == "GunFired" and weaponService and self.Parent == weaponService
                 and equipped and equipped:IsA("Tool")
             if gunShoot or serviceShot then
-                state.lastShotRemote = os.clock()
                 local args = {...}
                 local count = select("#", ...)
+                -- Shoot передаёт точку выстрела первой, а CFrame ствола второй.
+                -- Второй CFrame нельзя переписывать: сервер использует его как начало луча.
                 local index
-                for i = 1, count do
-                    local kind = typeof(args[i])
-                    if kind == "Vector3" or kind == "CFrame" then
-                        if index then index = nil; break end
-                        index = i
+                if gunShoot then
+                    local kind = typeof(args[1])
+                    if kind == "Vector3" or kind == "CFrame" then index = 1 end
+                else
+                    for i = 1, count do
+                        local kind = typeof(args[i])
+                        if kind == "Vector3" or kind == "CFrame" then
+                            index = i
+                            break
+                        end
                     end
                 end
                 if index then
                     local target = state.getTarget()
                     if target then
                         if typeof(args[index]) == "CFrame" then
-                            args[index] = CFrame.new(target) * args[index].Rotation
+                            args[index] = CFrame.new(target)
                         else
                             args[index] = target
                         end
+                        state.lastShotRemote = os.clock()
                         return oldNamecall(self, table.unpack(args, 1, count))
                     end
                 end
@@ -979,10 +1394,6 @@ end
 -- Gun branch
 local murderElapsed     = 0
 local lastMurderShot    = -math.huge
-local lastMurderPickup  = -math.huge
-local murderPath, murderWaypoints, murderWaypointIndex = nil, nil, 1
-local murderPathTarget, murderPathTime = nil, -math.huge
-
 local function clearGunLine(character, targetCharacter, targetPosition)
     local attachment = character:FindFirstChild("GunRaycastAttachment", true)
     if not (attachment and attachment:IsA("Attachment")) then return false end
@@ -996,34 +1407,15 @@ local function clearGunLine(character, targetCharacter, targetPosition)
     return not hit or hit.Instance:IsDescendantOf(targetCharacter)
 end
 
-local function walkAroundWall(character, humanoid, targetCharacter)
-    local root = character:FindFirstChild("HumanoidRootPart")
-    local targetRoot = targetCharacter:FindFirstChild("HumanoidRootPart")
-    if not root or not targetRoot then return false end
-    local now = os.clock()
-    if murderPathTarget ~= targetCharacter or now - murderPathTime > 1.5 then
-        murderPathTime, murderPathTarget = now, targetCharacter
-        murderPath, murderWaypoints, murderWaypointIndex = nil, nil, 1
-        local path = PathfindingService:CreatePath({AgentRadius = 2, AgentHeight = 5, AgentCanJump = true})
-        local offset = root.Position - targetRoot.Position
-        local destination = targetRoot.Position
-        if offset.Magnitude > 7 then destination += offset.Unit * 7 end
-        local ok = pcall(function() path:ComputeAsync(root.Position, destination) end)
-        if ok and path.Status == Enum.PathStatus.Success then
-            murderPath, murderWaypoints = path, path:GetWaypoints()
-        end
-    end
-    if not murderWaypoints then return false end
-    while murderWaypointIndex <= #murderWaypoints
-        and (root.Position - murderWaypoints[murderWaypointIndex].Position).Magnitude < 3 do
-        murderWaypointIndex += 1
-    end
-    local waypoint = murderWaypoints[murderWaypointIndex]
-    if not waypoint then return false end
-    if waypoint.Action == Enum.PathWaypointAction.Jump then humanoid.Jump = true end
-    humanoid:MoveTo(waypoint.Position)
-    return true
+local function visibleKnifeTarget()
+    local character = player.Character
+    if not character then return nil end
+    return knifeTargetPosition(function(targetCharacter, position)
+        return clearGunLine(character, targetCharacter, position)
+    end)
 end
+
+aimState.getTarget = visibleKnifeTarget
 
 local shootMurder  -- forward decl
 
@@ -1039,47 +1431,21 @@ local function shootMurderImpl()
         if gun.Parent ~= character then return end
     end
 
-    if not gun then
-        local now = os.clock()
-        if now - lastMurderPickup < 0.3 then return end
-        lastMurderPickup = now
-        local root = character:FindFirstChild("HumanoidRootPart")
-        local drop = root and findDroppedGun(root)
-        if drop then pickUpGun() end
-        return
-    end
+    -- Без пистолета Auto Kill не перемещает персонажа к GunDrop.
+    if not gun then return end
 
-    local target = knifeTargetPosition()
-    if not target then return end
-
-    local targetCharacter
-    for _, other in ipairs(Players:GetPlayers()) do
-        local model = other.Character
-        local head = model and model:FindFirstChild("Head")
-        if other ~= player and head and (head.Position - target).Magnitude < 3 then
-            targetCharacter = model
-            break
-        end
-    end
+    -- Выбираем ближайшую цель с открытой линией огня, не двигая персонажа.
+    local target, targetCharacter = visibleKnifeTarget()
     if not targetCharacter then return end
 
-    if not clearGunLine(character, targetCharacter, target) then
-        walkAroundWall(character, humanoid, targetCharacter)
-        return
-    end
-
-    murderPath, murderWaypoints, murderPathTarget = nil, nil, nil
-    local camera = workspace.CurrentCamera
-    if not camera then return end
     if not gun.Enabled then return end
 
     local now = os.clock()
     if now - lastMurderShot < 0.8 then return end
     lastMurderShot = now
 
-    local previous = camera.CFrame
     local shotBefore = aimState.lastShotRemote or -math.huge
-    camera.CFrame = CFrame.lookAt(previous.Position, target)
+    -- Silent aim изменяет координаты в FireServer; камера остаётся неподвижной.
     gun:Activate()
 
     task.delay(0.12, function()
@@ -1088,19 +1454,15 @@ local function shootMurderImpl()
         local current = player.Character
         local shoot = gun:FindFirstChild("Shoot")
         local attachment = current and current:FindFirstChild("GunRaycastAttachment", true)
-        local currentTarget = knifeTargetPosition()
-        if not current or gun.Parent ~= current or not gun.Enabled
+        local currentTarget = visibleKnifeTarget()
+        if not current or gun.Parent ~= current
             or not shoot or not shoot:IsA("RemoteEvent")
             or not attachment or not attachment:IsA("Attachment") or not currentTarget then
             return
         end
-        if not clearGunLine(current, targetCharacter, currentTarget) then return end
         pcall(function()
             shoot:FireServer(CFrame.new(currentTarget), attachment.WorldCFrame)
         end)
-    end)
-    task.delay(0.3, function()
-        if camera.Parent and autoMurder then camera.CFrame = previous end
     end)
 end
 shootMurder = shootMurderImpl
@@ -1125,6 +1487,7 @@ CombatSec:AddToggle({
         if not v then
             autoMurder = false
             killMode = "none"
+            restoreKnifeTargets()
             aimState.enabled = false
         end
     end,
@@ -1324,19 +1687,30 @@ local function bindGunListeners()
 end
 bindGunListeners()
 
-local dropConnection = workspace.DescendantAdded:Connect(function(item)
-    if item.Name == "GunDrop" then
-        lastMurderPickup = -math.huge
-        tryMurderSoon()
-    end
-end)
-
 local heartbeat = RunService.Heartbeat:Connect(function(dt)
-    if hatEnabled and HAT_ANIMATED[hatColorMode] then
-        hatElapsed += dt
-        if hatElapsed >= 1 / 30 then
-            hatElapsed = 0
-            applyHatColors(os.clock())
+    if hatEnabled and hatModel and hatModel.Parent then
+        if #hatMotionPoints > 0 then hatMotionPhase += dt * hatSpeed end
+        if HAT_ANIMATED[hatColorMode] or #hatMotionPoints > 0 then
+            hatElapsed += dt
+            if hatElapsed >= 1 / 30 then
+                hatElapsed = 0
+                if HAT_ANIMATED[hatColorMode] then applyHatColors(os.clock()) end
+                local spin = CFrame.Angles(0, hatMotionPhase * 0.95, 0)
+                for _, point in ipairs(hatMotionPoints) do
+                    local attachment = point.attachment
+                    if attachment.Parent then
+                        if point.group == "UFO" then
+                            attachment.Position = spin:PointToWorldSpace(point.origin)
+                        else
+                            local side = point.group
+                            local pivot = Vector3.new(side * 0.76, 0.06, 0.04) * hatSize
+                            local wave = math.sin(hatMotionPhase * 2.5 + side * 0.7)
+                            local tilt = CFrame.Angles(wave * 0.11, 0, side * wave * 0.085)
+                            attachment.Position = pivot + tilt:VectorToWorldSpace(point.origin - pivot)
+                        end
+                    end
+                end
+            end
         end
     end
 
@@ -1359,12 +1733,11 @@ local heartbeat = RunService.Heartbeat:Connect(function(dt)
     if mode ~= killMode then
         killMode = mode
         setStatus(
-            mode == "knife" and "Knife: attacking nearest player"
+            mode == "knife" and "Knife: pulling local hitboxes"
             or mode == "gun" and "Gun: looking for Knife user"
             or autoKill and "Auto Kill: waiting for Knife or Gun"
             or "Auto Kill: idle"
         )
-        murderPath, murderWaypoints, murderPathTarget = nil, nil, nil
     end
     autoMurder = mode == "gun"
     aimState.enabled = autoMurder
@@ -1372,6 +1745,7 @@ local heartbeat = RunService.Heartbeat:Connect(function(dt)
     if mode == "knife" then
         killElapsed += dt
     else
+        if killMode ~= "knife" and next(pulledKnifeTargets) then restoreKnifeTargets() end
         killElapsed = 0
         chasingTarget = false
     end
@@ -1413,6 +1787,7 @@ local heartbeat = RunService.Heartbeat:Connect(function(dt)
 end)
 
 local respawn = player.CharacterAdded:Connect(function(character)
+    restoreKnifeTargets()
     if hatEnabled then task.spawn(addHat, character) end
     if legVfxEnabled then task.spawn(addLegVfx, character) end
     if haloVfxEnabled then task.spawn(addHaloVfx, character) end
@@ -1425,6 +1800,7 @@ end)
 -- Cleanup / Unload
 -- ============================================================
 local function cleanupPanel()
+    restoreKnifeTargets()
     autoMurder = false
     aimState.enabled = false
     autoKill = false
@@ -1442,7 +1818,6 @@ local function cleanupPanel()
     setSpeed()
 
     if heartbeat then heartbeat:Disconnect() end
-    if dropConnection then dropConnection:Disconnect() end
     if gunBagConnection then gunBagConnection:Disconnect() end
     if gunCharacterConnection then gunCharacterConnection:Disconnect() end
     if respawn then respawn:Disconnect() end
