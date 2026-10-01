@@ -85,7 +85,7 @@ end)
 -- ============================================================
 
 local Speeds            = false
-local Power             = 50
+local Power             = 48
 local JumpEnabled       = false
 local JumpPower         = 50
 local OriginalJumpPower = 50
@@ -98,10 +98,10 @@ local AutoFollow        = true
 local LastPos           = nil
 local Plate             = nil
 
--- ESP цвета (управляются через ColorPicker)
-local ESPColor          = Color3.fromRGB(0, 200, 255)   -- цвет outline живых игроков
-local DownedESPColor    = Color3.fromRGB(255, 50, 50)   -- цвет outline downed игроков
-local NextbotESPColor   = Color3.fromRGB(255, 0, 0)     -- цвет nextbot ESP (Drawing)
+-- ESP цвета
+local ESPColor          = Color3.fromRGB(0, 200, 255)
+local DownedESPColor    = Color3.fromRGB(255, 50, 50)
+local NextbotESPColor   = Color3.fromRGB(255, 0, 0)
 
 -- Ссылки на элементы UI
 local safeZoneToggle      = nil
@@ -151,9 +151,6 @@ local AvoidSpeed    = 60
 
 local ReviveBlacklist     = {}
 local ReviveBlacklistTime = {}
-local speedCurrent        = 0
-local speedAcceleration   = 7
-local speedBrakeForce     = 8
 local speedometerLabel    = nil
 local originalSpeedText   = nil
 local lastSpeedPosition   = nil
@@ -939,10 +936,26 @@ task.spawn(function()
 end)
 
 -- ============================================================
--- MOVEMENT LOOP
+-- MOVEMENT LOOP (ФИЗИЧЕСКАЯ СКОРОСТЬ EVADE)
 -- ============================================================
 
-RunService.RenderStepped:Connect(function()
+local BACKWARD_MULTIPLIER = 0.5
+
+local function specialAnimationPlaying(character)
+    if not character then return false end
+    for _, obj in ipairs(character:GetDescendants()) do
+        if obj:IsA("Animator") then
+            for _, track in ipairs(obj:GetPlayingAnimationTracks()) do
+                if track.IsPlaying and track.Priority.Value >= Enum.AnimationPriority.Action.Value then
+                    return true
+                end
+            end
+        end
+    end
+    return false
+end
+
+RunService.Heartbeat:Connect(function()
     local char = lp.Character
     if not char then return end
     local hum  = char:FindFirstChildOfClass("Humanoid")
@@ -973,24 +986,24 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    if Speeds then
-        if moveDir.Magnitude > 0 then
-            speedCurrent = math.min(speedCurrent + speedAcceleration, Power)
-            local mv = moveDir * (speedCurrent / 45)
-            if mv.Magnitude < 50 then
-                root.CFrame = root.CFrame + mv
-            else
-                speedCurrent = speedCurrent / 2
-            end
-        else
-            speedCurrent = math.max(0, speedCurrent - speedBrakeForce)
-            if speedCurrent > 0 then
-                local mv = moveDir * (speedCurrent / 45)
-                if mv.Magnitude < 50 then
-                    root.CFrame = root.CFrame + mv
-                else
-                    speedCurrent = speedCurrent / 2
+    if Speeds and not flying and not IsFollowing and not IsRevivingNow and not Safe then
+        local isBlocked = hum.Health <= 0 
+            or hum.Sit 
+            or hum.PlatformStand 
+            or specialAnimationPlaying(char)
+
+        if not isBlocked and moveDir.Magnitude > 0.05 then
+            local flat = Vector3.new(moveDir.X, 0, moveDir.Z)
+            if flat.Magnitude > 0.05 then
+                local forward = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
+                local backward = forward.Magnitude > 0.05 and flat.Unit:Dot(forward.Unit) < -0.35
+                local applied = Power
+                if backward then
+                    applied = Power * BACKWARD_MULTIPLIER
                 end
+                local wanted = flat.Unit * applied
+                local current = root.AssemblyLinearVelocity
+                root.AssemblyLinearVelocity = Vector3.new(wanted.X, current.Y, wanted.Z)
             end
         end
     else
@@ -1127,7 +1140,7 @@ local function UpdateNextbotESP_Drawing()
             data = {}
             local sq = Drawing.new("Square")
             sq.Filled       = true
-            sq.Color        = NextbotESPColor   -- управляется ColorPicker
+            sq.Color        = NextbotESPColor
             sq.Transparency = 0.18
             sq.Thickness    = 0
             local lines = {}
@@ -1149,7 +1162,6 @@ local function UpdateNextbotESP_Drawing()
             data.Label  = label
             nextbotDrawings[model] = data
         else
-            -- Обновляем цвет в реальном времени из ColorPicker
             data.Square.Color = NextbotESPColor
             for _, line in ipairs(data.Lines) do
                 line.Color = NextbotESPColor
@@ -1220,7 +1232,6 @@ task.spawn(function()
                 if humT and root and humT.Health > 0 and not IsPlayerDowned(v) then
                     local pct = math.clamp(humT.Health / humT.MaxHealth, 0, 1)
 
-                    -- HP-цвет (зелёный → оранжевый → красный) поверх outline-цвета из ColorPicker
                     local hpColor
                     if pct > 0.5 then
                         local t = (pct - 0.5) * 2
@@ -1240,8 +1251,8 @@ task.spawn(function()
                         highlight.FillTransparency = 0.72
                         highlight.Parent           = char
                     end
-                    highlight.FillColor    = ESPColor    -- из ColorPicker
-                    highlight.OutlineColor = ESPColor    -- из ColorPicker
+                    highlight.FillColor    = ESPColor
+                    highlight.OutlineColor = ESPColor
 
                     local tag = char:FindFirstChild("ESP_Name")
                     if not tag then
@@ -1374,7 +1385,7 @@ task.spawn(function()
 
                 if root and humT and IsPlayerDowned(player) then
                     local pct   = math.clamp(humT.Health / humT.MaxHealth, 0, 1)
-                    local color = DownedESPColor    -- из ColorPicker
+                    local color = DownedESPColor
 
                     local highlight = character:FindFirstChild("DownedESP_Highlight")
                     if not highlight then
@@ -1656,7 +1667,7 @@ lp.CharacterAdded:Connect(function()
 end)
 
 -- ============================================================
--- UI  (новый синтаксис MinecraftLib v3.3)
+-- UI
 -- ============================================================
 
 local Window = MinecraftLib:CreateWindow({
@@ -1689,7 +1700,6 @@ speedToggle = moveSec:AddToggle({
     Callback = function(value)
         Speeds = value
         if not value then
-            speedCurrent = 0
             RestoreSpeedometer()
         else
             lastSpeedPosition = nil
@@ -1700,9 +1710,9 @@ speedToggle = moveSec:AddToggle({
 
 speedSlider = moveSec:AddSlider({
     Name     = "Speed Value",
-    Min      = 16,
-    Max      = 105,
-    Default  = 50,
+    Min      = 1,
+    Max      = 200,
+    Default  = 48,
     Step     = 1,
     Flag     = "speed_value",
     Callback = function(value) Power = value end,
@@ -1995,7 +2005,6 @@ playerESPToggle = espSec:AddToggle({
     end,
 })
 
--- ColorPicker для живых игроков (outline + accent)
 espSec:AddColorPicker({
     Name    = "Player ESP Color",
     Default = Color3.fromRGB(0, 200, 255),
@@ -2020,7 +2029,6 @@ downedESPToggle = downedSec:AddToggle({
     end,
 })
 
--- ColorPicker для downed игроков
 downedSec:AddColorPicker({
     Name    = "Downed ESP Color",
     Default = Color3.fromRGB(255, 50, 50),
@@ -2043,7 +2051,6 @@ nextbotESPToggle = nextbotSec:AddToggle({
     end,
 })
 
--- ColorPicker для nextbot Drawing
 nextbotSec:AddColorPicker({
     Name    = "Nextbot ESP Color",
     Default = Color3.fromRGB(255, 0, 0),
@@ -2051,7 +2058,6 @@ nextbotSec:AddColorPicker({
     Tooltip = "Цвет Drawing-боксов nextbot-ов",
     Callback = function(color)
         NextbotESPColor = color
-        -- Обновляем уже существующие Drawing-объекты
         for _, data in pairs(nextbotDrawings) do
             if data.Square then data.Square.Color = color end
             if data.Lines  then
@@ -2171,7 +2177,7 @@ local function LoadConfig(name, silent)
     if name == "" then if not silent then Window:Notify({Title = "Configs", Content = "Choose a config first.", Duration = 3}) end return end
     local path = ConfigFolder .. "/" .. name .. ".json"
     if not isfile(path) then if not silent then Window:Notify({Title = "Configs", Content = "Config not found: " .. name, Duration = 3}) end return end
-    local ok, config = pcall(function() return game:GetService("HttpService"):JSONDecode(readfile(path)) end)
+    local ok, config = pcall(function() return game:GetService("HttpService"):JSONEncode(readfile(path)) end)
     if not ok or type(config) ~= "table" then if not silent then Window:Notify({Title = "Configs", Content = "Invalid config file.", Duration = 4}) end return end
 
     if config.Power         and speedSlider         then speedSlider:Set(config.Power) end
@@ -2204,7 +2210,7 @@ local function DeleteConfig(name)
     if delfile and isfile and isfile(path) then
         delfile(path)
         if isfile(AutoloadPath) then
-            local ok, data = pcall(function() return game:GetService("HttpService"):JSONDecode(readfile(AutoloadPath)) end)
+            local ok, data = pcall(function() return game:GetService("HttpService"):JSONEncode(readfile(AutoloadPath)) end)
             if ok and data and data.name == name then delfile(AutoloadPath) end
         end
         selectedConfig = ""
@@ -2290,7 +2296,7 @@ autoloadSec:AddButton({
             Window:Notify({Title = "Configs", Content = "Autoload is not configured.", Duration = 3})
             return
         end
-        local ok, data = pcall(function() return game:GetService("HttpService"):JSONDecode(readfile(AutoloadPath)) end)
+        local ok, data = pcall(function() return game:GetService("HttpService"):JSONEncode(readfile(AutoloadPath)) end)
         if ok and data and data.name then
             LoadConfig(data.name)
         else
@@ -2302,7 +2308,7 @@ autoloadSec:AddButton({
 task.defer(function()
     pcall(function()
         if not isfile or not isfile(AutoloadPath) then return end
-        local ok, data = pcall(function() return game:GetService("HttpService"):JSONDecode(readfile(AutoloadPath)) end)
+        local ok, data = pcall(function() return game:GetService("HttpService"):JSONEncode(readfile(AutoloadPath)) end)
         if ok and data and data.name and isfile(ConfigFolder .. "/" .. data.name .. ".json") then
             selectedConfig = data.name
             configNameBox:Set(data.name)
