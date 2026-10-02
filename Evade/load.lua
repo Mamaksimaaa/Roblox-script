@@ -2107,216 +2107,343 @@ perfSec:AddButton({
 
 -- ============================================================
 -- CONFIGS TAB
+-- Замени этим блоком всё от заголовка "CONFIGS TAB" до заголовка
+-- "ABOUT / INLAWRY TAB" (старые SaveConfig/LoadConfig/DeleteConfig,
+-- configOptions, оба task.defer с autoload и т.д. — удалить).
+--
+-- Сохранение/загрузка идёт через встроенную систему MinecraftLib
+-- (Window:SaveConfig / LoadConfig / GetConfigs / DeleteConfig),
+-- она сама собирает ВСЕ элементы с Flag: тумблеры, слайдеры,
+-- кейбинды, цвета ESP и режим Farm Mode.
 -- ============================================================
 
-local ConfigFolder = "inlawry_Evade/configs"
-local AutoloadPath = "inlawry_Evade/autoload.json"
-local configNameBox, configDropdown, autoloadToggle
-local selectedConfig = ""
+local AUTOLOAD_FOLDER = "inlawry_Evade"
+local AUTOLOAD_PATH = AUTOLOAD_FOLDER .. "/autoload.txt"
+local NO_CONFIGS = "No saved configs"
 
-local function EnsureConfigFolder()
-    if not isfolder or not makefolder or not writefile or not readfile or not isfile then return false end
-    if not isfolder("inlawry_Evade") then makefolder("inlawry_Evade") end
-    if not isfolder(ConfigFolder)    then makefolder(ConfigFolder)    end
-    return true
+local hasFileApi = isfolder ~= nil
+	and makefolder ~= nil
+	and isfile ~= nil
+	and readfile ~= nil
+	and writefile ~= nil
+	and listfiles ~= nil
+
+local configNameBox
+local configDropdown
+local autoloadToggle
+local lastConfigList = ""
+
+-- Те же правила, что и SafeName в библиотеке, чтобы имя файла совпадало.
+local function NormalizeConfigName(name): string
+	local text = tostring(name or "")
+	text = string.gsub(text, "[^%w_%- ]", "")
+	text = string.gsub(text, "^%s+", "")
+	text = string.gsub(text, "%s+$", "")
+	return string.sub(text, 1, 32)
 end
 
-local function NormalizeConfigName(name)
-    name = tostring(name or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
-    name = name:gsub("[^%w_-]", "_")
-    return name:sub(1, 32)
+local function Notice(content: string, kind: string?)
+	Window:Notify({
+		Title = "Configs",
+		Content = content,
+		Duration = 3,
+		Type = kind,
+	})
 end
 
-local function GetConfigNames()
-    local ok, names = pcall(function()
-        if not EnsureConfigFolder() or not listfiles then return {} end
-        local found = {}
-        for _, path in ipairs(listfiles(ConfigFolder)) do
-            local name = path:match("([^/]+)%.json$")
-            if name then table.insert(found, name) end
-        end
-        table.sort(found)
-        return found
-    end)
-    return ok and names or {}
+local function GetConfigNames(): { string }
+	local ok, names = pcall(function()
+		return Window:GetConfigs()
+	end)
+	if not ok or type(names) ~= "table" then
+		return {}
+	end
+	return names
 end
 
-local function CurrentConfigName()
-    local name = configNameBox and configNameBox:Get() or selectedConfig
-    return NormalizeConfigName(name ~= "" and name or selectedConfig)
+-- Обновляет dropdown. Вызывается после Save / Delete / Load,
+-- по кнопке и автоматически, если список файлов изменился.
+local function RefreshConfigList(selectName: string?)
+	local names = GetConfigNames()
+	local options = if #names > 0 then names else { NO_CONFIGS }
+
+	configDropdown:Refresh(options, true)
+
+	if selectName ~= nil and table.find(options, selectName) ~= nil then
+		configDropdown:Set(selectName, true)
+	end
+
+	lastConfigList = table.concat(names, "|")
 end
 
-local function SaveConfig(name)
-    if not EnsureConfigFolder() then
-        Window:Notify({Title = "Configs", Content = "Executor does not support file saving.", Duration = 4})
-        return
-    end
-    name = NormalizeConfigName(name)
-    if name == "" then Window:Notify({Title = "Configs", Content = "Enter a config name first.", Duration = 3}) return end
-    local config = {
-        version = 1, Speeds = Speeds, Power = Power, JumpEnabled = JumpEnabled, JumpPower = JumpPower,
-        flying = flying, flySpeed = flySpeed, Safe = Safe, AutoFollow = AutoFollow, AutoRevive = AutoRevive,
-        AvoidNextbots = AvoidNextbots, AvoidDistance = AvoidDistance, AvoidSpeed = AvoidSpeed,
-        SkyEnabled = SkyEnabled, ESP = ESP, DownedESP = DownedESP, NextbotESP = NextbotESP,
-        FPSBoosted = FPSBoosted, FogDisabled = FogDisabled, AutoFarm = AutoFarm,
-    }
-    local ok, encoded = pcall(function() return game:GetService("HttpService"):JSONEncode(config) end)
-    if not ok then Window:Notify({Title = "Configs", Content = "Could not encode config.", Duration = 4}) return end
-    writefile(ConfigFolder .. "/" .. name .. ".json", encoded)
-    selectedConfig = name
-    if configNameBox then configNameBox:Set(name) end
-    Window:Notify({Title = "Configs", Content = "Saved: " .. name, Duration = 3, Type = "Success"})
+local function CurrentConfigName(): string
+	local typed = NormalizeConfigName(configNameBox:Get())
+	if typed ~= "" then
+		return typed
+	end
+
+	local picked = configDropdown:Get()
+	if picked == nil or picked == NO_CONFIGS then
+		return ""
+	end
+	return NormalizeConfigName(picked)
 end
 
-local function LoadConfig(name, silent)
-    if not EnsureConfigFolder() then
-        if not silent then Window:Notify({Title = "Configs", Content = "Executor does not support file loading.", Duration = 4}) end
-        return
-    end
-    name = NormalizeConfigName(name)
-    if name == "" then if not silent then Window:Notify({Title = "Configs", Content = "Choose a config first.", Duration = 3}) end return end
-    local path = ConfigFolder .. "/" .. name .. ".json"
-    if not isfile(path) then if not silent then Window:Notify({Title = "Configs", Content = "Config not found: " .. name, Duration = 3}) end return end
-    local ok, config = pcall(function() return game:GetService("HttpService"):JSONEncode(readfile(path)) end)
-    if not ok or type(config) ~= "table" then if not silent then Window:Notify({Title = "Configs", Content = "Invalid config file.", Duration = 4}) end return end
+-- ---------- autoload ----------
 
-    if config.Power         and speedSlider         then speedSlider:Set(config.Power) end
-    if config.JumpPower     and jumpSlider           then jumpSlider:Set(config.JumpPower) end
-    if config.flySpeed      and flySpeedSlider       then flySpeedSlider:Set(config.flySpeed) end
-    if config.AvoidDistance and avoidDistanceSlider  then avoidDistanceSlider:Set(config.AvoidDistance) end
-    if config.AvoidSpeed    and avoidSpeedSlider     then avoidSpeedSlider:Set(config.AvoidSpeed) end
-    if speedToggle         then speedToggle:Set(config.Speeds == true) end
-    if jumpToggle          then jumpToggle:Set(config.JumpEnabled == true) end
-    if flyToggle           then flyToggle:Set(config.flying == true) end
-    if safeZoneToggle      then safeZoneToggle:Set(config.Safe == true) end
-    if autoFollowToggle    then autoFollowToggle:Set(config.AutoFollow ~= false) end
-    if autoReviveToggle    then autoReviveToggle:Set(config.AutoRevive == true) end
-    if avoidToggle         then avoidToggle:Set(config.AvoidNextbots == true) end
-    if skyToggle           then skyToggle:Set(config.SkyEnabled == true) end
-    if playerESPToggle     then playerESPToggle:Set(config.ESP == true) end
-    if downedESPToggle     then downedESPToggle:Set(config.DownedESP == true) end
-    if nextbotESPToggle    then nextbotESPToggle:Set(config.NextbotESP == true) end
-    if fpsToggle           then fpsToggle:Set(config.FPSBoosted == true) end
-    if fogToggle           then fogToggle:Set(config.FogDisabled == true) end
-    if autoFarmToggle      then autoFarmToggle:Set(config.AutoFarm == true) end
-    selectedConfig = name
-    if configNameBox then configNameBox:Set(name) end
-    if not silent then Window:Notify({Title = "Configs", Content = "Loaded: " .. name, Duration = 3, Type = "Success"}) end
+local function ReadAutoloadName(): string?
+	if not hasFileApi or not isfile(AUTOLOAD_PATH) then
+		return nil
+	end
+
+	local ok, content = pcall(function()
+		return readfile(AUTOLOAD_PATH)
+	end)
+	if not ok or type(content) ~= "string" then
+		return nil
+	end
+
+	local name = NormalizeConfigName(content)
+	if name == "" then
+		return nil
+	end
+	return name
 end
 
-local function DeleteConfig(name)
-    name = NormalizeConfigName(name)
-    local path = ConfigFolder .. "/" .. name .. ".json"
-    if delfile and isfile and isfile(path) then
-        delfile(path)
-        if isfile(AutoloadPath) then
-            local ok, data = pcall(function() return game:GetService("HttpService"):JSONEncode(readfile(AutoloadPath)) end)
-            if ok and data and data.name == name then delfile(AutoloadPath) end
-        end
-        selectedConfig = ""
-        if configNameBox then configNameBox:Set("") end
-        Window:Notify({Title = "Configs", Content = "Deleted: " .. name, Duration = 3})
-    else
-        Window:Notify({Title = "Configs", Content = "Config not found: " .. name, Duration = 3, Type = "Error"})
-    end
+local function WriteAutoloadName(name: string?)
+	if not hasFileApi then
+		return
+	end
+
+	if name == nil then
+		if delfile ~= nil and isfile(AUTOLOAD_PATH) then
+			delfile(AUTOLOAD_PATH)
+		end
+		return
+	end
+
+	if not isfolder(AUTOLOAD_FOLDER) then
+		makefolder(AUTOLOAD_FOLDER)
+	end
+	writefile(AUTOLOAD_PATH, name)
 end
 
-local configOptions = GetConfigNames()
-if #configOptions == 0 then configOptions = {"No saved configs"} end
+-- ---------- actions ----------
+
+local function SaveConfig(name: string)
+	if not hasFileApi then
+		Notice("Executor does not support file saving.", "Error")
+		return
+	end
+	if name == "" then
+		Notice("Enter a config name first.", "Warning")
+		return
+	end
+
+	local ok, err = Window:SaveConfig(name)
+	if not ok then
+		Notice("Save failed: " .. tostring(err), "Error")
+		return
+	end
+
+	configNameBox:Set(name, true)
+	RefreshConfigList(name)
+	Notice("Saved: " .. name, "Success")
+end
+
+local function LoadConfig(name: string, silent: boolean?): boolean
+	if not hasFileApi then
+		if silent ~= true then
+			Notice("Executor does not support file loading.", "Error")
+		end
+		return false
+	end
+	if name == "" then
+		if silent ~= true then
+			Notice("Choose a config first.", "Warning")
+		end
+		return false
+	end
+
+	local ok, err = Window:LoadConfig(name)
+	if not ok then
+		if silent ~= true then
+			Notice("Load failed: " .. tostring(err), "Error")
+		end
+		RefreshConfigList(nil)
+		return false
+	end
+
+	configNameBox:Set(name, true)
+	RefreshConfigList(name)
+	if silent ~= true then
+		Notice("Loaded: " .. name, "Success")
+	end
+	return true
+end
+
+local function DeleteConfig(name: string)
+	if name == "" then
+		Notice("Choose a config first.", "Warning")
+		return
+	end
+
+	Window:Dialog({
+		Title = "Delete config",
+		Content = "Delete config '" .. name .. "'? This can't be undone.",
+		Buttons = {
+			{
+				Text = "Delete",
+				Callback = function()
+					local deleted = Window:DeleteConfig(name)
+					if not deleted then
+						Notice("Config not found: " .. name, "Error")
+						RefreshConfigList(nil)
+						return
+					end
+
+					if ReadAutoloadName() == name then
+						WriteAutoloadName(nil)
+						autoloadToggle:Set(false, true)
+					end
+
+					configNameBox:Set("", true)
+					RefreshConfigList(nil)
+					Notice("Deleted: " .. name, "Warning")
+				end,
+			},
+			{ Text = "Cancel" },
+		},
+	})
+end
+
+-- ---------- UI ----------
+-- ВАЖНО: у этих элементов нет Flag, иначе они сами попадали бы в конфиг.
+
+local initialNames = GetConfigNames()
+local initialOptions = if #initialNames > 0 then initialNames else { NO_CONFIGS }
 
 local cfgManagerSec = ConfigTab:AddSection("Configuration Manager")
 
 configNameBox = cfgManagerSec:AddTextbox({
-    Name        = "Config Name",
-    Placeholder = "example: legit",
-    Flag        = "cfg_name",
-    Callback    = function(value)
-        selectedConfig = NormalizeConfigName(value)
-    end,
+	Name = "Config Name",
+	Placeholder = "example: legit",
 })
 
 configDropdown = cfgManagerSec:AddDropdown({
-    Name    = "Saved Configs",
-    Options = configOptions,
-    Flag    = "cfg_dropdown",
-    Callback = function(name)
-        if name ~= "No saved configs" then
-            selectedConfig = name
-            configNameBox:Set(name)
-        end
-    end,
+	Name = "Saved Configs",
+	Options = initialOptions,
+	Callback = function(name)
+		if name == nil or name == NO_CONFIGS then
+			return
+		end
+		configNameBox:Set(name, true)
+	end,
+})
+lastConfigList = table.concat(initialNames, "|")
+
+cfgManagerSec:AddButton({
+	Name = "Save Config",
+	Callback = function()
+		SaveConfig(CurrentConfigName())
+	end,
 })
 
 cfgManagerSec:AddButton({
-    Name    = "Save Config",
-    Callback = function() SaveConfig(CurrentConfigName()) end,
+	Name = "Load Config",
+	Callback = function()
+		LoadConfig(CurrentConfigName())
+	end,
 })
 
 cfgManagerSec:AddButton({
-    Name    = "Load Config",
-    Callback = function() LoadConfig(CurrentConfigName()) end,
+	Name = "Delete Config",
+	Callback = function()
+		DeleteConfig(CurrentConfigName())
+	end,
 })
 
 cfgManagerSec:AddButton({
-    Name    = "Delete Config",
-    Callback = function() DeleteConfig(CurrentConfigName()) end,
+	Name = "Refresh List",
+	Callback = function()
+		RefreshConfigList(nil)
+		Notice("List updated: " .. #GetConfigNames() .. " config(s)")
+	end,
 })
 
 local autoloadSec = ConfigTab:AddSection("Autoload")
 
 autoloadToggle = autoloadSec:AddToggle({
-    Name    = "Autoload on Startup",
-    Default = false,
-    Flag    = "autoload",
-    Callback = function(value)
-        if not EnsureConfigFolder() then
-            Window:Notify({Title = "Configs", Content = "Executor does not support file saving.", Duration = 4})
-            return
-        end
-        if value then
-            local name = CurrentConfigName()
-            if name == "" or not isfile(ConfigFolder .. "/" .. name .. ".json") then
-                Window:Notify({Title = "Configs", Content = "Save or choose a config first.", Duration = 3})
-                autoloadToggle:Set(false)
-                return
-            end
-            writefile(AutoloadPath, game:GetService("HttpService"):JSONEncode({name = name}))
-            Window:Notify({Title = "Configs", Content = "Autoload set: " .. name, Duration = 3})
-        elseif delfile and isfile(AutoloadPath) then
-            delfile(AutoloadPath)
-            Window:Notify({Title = "Configs", Content = "Autoload disabled.", Duration = 3})
-        end
-    end,
+	Name = "Autoload on Startup",
+	Default = false,
+	Callback = function(value)
+		if not hasFileApi then
+			Notice("Executor does not support file saving.", "Error")
+			autoloadToggle:Set(false, true)
+			return
+		end
+
+		if not value then
+			WriteAutoloadName(nil)
+			Notice("Autoload disabled.")
+			return
+		end
+
+		local name = CurrentConfigName()
+		if name == "" or table.find(GetConfigNames(), name) == nil then
+			Notice("Save or choose a config first.", "Warning")
+			autoloadToggle:Set(false, true)
+			return
+		end
+
+		WriteAutoloadName(name)
+		Notice("Autoload set: " .. name)
+	end,
 })
 
 autoloadSec:AddButton({
-    Name    = "Load Autoload Config",
-    Callback = function()
-        if not isfile or not isfile(AutoloadPath) then
-            Window:Notify({Title = "Configs", Content = "Autoload is not configured.", Duration = 3})
-            return
-        end
-        local ok, data = pcall(function() return game:GetService("HttpService"):JSONEncode(readfile(AutoloadPath)) end)
-        if ok and data and data.name then
-            LoadConfig(data.name)
-        else
-            Window:Notify({Title = "Configs", Content = "Autoload file is invalid.", Duration = 3, Type = "Error"})
-        end
-    end,
+	Name = "Load Autoload Config",
+	Callback = function()
+		local name = ReadAutoloadName()
+		if name == nil then
+			Notice("Autoload is not configured.", "Warning")
+			return
+		end
+		LoadConfig(name)
+	end,
 })
 
-task.defer(function()
-    pcall(function()
-        if not isfile or not isfile(AutoloadPath) then return end
-        local ok, data = pcall(function() return game:GetService("HttpService"):JSONEncode(readfile(AutoloadPath)) end)
-        if ok and data and data.name and isfile(ConfigFolder .. "/" .. data.name .. ".json") then
-            selectedConfig = data.name
-            configNameBox:Set(data.name)
-            autoloadToggle:Set(true)
-            LoadConfig(data.name, true)
-            Window:Notify({Title = "Configs", Content = "Autoloaded: " .. data.name, Duration = 3, Type = "Success"})
-        end
-    end)
+-- ---------- startup ----------
+
+-- Автозагрузка (после того как весь UI уже создан)
+task.delay(1, function()
+	local name = ReadAutoloadName()
+	if name == nil then
+		return
+	end
+
+	if table.find(GetConfigNames(), name) == nil then
+		WriteAutoloadName(nil)
+		return
+	end
+
+	autoloadToggle:Set(true, true)
+	if LoadConfig(name, true) then
+		Notice("Autoloaded: " .. name, "Success")
+	end
+end)
+
+-- Страховка: если файлы конфигов изменились не через UI, dropdown всё равно обновится.
+task.spawn(function()
+	while true do
+		task.wait(2)
+		local names = GetConfigNames()
+		if table.concat(names, "|") ~= lastConfigList then
+			pcall(function()
+				RefreshConfigList(nil)
+			end)
+		end
+	end
 end)
 
 -- ============================================================
