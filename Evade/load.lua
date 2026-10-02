@@ -12,6 +12,7 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 local UIS                 = game:GetService("UserInputService")
 local ReplicatedStorage   = game:GetService("ReplicatedStorage")
 local Workspace           = game:GetService("Workspace")
+local TweenService        = game:GetService("TweenService")
 local Camera              = Workspace.CurrentCamera
 local lp                  = Players.LocalPlayer
 
@@ -1057,448 +1058,469 @@ end
 UIS.JumpRequest:Connect(DoInfiniteJump)
 
 -- ============================================================
--- NEXTBOT ESP (Drawing)
+-- ESP v2
+-- ============================================================
+
+local ESP_REFRESH_RATE = 0.1
+local ESP_MAX_DISTANCE = 2000
+
+type ESPStyle = {
+	highlight: string,
+	tag: string,
+	label: string,
+}
+
+local AliveStyle: ESPStyle = {
+	highlight = "ESP_Highlight",
+	tag = "ESP_Name",
+	label = "ALIVE",
+}
+
+local DownedStyle: ESPStyle = {
+	highlight = "DownedESP_Highlight",
+	tag = "DownedESP_Name",
+	label = "DOWNED",
+}
+
+type TagParts = {
+	stroke: UIStroke,
+	avatarStroke: UIStroke,
+	name: TextLabel,
+	info: TextLabel,
+	percent: TextLabel,
+	fill: Frame,
+}
+
+local tagParts: { [BillboardGui]: TagParts } = setmetatable({}, { __mode = "k" }) :: any
+
+local function Make(className: string, props: { [string]: any }, parent: Instance?): any
+	local instance = Instance.new(className)
+	for key, value in props do
+		(instance :: any)[key] = value
+	end
+	instance.Parent = parent
+	return instance
+end
+
+local function HealthColor(pct: number): Color3
+	-- 0 = красный, 1 = зелёный
+	return Color3.fromHSV(math.clamp(pct, 0, 1) * 0.33, 0.85, 1)
+end
+
+-- ---------- карточка над игроком ----------
+
+local function CreateTag(player: Player, character: Model, root: BasePart, tagName: string, accent: Color3): BillboardGui
+	local tag = Make("BillboardGui", {
+		Name = tagName,
+		Adornee = root,
+		AlwaysOnTop = true,
+		MaxDistance = ESP_MAX_DISTANCE,
+		Size = UDim2.fromOffset(128, 38),
+		StudsOffset = Vector3.new(0, 3.6, 0),
+	}, character)
+
+	local card = Make("Frame", {
+		Name = "Card",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.fromRGB(14, 14, 20),
+		BackgroundTransparency = 0.2,
+		BorderSizePixel = 0,
+	}, tag)
+	Make("UICorner", { CornerRadius = UDim.new(0, 9) }, card)
+	Make("UIGradient", {
+		Rotation = 90,
+		Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(165, 170, 185)),
+	}, card)
+	local stroke = Make("UIStroke", {
+		Color = accent,
+		Thickness = 1.5,
+		Transparency = 0.15,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+	}, card)
+
+	local avatar = Make("ImageLabel", {
+		Name = "Avatar",
+		Position = UDim2.fromOffset(6, 6),
+		Size = UDim2.fromOffset(26, 26),
+		BackgroundColor3 = Color3.fromRGB(30, 30, 40),
+		BorderSizePixel = 0,
+		Image = "rbxthumb://type=AvatarHeadShot&id=" .. player.UserId .. "&w=60&h=60",
+	}, card)
+	Make("UICorner", { CornerRadius = UDim.new(1, 0) }, avatar)
+	local avatarStroke = Make("UIStroke", {
+		Color = accent,
+		Thickness = 1.5,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+	}, avatar)
+
+	local name = Make("TextLabel", {
+		Name = "Name",
+		Position = UDim2.fromOffset(38, 3),
+		Size = UDim2.new(1, -44, 0, 14),
+		BackgroundTransparency = 1,
+		Font = Enum.Font.GothamBold,
+		TextSize = 12,
+		TextColor3 = Color3.fromRGB(255, 255, 255),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		Text = player.DisplayName,
+	}, card)
+
+	local info = Make("TextLabel", {
+		Name = "Info",
+		Position = UDim2.fromOffset(38, 17),
+		Size = UDim2.new(1, -44, 0, 11),
+		BackgroundTransparency = 1,
+		Font = Enum.Font.Gotham,
+		TextSize = 10,
+		RichText = true,
+		TextColor3 = Color3.fromRGB(170, 176, 190),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Text = "",
+	}, card)
+
+	local percent = Make("TextLabel", {
+		Name = "Percent",
+		Position = UDim2.new(1, -40, 0, 25),
+		Size = UDim2.fromOffset(34, 12),
+		BackgroundTransparency = 1,
+		Font = Enum.Font.GothamBold,
+		TextSize = 9,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		TextColor3 = accent,
+		Text = "",
+	}, card)
+
+	local barBack = Make("Frame", {
+		Name = "BarBack",
+		Position = UDim2.fromOffset(38, 29),
+		Size = UDim2.new(1, -80, 0, 4),
+		BackgroundColor3 = Color3.fromRGB(40, 40, 52),
+		BorderSizePixel = 0,
+	}, card)
+	Make("UICorner", { CornerRadius = UDim.new(1, 0) }, barBack)
+
+	local fill = Make("Frame", {
+		Name = "Fill",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = accent,
+		BorderSizePixel = 0,
+	}, barBack)
+	Make("UICorner", { CornerRadius = UDim.new(1, 0) }, fill)
+	Make("UIGradient", {
+		Color = ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(190, 190, 190)),
+	}, fill)
+
+	tagParts[tag] = {
+		stroke = stroke,
+		avatarStroke = avatarStroke,
+		name = name,
+		info = info,
+		percent = percent,
+		fill = fill,
+	}
+
+	return tag
+end
+
+local function RenderPlayerESP(
+	player: Player,
+	character: Model,
+	humanoid: Humanoid,
+	root: BasePart,
+	style: ESPStyle,
+	accent: Color3,
+	colorByHealth: boolean
+)
+	local pct = if humanoid.MaxHealth > 0 then math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1) else 0
+	local distance = math.floor((Camera.CFrame.Position - root.Position).Magnitude)
+	local barColor = if colorByHealth then HealthColor(pct) else accent
+
+	local highlight = character:FindFirstChild(style.highlight)
+	if highlight == nil then
+		highlight = Make("Highlight", {
+			Name = style.highlight,
+			Adornee = character,
+			DepthMode = Enum.HighlightDepthMode.AlwaysOnTop,
+			FillTransparency = 0.8,
+			OutlineTransparency = 0.1,
+		}, character)
+	end
+	(highlight :: Highlight).FillColor = accent;
+	(highlight :: Highlight).OutlineColor = accent
+
+	local tag = character:FindFirstChild(style.tag)
+	if tag == nil then
+		tag = CreateTag(player, character, root, style.tag, accent)
+	end
+
+	local parts = tagParts[tag :: BillboardGui]
+	if parts == nil then
+		return
+	end
+
+	parts.stroke.Color = accent
+	parts.avatarStroke.Color = accent
+	parts.name.Text = player.DisplayName
+	parts.percent.Text = string.format("%d%%", math.floor(pct * 100))
+	parts.percent.TextColor3 = barColor
+	parts.info.Text = string.format(
+		'<font color="#%s">●</font> %s  <font color="#8f96a8">%dm</font>',
+		accent:ToHex(),
+		style.label,
+		distance
+	)
+
+	TweenService:Create(parts.fill, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+		Size = UDim2.fromScale(pct, 1),
+		BackgroundColor3 = barColor,
+	}):Play()
+end
+
+local function ClearESPByStyle(character: Model?, style: ESPStyle)
+	if character == nil then
+		return
+	end
+
+	local highlight = character:FindFirstChild(style.highlight)
+	if highlight ~= nil then
+		highlight:Destroy()
+	end
+
+	local tag = character:FindFirstChild(style.tag)
+	if tag ~= nil then
+		tag:Destroy()
+	end
+end
+
+local function ClearPlayerESP(character: Model?)
+	ClearESPByStyle(character, AliveStyle)
+end
+
+local function ClearDownedESP(character: Model?)
+	ClearESPByStyle(character, DownedStyle)
+end
+
+task.spawn(function()
+	while true do
+		task.wait(ESP_REFRESH_RATE)
+
+		for _, player in Players:GetPlayers() do
+			if player == lp then
+				continue
+			end
+
+			local character = player.Character
+			if character == nil then
+				continue
+			end
+
+			local humanoid = character:FindFirstChildOfClass("Humanoid")
+			local root = character:FindFirstChild("HumanoidRootPart")
+			if humanoid == nil or root == nil then
+				ClearPlayerESP(character)
+				ClearDownedESP(character)
+				continue
+			end
+
+			local downed = (ESP or DownedESP) and IsPlayerDowned(player)
+			local alive = humanoid.Health > 0 and not downed
+
+			if ESP and alive then
+				RenderPlayerESP(player, character, humanoid, root, AliveStyle, ESPColor, true)
+			else
+				ClearPlayerESP(character)
+			end
+
+			if DownedESP and downed then
+				RenderPlayerESP(player, character, humanoid, root, DownedStyle, DownedESPColor, false)
+			else
+				ClearDownedESP(character)
+			end
+		end
+	end
+end)
+
+-- ============================================================
+-- NEXTBOT ESP (Drawing): угловые рамки + tracer + подпись
 -- ============================================================
 
 local nextbotDrawings = {}
+local nextbotCache = {}
+local nextbotCacheTime = 0
+
+-- GetNextbots обходит все Players-descendants, поэтому не дёргаем его каждый кадр.
+local function GetNextbotsCached()
+	local now = os.clock()
+	if now - nextbotCacheTime >= 0.5 then
+		nextbotCache = GetNextbots()
+		nextbotCacheTime = now
+	end
+	return nextbotCache
+end
+
+local function SetDataVisible(data, visible: boolean)
+	if data.Square ~= nil then
+		data.Square.Visible = visible
+	end
+	if data.Label ~= nil then
+		data.Label.Visible = visible
+	end
+	for _, line in data.Lines do
+		line.Visible = visible
+	end
+end
+
+local function RemoveData(data)
+	if data.Square ~= nil then
+		data.Square:Remove()
+	end
+	if data.Label ~= nil then
+		data.Label:Remove()
+	end
+	for _, line in data.Lines do
+		line:Remove()
+	end
+end
 
 local function ClearNextbotDrawings()
-    for _, data in pairs(nextbotDrawings) do
-        if data.Square then data.Square:Remove() end
-        if data.Label  then data.Label:Remove()  end
-        if data.Lines  then
-            for _, line in ipairs(data.Lines) do line:Remove() end
-        end
-    end
-    table.clear(nextbotDrawings)
+	for _, data in nextbotDrawings do
+		RemoveData(data)
+	end
+	table.clear(nextbotDrawings)
+end
+
+local function CreateNextbotDrawing()
+	local square = Drawing.new("Square")
+	square.Filled = true
+	square.Color = NextbotESPColor
+	square.Transparency = 0.1
+	square.Thickness = 0
+
+	-- Lines[1..8] — уголки рамки, Lines[9] — tracer
+	local lines = {}
+	for index = 1, 9 do
+		local line = Drawing.new("Line")
+		line.Color = NextbotESPColor
+		line.Thickness = if index == 9 then 1 else 2
+		line.Transparency = if index == 9 then 0.55 else 1
+		table.insert(lines, line)
+	end
+
+	local label = Drawing.new("Text")
+	label.Center = true
+	label.Outline = true
+	label.Color = NextbotESPColor
+	label.Font = 2
+	label.Size = 13
+
+	return { Square = square, Lines = lines, Label = label }
 end
 
 local function UpdateNextbotESP_Drawing()
-    if not NextbotESP then
-        ClearNextbotDrawings()
-        return
-    end
+	if not NextbotESP then
+		if next(nextbotDrawings) ~= nil then
+			ClearNextbotDrawings()
+		end
+		return
+	end
 
-    local camera = Camera
-    if not camera then return end
+	local models = GetNextbotsCached()
 
-    local models = GetNextbots()
+	for model, data in nextbotDrawings do
+		if models[model] == nil or model.Parent == nil then
+			RemoveData(data)
+			nextbotDrawings[model] = nil
+		end
+	end
 
-    for model, data in pairs(nextbotDrawings) do
-        if not models[model] or not model.Parent then
-            if data.Square then data.Square:Remove() end
-            if data.Label  then data.Label:Remove()  end
-            if data.Lines  then
-                for _, line in ipairs(data.Lines) do line:Remove() end
-            end
-            nextbotDrawings[model] = nil
-        end
-    end
+	local viewport = Camera.ViewportSize
 
-    for model in pairs(models) do
-        local primary = model.PrimaryPart or model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Root")
-        if not primary then continue end
+	for model in models do
+		local primary = model.PrimaryPart or model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Root")
+		if primary == nil then
+			continue
+		end
 
-        local boxCFrame, boxSize = model:GetBoundingBox()
-        local half = boxSize * 0.5
-        local minX, minY = math.huge, math.huge
-        local maxX, maxY = -math.huge, -math.huge
-        local visiblePoint = false
-        for _, offset in ipairs({
-            Vector3.new(-half.X, -half.Y, -half.Z), Vector3.new(-half.X, -half.Y,  half.Z),
-            Vector3.new(-half.X,  half.Y, -half.Z), Vector3.new(-half.X,  half.Y,  half.Z),
-            Vector3.new( half.X, -half.Y, -half.Z), Vector3.new( half.X, -half.Y,  half.Z),
-            Vector3.new( half.X,  half.Y, -half.Z), Vector3.new( half.X,  half.Y,  half.Z),
-        }) do
-            local point, onScreen = camera:WorldToViewportPoint((boxCFrame * CFrame.new(offset)).Position)
-            if onScreen and point.Z > 0 then
-                visiblePoint = true
-                minX, minY = math.min(minX, point.X), math.min(minY, point.Y)
-                maxX, maxY = math.max(maxX, point.X), math.max(maxY, point.Y)
-            end
-        end
+		local boxCFrame, boxSize = model:GetBoundingBox()
+		local half = boxSize * 0.5
+		local minX, minY = math.huge, math.huge
+		local maxX, maxY = -math.huge, -math.huge
+		local visiblePoint = false
 
-        if not visiblePoint then
-            local data = nextbotDrawings[model]
-            if data then
-                if data.Square then data.Square.Visible = false end
-                if data.Label  then data.Label.Visible  = false end
-                if data.Lines  then
-                    for _, line in ipairs(data.Lines) do line.Visible = false end
-                end
-            end
-            continue
-        end
+		for _, sx in { -1, 1 } do
+			for _, sy in { -1, 1 } do
+				for _, sz in { -1, 1 } do
+					local worldPoint = (boxCFrame * CFrame.new(half.X * sx, half.Y * sy, half.Z * sz)).Position
+					local point, onScreen = Camera:WorldToViewportPoint(worldPoint)
+					if onScreen and point.Z > 0 then
+						visiblePoint = true
+						minX, minY = math.min(minX, point.X), math.min(minY, point.Y)
+						maxX, maxY = math.max(maxX, point.X), math.max(maxY, point.Y)
+					end
+				end
+			end
+		end
 
-        local padding = math.clamp((maxY - minY) * 0.04, 3, 10)
-        local x, y   = minX - padding, minY - padding
-        local width   = (maxX - minX) + padding * 2
-        local height  = (maxY - minY) + padding * 2
+		local data = nextbotDrawings[model]
 
-        local data = nextbotDrawings[model]
-        if not data then
-            data = {}
-            local sq = Drawing.new("Square")
-            sq.Filled       = true
-            sq.Color        = NextbotESPColor
-            sq.Transparency = 0.18
-            sq.Thickness    = 0
-            local lines = {}
-            for _ = 1, 4 do
-                local line = Drawing.new("Line")
-                line.Color        = NextbotESPColor
-                line.Thickness    = 2
-                line.Transparency = 1
-                table.insert(lines, line)
-            end
-            local label = Drawing.new("Text")
-            label.Center  = true
-            label.Outline = true
-            label.Color   = NextbotESPColor
-            label.Font    = 2
-            label.Size    = 14
-            data.Square = sq
-            data.Lines  = lines
-            data.Label  = label
-            nextbotDrawings[model] = data
-        else
-            data.Square.Color = NextbotESPColor
-            for _, line in ipairs(data.Lines) do
-                line.Color = NextbotESPColor
-            end
-            data.Label.Color = NextbotESPColor
-        end
+		if not visiblePoint then
+			if data ~= nil then
+				SetDataVisible(data, false)
+			end
+			continue
+		end
 
-        local sq = data.Square
-        sq.Position = Vector2.new(x, y)
-        sq.Size     = Vector2.new(width, height)
-        sq.Visible  = true
+		if data == nil then
+			data = CreateNextbotDrawing()
+			nextbotDrawings[model] = data
+		end
 
-        local distance = (camera.CFrame.Position - primary.Position).Magnitude
-        local botType, botName = GetNextbotInfo(model)
-        local label = data.Label
-        label.Text     = string.format("Type: %s\n%s  [%dm]", botType, botName, math.floor(distance))
-        label.Position = Vector2.new(x + width / 2, y - 28)
-        label.Size     = 13
-        label.Visible  = true
+		local padding = math.clamp((maxY - minY) * 0.04, 3, 10)
+		local x, y = minX - padding, minY - padding
+		local width = (maxX - minX) + padding * 2
+		local height = (maxY - minY) + padding * 2
+		local corner = math.clamp(math.min(width, height) * 0.28, 6, 22)
 
-        local lines = data.Lines
-        lines[1].From = Vector2.new(x, y)             lines[1].To = Vector2.new(x + width, y)
-        lines[2].From = Vector2.new(x + width, y)     lines[2].To = Vector2.new(x + width, y + height)
-        lines[3].From = Vector2.new(x + width, y + height) lines[3].To = Vector2.new(x, y + height)
-        lines[4].From = Vector2.new(x, y + height)    lines[4].To = Vector2.new(x, y)
-        for i = 1, 4 do lines[i].Visible = true end
-    end
+		data.Square.Color = NextbotESPColor
+		data.Square.Position = Vector2.new(x, y)
+		data.Square.Size = Vector2.new(width, height)
+		data.Square.Visible = true
+
+		local segments = {
+			{ Vector2.new(x, y), Vector2.new(x + corner, y) },
+			{ Vector2.new(x, y), Vector2.new(x, y + corner) },
+			{ Vector2.new(x + width, y), Vector2.new(x + width - corner, y) },
+			{ Vector2.new(x + width, y), Vector2.new(x + width, y + corner) },
+			{ Vector2.new(x, y + height), Vector2.new(x + corner, y + height) },
+			{ Vector2.new(x, y + height), Vector2.new(x, y + height - corner) },
+			{ Vector2.new(x + width, y + height), Vector2.new(x + width - corner, y + height) },
+			{ Vector2.new(x + width, y + height), Vector2.new(x + width, y + height - corner) },
+		}
+		for index, segment in segments do
+			local line = data.Lines[index]
+			line.Color = NextbotESPColor
+			line.From = segment[1]
+			line.To = segment[2]
+			line.Visible = true
+		end
+
+		local tracer = data.Lines[9]
+		tracer.Color = NextbotESPColor
+		tracer.From = Vector2.new(viewport.X / 2, viewport.Y)
+		tracer.To = Vector2.new(x + width / 2, y + height)
+		tracer.Visible = true
+
+		local distance = (Camera.CFrame.Position - primary.Position).Magnitude
+		local botType, botName = GetNextbotInfo(model)
+		data.Label.Color = NextbotESPColor
+		data.Label.Text = string.format("%s\n%s  [%dm]", botName, botType, math.floor(distance))
+		data.Label.Position = Vector2.new(x + width / 2, y - 30)
+		data.Label.Visible = true
+	end
 end
-
-Workspace.DescendantAdded:Connect(function(desc)
-    if NextbotESP and desc:IsA("Model") and IsNextbot(desc) then
-        task.wait()
-        UpdateNextbotESP_Drawing()
-    end
-end)
 
 RunService.RenderStepped:Connect(UpdateNextbotESP_Drawing)
-
--- ============================================================
--- PLAYER ESP (Highlight + BillboardGui)
--- ============================================================
-
-local IRY_LOGO_URL = "https://i.postimg.cc/wv2hpwyM/Bez-nazvania8-20260824103816.png"
-
-local function ClearPlayerESP(character)
-    if not character then return end
-    local highlight = character:FindFirstChild("ESP_Highlight")
-    if highlight then highlight:Destroy() end
-    local nameTag = character:FindFirstChild("ESP_Name")
-    if nameTag then nameTag:Destroy() end
-end
-
-task.spawn(function()
-    while true do
-        task.wait(0.15)
-        if not ESP then
-            for _, v in pairs(Players:GetPlayers()) do
-                if v ~= lp and v.Character then ClearPlayerESP(v.Character) end
-            end
-            continue
-        end
-        for _, v in pairs(Players:GetPlayers()) do
-            if v ~= lp and v.Character then
-                local char = v.Character
-                local humT = char:FindFirstChildOfClass("Humanoid")
-                local root = char:FindFirstChild("HumanoidRootPart")
-
-                if humT and root and humT.Health > 0 and not IsPlayerDowned(v) then
-                    local pct = math.clamp(humT.Health / humT.MaxHealth, 0, 1)
-
-                    local hpColor
-                    if pct > 0.5 then
-                        local t = (pct - 0.5) * 2
-                        hpColor = Color3.fromRGB(math.floor(255 * (1 - t)), 255, 0)
-                    else
-                        local t = pct * 2
-                        hpColor = Color3.fromRGB(255, math.floor(255 * t), 0)
-                    end
-
-                    local highlight = char:FindFirstChild("ESP_Highlight")
-                    if not highlight then
-                        highlight = Instance.new("Highlight")
-                        highlight.Name             = "ESP_Highlight"
-                        highlight.Adornee          = char
-                        highlight.DepthMode        = Enum.HighlightDepthMode.AlwaysOnTop
-                        highlight.OutlineTransparency = 0
-                        highlight.FillTransparency = 0.72
-                        highlight.Parent           = char
-                    end
-                    highlight.FillColor    = ESPColor
-                    highlight.OutlineColor = ESPColor
-
-                    local tag = char:FindFirstChild("ESP_Name")
-                    if not tag then
-                        tag = Instance.new("BillboardGui")
-                        tag.Name        = "ESP_Name"
-                        tag.Adornee     = root
-                        tag.AlwaysOnTop = true
-                        tag.MaxDistance = 2000
-                        tag.Size        = UDim2.new(0, 100, 0, 40)
-                        tag.StudsOffset = Vector3.new(0, 3.0, 0)
-                        tag.Parent      = char
-
-                        local bg = Instance.new("Frame")
-                        bg.Name                   = "BG"
-                        bg.Size                   = UDim2.fromScale(1, 1)
-                        bg.BackgroundColor3       = Color3.fromRGB(10, 10, 15)
-                        bg.BackgroundTransparency = 0.38
-                        bg.BorderSizePixel        = 0
-                        bg.Parent                 = tag
-                        Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 8)
-
-                        local logo = Instance.new("ImageLabel")
-                        logo.Name                   = "Logo"
-                        logo.Size                   = UDim2.new(0, 18, 0, 18)
-                        logo.Position               = UDim2.new(0, 3, 0.5, -9)
-                        logo.BackgroundTransparency = 1
-                        logo.Image                  = IRY_LOGO_URL
-                        logo.ScaleType              = Enum.ScaleType.Fit
-                        logo.Parent                 = bg
-
-                        local nameLabel = Instance.new("TextLabel")
-                        nameLabel.Name                   = "NameLabel"
-                        nameLabel.Size                   = UDim2.new(1, -26, 0, 14)
-                        nameLabel.Position               = UDim2.new(0, 24, 0, 2)
-                        nameLabel.BackgroundTransparency = 1
-                        nameLabel.Font                   = Enum.Font.GothamBold
-                        nameLabel.TextSize               = 9
-                        nameLabel.TextXAlignment         = Enum.TextXAlignment.Left
-                        nameLabel.TextStrokeTransparency = 0.4
-                        nameLabel.TextStrokeColor3       = Color3.fromRGB(0, 0, 0)
-                        nameLabel.Parent                 = bg
-
-                        local statusLabel = Instance.new("TextLabel")
-                        statusLabel.Name                   = "StatusLabel"
-                        statusLabel.Size                   = UDim2.new(1, -26, 0, 10)
-                        statusLabel.Position               = UDim2.new(0, 24, 0, 16)
-                        statusLabel.BackgroundTransparency = 1
-                        statusLabel.Font                   = Enum.Font.Gotham
-                        statusLabel.TextSize               = 7
-                        statusLabel.TextXAlignment         = Enum.TextXAlignment.Left
-                        statusLabel.TextColor3             = Color3.fromRGB(200, 200, 200)
-                        statusLabel.TextStrokeTransparency = 0.5
-                        statusLabel.TextStrokeColor3       = Color3.fromRGB(0, 0, 0)
-                        statusLabel.Parent                 = bg
-
-                        local hpBarBG = Instance.new("Frame")
-                        hpBarBG.Name                   = "HPBarBG"
-                        hpBarBG.Size                   = UDim2.new(1, -48, 0, 4)
-                        hpBarBG.Position               = UDim2.new(0, 48, 1, -12)
-                        hpBarBG.BackgroundColor3       = Color3.fromRGB(40, 40, 40)
-                        hpBarBG.BackgroundTransparency = 0.3
-                        hpBarBG.BorderSizePixel        = 0
-                        hpBarBG.Parent                 = bg
-                        Instance.new("UICorner", hpBarBG).CornerRadius = UDim.new(1, 0)
-
-                        local hpBar = Instance.new("Frame")
-                        hpBar.Name             = "HPBar"
-                        hpBar.Size             = UDim2.new(1, 0, 1, 0)
-                        hpBar.BackgroundColor3 = Color3.fromRGB(0, 255, 80)
-                        hpBar.BorderSizePixel  = 0
-                        hpBar.Parent           = hpBarBG
-                        Instance.new("UICorner", hpBar).CornerRadius = UDim.new(1, 0)
-
-                        local accent = Instance.new("Frame")
-                        accent.Name           = "Accent"
-                        accent.Size           = UDim2.new(0, 2, 1, -6)
-                        accent.Position       = UDim2.new(0, 1, 0, 3)
-                        accent.BorderSizePixel = 0
-                        accent.Parent         = bg
-                        Instance.new("UICorner", accent).CornerRadius = UDim.new(1, 0)
-                    end
-
-                    local bg          = tag:FindFirstChild("BG")
-                    local nameLabel   = bg and bg:FindFirstChild("NameLabel")
-                    local statusLabel = bg and bg:FindFirstChild("StatusLabel")
-                    local hpBar       = bg and bg:FindFirstChild("HPBarBG") and bg.HPBarBG:FindFirstChild("HPBar")
-                    local accent      = bg and bg:FindFirstChild("Accent")
-                    local distance    = math.floor((Camera.CFrame.Position - root.Position).Magnitude)
-
-                    if nameLabel   then nameLabel.Text = v.DisplayName; nameLabel.TextColor3 = ESPColor end
-                    if statusLabel then statusLabel.Text = string.format("● ALIVE  |  %dm  |  %d%%", distance, math.floor(pct * 100)) end
-                    if hpBar       then hpBar.Size = UDim2.new(pct, 0, 1, 0); hpBar.BackgroundColor3 = hpColor end
-                    if accent      then accent.BackgroundColor3 = ESPColor end
-                else
-                    ClearPlayerESP(v.Character)
-                end
-            end
-        end
-    end
-end)
-
--- ============================================================
--- DOWNED ESP
--- ============================================================
-
-local IRY_LOGO_URL_DOWNED = "https://i.postimg.cc/wv2hpwyM/Bez-nazvania8-20260824103816.png"
-
-local function ClearDownedESP(character)
-    if not character then return end
-    local highlight = character:FindFirstChild("DownedESP_Highlight")
-    if highlight then highlight:Destroy() end
-    local nameTag = character:FindFirstChild("DownedESP_Name")
-    if nameTag then nameTag:Destroy() end
-end
-
-task.spawn(function()
-    while true do
-        task.wait(0.15)
-        if not DownedESP then
-            for _, player in ipairs(Players:GetPlayers()) do
-                if player ~= lp and player.Character then ClearDownedESP(player.Character) end
-            end
-            continue
-        end
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= lp and player.Character then
-                local character = player.Character
-                local root = character:FindFirstChild("HumanoidRootPart")
-                local humT = character:FindFirstChildOfClass("Humanoid")
-
-                if root and humT and IsPlayerDowned(player) then
-                    local pct   = math.clamp(humT.Health / humT.MaxHealth, 0, 1)
-                    local color = DownedESPColor
-
-                    local highlight = character:FindFirstChild("DownedESP_Highlight")
-                    if not highlight then
-                        highlight = Instance.new("Highlight")
-                        highlight.Name             = "DownedESP_Highlight"
-                        highlight.Adornee          = character
-                        highlight.DepthMode        = Enum.HighlightDepthMode.AlwaysOnTop
-                        highlight.FillTransparency = 0.72
-                        highlight.OutlineTransparency = 0
-                        highlight.Parent           = character
-                    end
-                    highlight.FillColor    = color
-                    highlight.OutlineColor = color
-
-                    local tag = character:FindFirstChild("DownedESP_Name")
-                    if not tag then
-                        tag = Instance.new("BillboardGui")
-                        tag.Name        = "DownedESP_Name"
-                        tag.Adornee     = root
-                        tag.AlwaysOnTop = true
-                        tag.MaxDistance = 2000
-                        tag.Size        = UDim2.new(0, 100, 0, 40)
-                        tag.StudsOffset = Vector3.new(0, 3.0, 0)
-                        tag.Parent      = character
-
-                        local bg = Instance.new("Frame")
-                        bg.Name                   = "BG"
-                        bg.Size                   = UDim2.fromScale(1, 1)
-                        bg.BackgroundColor3       = Color3.fromRGB(25, 5, 5)
-                        bg.BackgroundTransparency = 0.38
-                        bg.BorderSizePixel        = 0
-                        bg.Parent                 = tag
-                        Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 8)
-
-                        local logo = Instance.new("ImageLabel")
-                        logo.Name                   = "Logo"
-                        logo.Size                   = UDim2.new(0, 18, 0, 18)
-                        logo.Position               = UDim2.new(0, 3, 0.5, -9)
-                        logo.BackgroundTransparency = 1
-                        logo.Image                  = IRY_LOGO_URL_DOWNED
-                        logo.ScaleType              = Enum.ScaleType.Fit
-                        logo.Parent                 = bg
-
-                        local nameLabel = Instance.new("TextLabel")
-                        nameLabel.Name                   = "NameLabel"
-                        nameLabel.Size                   = UDim2.new(1, -26, 0, 14)
-                        nameLabel.Position               = UDim2.new(0, 24, 0, 2)
-                        nameLabel.BackgroundTransparency = 1
-                        nameLabel.Font                   = Enum.Font.GothamBold
-                        nameLabel.TextSize               = 9
-                        nameLabel.TextXAlignment         = Enum.TextXAlignment.Left
-                        nameLabel.TextStrokeTransparency = 0.4
-                        nameLabel.TextStrokeColor3       = Color3.fromRGB(0, 0, 0)
-                        nameLabel.Parent                 = bg
-
-                        local statusLabel = Instance.new("TextLabel")
-                        statusLabel.Name                   = "StatusLabel"
-                        statusLabel.Size                   = UDim2.new(1, -26, 0, 10)
-                        statusLabel.Position               = UDim2.new(0, 24, 0, 16)
-                        statusLabel.BackgroundTransparency = 1
-                        statusLabel.Font                   = Enum.Font.Gotham
-                        statusLabel.TextSize               = 7
-                        statusLabel.TextXAlignment         = Enum.TextXAlignment.Left
-                        statusLabel.TextColor3             = Color3.fromRGB(255, 180, 180)
-                        statusLabel.TextStrokeTransparency = 0.5
-                        statusLabel.TextStrokeColor3       = Color3.fromRGB(0, 0, 0)
-                        statusLabel.Parent                 = bg
-
-                        local hpBarBG = Instance.new("Frame")
-                        hpBarBG.Name                   = "HPBarBG"
-                        hpBarBG.Size                   = UDim2.new(1, -48, 0, 4)
-                        hpBarBG.Position               = UDim2.new(0, 48, 1, -12)
-                        hpBarBG.BackgroundColor3       = Color3.fromRGB(60, 20, 20)
-                        hpBarBG.BackgroundTransparency = 0.3
-                        hpBarBG.BorderSizePixel        = 0
-                        hpBarBG.Parent                 = bg
-                        Instance.new("UICorner", hpBarBG).CornerRadius = UDim.new(1, 0)
-
-                        local hpBar = Instance.new("Frame")
-                        hpBar.Name             = "HPBar"
-                        hpBar.Size             = UDim2.new(1, 0, 1, 0)
-                        hpBar.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-                        hpBar.BorderSizePixel  = 0
-                        hpBar.Parent           = hpBarBG
-                        Instance.new("UICorner", hpBar).CornerRadius = UDim.new(1, 0)
-
-                        local accent = Instance.new("Frame")
-                        accent.Name           = "Accent"
-                        accent.Size           = UDim2.new(0, 2, 1, -6)
-                        accent.Position       = UDim2.new(0, 1, 0, 3)
-                        accent.BorderSizePixel = 0
-                        accent.Parent         = bg
-                        Instance.new("UICorner", accent).CornerRadius = UDim.new(1, 0)
-                    end
-
-                    local bg          = tag:FindFirstChild("BG")
-                    local nameLabel   = bg and bg:FindFirstChild("NameLabel")
-                    local statusLabel = bg and bg:FindFirstChild("StatusLabel")
-                    local hpBar       = bg and bg:FindFirstChild("HPBarBG") and bg.HPBarBG:FindFirstChild("HPBar")
-                    local accent      = bg and bg:FindFirstChild("Accent")
-                    local distance    = math.floor((Camera.CFrame.Position - root.Position).Magnitude)
-
-                    if nameLabel   then nameLabel.Text = player.DisplayName; nameLabel.TextColor3 = color end
-                    if statusLabel then statusLabel.Text = string.format("● DOWNED  |  %dm  |  %d%%", distance, math.floor(pct * 100)) end
-                    if hpBar       then hpBar.Size = UDim2.new(pct, 0, 1, 0); hpBar.BackgroundColor3 = color end
-                    if accent      then accent.BackgroundColor3 = color end
-                else
-                    ClearDownedESP(character)
-                end
-            end
-        end
-    end
-end)
 
 -- ============================================================
 -- AUTO FARM
