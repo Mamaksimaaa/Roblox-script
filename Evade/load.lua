@@ -1706,6 +1706,7 @@ Window:SetWatermark(true, "IRY HUB v2.0")
 local MainTab   = Window:AddTab("Main")
 local VisualTab = Window:AddTab("Visual")
 local OptTab    = Window:AddTab("Optim")
+local BindsTab  = Window:AddTab("Binds")   -- заполняется в самом конце, когда все функции уже созданы
 local ConfigTab = Window:AddTab("Configs")
 local AboutTab  = Window:AddTab("inlawry")
 
@@ -1945,13 +1946,15 @@ avoidSpeedSlider = avoidSec:AddSlider({
 
 local farmSec = VisualTab:AddSection("Auto Farm")
 
+local farmModeNames = {
+    "1: Models to Player (DONT WORK)",
+    "2: Quick swap  (DONT WORK)",
+    "3: TELEPORT (recommended)",
+}
+
 farmModeDropdown = farmSec:AddDropdown({
     Name    = "Farm Mode",
-    Options = {
-        "1: Models to Player (DONT WORK)",
-        "2: Quick swap  (DONT WORK)",
-        "3: TELEPORT (recommended)",
-    },
+    Options = farmModeNames,
     Default  = "3: TELEPORT (recommended)",
     Flag     = "farm_mode",
     Callback = function(value)
@@ -2129,14 +2132,10 @@ perfSec:AddButton({
 
 -- ============================================================
 -- CONFIGS TAB
--- Замени этим блоком всё от заголовка "CONFIGS TAB" до заголовка
--- "ABOUT / INLAWRY TAB" (старые SaveConfig/LoadConfig/DeleteConfig,
--- configOptions, оба task.defer с autoload и т.д. — удалить).
---
 -- Сохранение/загрузка идёт через встроенную систему MinecraftLib
 -- (Window:SaveConfig / LoadConfig / GetConfigs / DeleteConfig),
 -- она сама собирает ВСЕ элементы с Flag: тумблеры, слайдеры,
--- кейбинды, цвета ESP и режим Farm Mode.
+-- кейбинды (включая вкладку Binds), цвета ESP и режим Farm Mode.
 -- ============================================================
 
 local AUTOLOAD_FOLDER = "inlawry_Evade"
@@ -2472,6 +2471,22 @@ end)
 -- ABOUT / INLAWRY TAB
 -- ============================================================
 
+local modDetectorActive = false
+
+local function ActivateModDetector()
+	if modDetectorActive then
+		Window:Notify({ Title = "Mod Detector", Content = "Already active", Duration = 2 })
+		return
+	end
+	modDetectorActive = true
+	Players.PlayerAdded:Connect(function(plr)
+		if plr.UserId == game.CreatorId then
+			lp:Kick("Moderator Joined")
+		end
+	end)
+	Window:Notify({ Title = "Mod Detector", Content = "Active — auto-leave if moderator joins", Duration = 3 })
+end
+
 local communitySec = AboutTab:AddSection("Community")
 
 communitySec:AddButton({
@@ -2486,12 +2501,7 @@ local securitySec = AboutTab:AddSection("Security")
 
 securitySec:AddButton({
     Name    = "Mod Detector (Auto-Leave)",
-    Callback = function()
-        Players.PlayerAdded:Connect(function(plr)
-            if plr.UserId == game.CreatorId then lp:Kick("Moderator Joined") end
-        end)
-        Window:Notify({Title = "Mod Detector", Content = "Active — auto-leave if moderator joins", Duration = 3})
-    end,
+    Callback = ActivateModDetector,
 })
 
 local infoSec = AboutTab:AddSection("Info")
@@ -2500,15 +2510,131 @@ infoSec:AddLabel("Anti AFK active in background")
 infoSec:AddLabel("IRY HUB | Evade — Minecraft UI Port")
 
 -- ============================================================
--- KEYBINDS
+-- BINDS TAB (бинды на все функции)
+-- Fly и Safe Zone уже имеют свои бинды во вкладке Main (X и V).
+-- Все бинды имеют Flag, поэтому сохраняются в конфиги.
 -- ============================================================
 
-UIS.InputBegan:Connect(function(input, gp)
-    if gp then return end
-    if input.KeyCode == Enum.KeyCode.R then
-        Window:ToggleVisible()
-    end
-end)
+-- ---------- Toggles ----------
+
+local toggleBinds = {
+	{ name = "Speed Hack",     flag = "bind_speed",       toggle = speedToggle,      get = function() return Speeds end },
+	{ name = "Infinite Jump",  flag = "bind_jump",        toggle = jumpToggle,       get = function() return JumpEnabled end },
+	{ name = "Auto Follow",    flag = "bind_auto_follow", toggle = autoFollowToggle, get = function() return AutoFollow end },
+	{ name = "Auto Revive",    flag = "bind_auto_revive", toggle = autoReviveToggle, get = function() return AutoRevive end },
+	{ name = "Avoid Nextbots", flag = "bind_avoid",       toggle = avoidToggle,      get = function() return AvoidNextbots end },
+	{ name = "Auto Farm",      flag = "bind_auto_farm",   toggle = autoFarmToggle,   get = function() return AutoFarm end },
+	{ name = "Sky Mode",       flag = "bind_sky",         toggle = skyToggle,        get = function() return SkyEnabled end },
+	{ name = "ESP Players",    flag = "bind_esp_players", toggle = playerESPToggle,  get = function() return ESP end },
+	{ name = "ESP Downed",     flag = "bind_esp_downed",  toggle = downedESPToggle,  get = function() return DownedESP end },
+	{ name = "ESP Nextbot",    flag = "bind_esp_nextbot", toggle = nextbotESPToggle, get = function() return NextbotESP end },
+	{ name = "FPS Booster",    flag = "bind_fps",         toggle = fpsToggle,        get = function() return FPSBoosted end },
+	{ name = "Disable Fog",    flag = "bind_fog",         toggle = fogToggle,        get = function() return FogDisabled end },
+}
+
+local toggleBindSec = BindsTab:AddSection("Toggles")
+
+for _, bind in toggleBinds do
+	toggleBindSec:AddKeybind({
+		Name = bind.name,
+		Default = "None",
+		Mode = "Press",
+		Flag = bind.flag,
+		Callback = function()
+			-- Set вызывает Callback тумблера, поэтому вся логика отрабатывает как при клике
+			bind.toggle:Set(not bind.get())
+		end,
+	})
+end
+
+-- ---------- Actions (бывшие кнопки) ----------
+
+local actionBinds = {
+	{
+		name = "Toggle UI",
+		flag = "bind_toggle_ui",
+		default = "R",
+		callback = function()
+			Window:ToggleVisible()
+		end,
+	},
+	{
+		name = "Check Visual Models",
+		flag = "bind_check_visuals",
+		callback = function()
+			Window:Notify({
+				Title = "Auto Farm",
+				Content = "Found: " .. #GetTicketVisuals() .. " visuals (Workspace.Effects.Tickets)",
+				Duration = 4,
+			})
+		end,
+	},
+	{
+		name = "Delete Hitbox",
+		flag = "bind_delete_hitbox",
+		callback = function()
+			DestroyRemoteHitbox()
+			Window:Notify({ Title = "Auto Farm", Content = "Hitbox removed.", Duration = 2 })
+		end,
+	},
+	{
+		name = "Go To Safe Zone",
+		flag = "bind_goto_safe",
+		callback = GoToSafeZone,
+	},
+	{
+		name = "Mod Detector",
+		flag = "bind_mod_detector",
+		callback = ActivateModDetector,
+	},
+	{
+		name = "Copy Telegram",
+		flag = "bind_copy_tg",
+		callback = function()
+			setclipboard("https://t.me/inlawryDEV")
+			Window:Notify({ Title = "Telegram", Content = "Link copied to clipboard!", Duration = 2 })
+		end,
+	},
+	{
+		name = "Save Config",
+		flag = "bind_save_config",
+		callback = function()
+			SaveConfig(CurrentConfigName())
+		end,
+	},
+	{
+		name = "Load Config",
+		flag = "bind_load_config",
+		callback = function()
+			LoadConfig(CurrentConfigName())
+		end,
+	},
+}
+
+local actionBindSec = BindsTab:AddSection("Actions")
+
+for _, bind in actionBinds do
+	actionBindSec:AddKeybind({
+		Name = bind.name,
+		Default = bind.default or "None",
+		Mode = "Press",
+		Flag = bind.flag,
+		Callback = bind.callback,
+	})
+end
+
+-- Переключение Farm Mode по кругу
+actionBindSec:AddKeybind({
+	Name = "Next Farm Mode",
+	Default = "None",
+	Mode = "Press",
+	Flag = "bind_next_farm_mode",
+	Callback = function()
+		local nextMode = FarmMode % #farmModeNames + 1
+		farmModeDropdown:Set(farmModeNames[nextMode])
+		Window:Notify({ Title = "Auto Farm", Content = "Mode " .. nextMode, Duration = 2 })
+	end,
+})
 
 -- ============================================================
 -- STARTUP
