@@ -1,13 +1,14 @@
--- MinecraftLib v3.4в
+-- MinecraftLib v3.5
 local MinecraftLib = {}
 MinecraftLib.__index = MinecraftLib
-MinecraftLib.Version = "3.4"
+MinecraftLib.Version = "3.5"
 
 local Players          = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService     = game:GetService("TweenService")
 local HttpService      = game:GetService("HttpService")
 local RunService       = game:GetService("RunService")
+local GuiService       = game:GetService("GuiService")
 local CoreGui          = game:GetService("CoreGui")
 local LocalPlayer      = Players.LocalPlayer
 
@@ -22,6 +23,7 @@ local TextureURLs = {
     NetherBg    = "https://i.postimg.cc/fTJg89px/RDT-20260824-1051291490594943564732101.png",
     EndBg       = "https://i.postimg.cc/nzF1RH4G/RDT-20260822-0900332847624353464382258.png",
 }
+local popoutSequence = 0
 
 local FOLDER        = "MinecraftUI"
 local CONFIG_FOLDER = FOLDER .. "/configs"
@@ -212,6 +214,132 @@ local function ToKeyCode(v)
     return nil
 end
 
+local ModifierKeys = {
+    Ctrl = {Enum.KeyCode.LeftControl, Enum.KeyCode.RightControl},
+    Shift = {Enum.KeyCode.LeftShift, Enum.KeyCode.RightShift},
+    Alt = {Enum.KeyCode.LeftAlt, Enum.KeyCode.RightAlt},
+    Meta = {Enum.KeyCode.LeftMeta, Enum.KeyCode.RightMeta},
+}
+local ModifierAliases = {Control = "Ctrl", Cmd = "Meta", Command = "Meta", Win = "Meta"}
+
+local function NormalizeModifiers(value)
+    local result = {}
+    local function Add(name)
+        if type(name) ~= "string" then return end
+        name = name:gsub("^%s*(.-)%s*$", "%1")
+        local canonical = name:sub(1, 1):upper() .. name:sub(2):lower()
+        canonical = ModifierAliases[canonical] or canonical
+        if ModifierKeys[canonical] then result[canonical] = true end
+    end
+    if type(value) == "string" then
+        for part in value:gmatch("[^+]+") do Add(part) end
+    elseif type(value) == "table" then
+        for key, enabled in pairs(value) do
+            if type(key) == "number" then Add(enabled)
+            elseif enabled then Add(key) end
+        end
+    end
+    return result
+end
+
+local function ParseKeyBinding(value, modifiers)
+    local key, mods = value, NormalizeModifiers(modifiers)
+    if type(value) == "table" then
+        key = value.Key or value.key or value[1]
+        mods = NormalizeModifiers(value.Modifiers or value.modifiers or modifiers)
+    elseif type(value) == "string" then
+        local parts = {}
+        for part in value:gmatch("[^+]+") do table.insert(parts, part) end
+        if #parts > 1 then
+            mods = {}
+            for i = 1, #parts - 1 do
+                local name = parts[i]:gsub("^%s*(.-)%s*$", "%1")
+                name = name:sub(1, 1):upper() .. name:sub(2):lower()
+                name = ModifierAliases[name] or name
+                if ModifierKeys[name] then mods[name] = true end
+            end
+            key = parts[#parts]
+        end
+    end
+    if type(key) == "string" then key = key:gsub("^%s*(.-)%s*$", "%1") end
+    return ToKeyCode(key), mods
+end
+
+local function FormatKeyBinding(binding)
+    local parts = {}
+    for _, name in ipairs({"Ctrl", "Shift", "Alt", "Meta"}) do
+        if binding.modifiers and binding.modifiers[name] then table.insert(parts, name) end
+    end
+    if binding.key then table.insert(parts, binding.key.Name) end
+    return #parts > 0 and table.concat(parts, "+") or "None"
+end
+
+local function ModifierDown(name)
+    for _, key in ipairs(ModifierKeys[name] or {}) do
+        if UserInputService:IsKeyDown(key) then return true end
+    end
+    return false
+end
+
+local function ModifierForKey(key)
+    for name, keys in pairs(ModifierKeys) do
+        if table.find(keys, key) then return name end
+    end
+    return nil
+end
+
+local function MatchesKeyBinding(binding, input)
+    if binding.key ~= input.KeyCode then return false end
+    for name in pairs(ModifierKeys) do
+        if ModifierDown(name) ~= (binding.modifiers and binding.modifiers[name] == true) then return false end
+    end
+    return true
+end
+
+local LucideCache, LucideWaiters = {}, {}
+local function ResolveIcon(icon, color, onReady)
+    if type(icon) ~= "string" then return "" end
+    local name = icon:match("^lucide:([%w%-]+)$") or icon:match("^lucide%-([%w%-]+)$")
+    if not name then return icon end
+    name = name:lower()
+    if typeof(color) == "Color3" then
+        color = string.format("%02X%02X%02X", math.floor(color.R * 255 + 0.5), math.floor(color.G * 255 + 0.5), math.floor(color.B * 255 + 0.5))
+    end
+    color = type(color) == "string" and color:gsub("^#", ""):upper() or "FFFFFF"
+    if not color:match("^%x%x%x%x%x%x$") then color = "FFFFFF" end
+    local key = name .. "_" .. color
+    if LucideCache[key] and LucideCache[key] ~= "" then return LucideCache[key] end
+    if onReady then
+        LucideWaiters[key] = LucideWaiters[key] or {}
+        table.insert(LucideWaiters[key], onReady)
+    end
+    if LucideCache[key] == nil then
+        LucideCache[key] = ""
+        local url = "https://api.iconify.design/lucide/" .. name .. ".png?color=%23" .. color
+        local filename = "lucide_" .. key .. ".png"
+        local id = LoadTexture(url, filename, function(assetId)
+            LucideCache[key] = assetId
+            for _, callback in ipairs(LucideWaiters[key] or {}) do
+                if type(callback) == "function" then callback(assetId) end
+            end
+            LucideWaiters[key] = nil
+        end)
+        LucideCache[key] = id
+        if id ~= "" then
+            local waiters = LucideWaiters[key]
+            LucideWaiters[key] = nil
+            if waiters then
+                task.defer(function()
+                    for _, callback in ipairs(waiters) do
+                        if type(callback) == "function" then callback(id) end
+                    end
+                end)
+            end
+        end
+    end
+    return LucideCache[key]
+end
+
 local function R255(x) return math.floor(x * 255 + 0.5) end
 local function ToHex(c) return string.format("#%02X%02X%02X", R255(c.R), R255(c.G), R255(c.B)) end
 local function FromHex(str)
@@ -357,6 +485,7 @@ function MinecraftLib:CreateWindow(title, config)
     config = config or {}
 
     local self = setmetatable({}, MinecraftLib)
+    self._guiName = config.GuiName or "MinecraftUI_v3"
     self._themeName = Themes[config.Theme] and config.Theme or "Overworld"
     self._theme = Themes[self._themeName]
     self._tabs, self._themedRefreshers, self._flags, self._keybinds = {}, {}, {}, {}
@@ -364,7 +493,11 @@ function MinecraftLib:CreateWindow(title, config)
     self._visible = true
     self._title = title or "Minecraft UI"
     self._mobile = IsMobile()
-    self._toggleKey = ToKeyCode(config.ToggleKey) or Enum.KeyCode.RightShift
+    if config.DisableToggleKey then
+        self._toggleKey = nil
+    else
+        self._toggleKey = ToKeyCode(config.ToggleKey) or Enum.KeyCode.RightShift
+    end
     self._configName = SafeName(config.ConfigFolder or self._title)
     self._openPopup = nil
     self._autoSave = config.AutoSave == true
@@ -439,11 +572,48 @@ function MinecraftLib:CreateWindow(title, config)
 
     -- ---------------- gui root ----------------
     local guiParent = GetGuiParent()
-    local old = guiParent:FindFirstChild("MinecraftUI_v3")
+    local old = guiParent:FindFirstChild(self._guiName)
     if old then old:Destroy() end
 
-    local ScreenGui = Create("ScreenGui", {Name = "MinecraftUI_v3", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, Parent = guiParent})
+    local ScreenGui = Create("ScreenGui", {Name = self._guiName, ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, Parent = guiParent})
     self._gui = ScreenGui
+
+    local crosshairEnabled = not self._mobile and (config.Cursor == "Crosshair" or config.Crosshair == true)
+    if crosshairEnabled then
+        local previousMouseIcon = UserInputService.MouseIconEnabled
+        UserInputService.MouseIconEnabled = false
+        local cursor = Create("Frame", {
+            Name = "CrosshairCursor", Size = UDim2.fromOffset(18, 18), AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundTransparency = 1, BorderSizePixel = 0, Active = false, ZIndex = 10000, Parent = ScreenGui,
+        })
+        Create("Frame", {
+            Size = UDim2.fromOffset(14, 2), Position = UDim2.new(0.5, -7, 0.5, -1),
+            BackgroundColor3 = self._theme.Accent, BorderSizePixel = 0, ZIndex = 10001, Parent = cursor,
+        })
+        Create("Frame", {
+            Size = UDim2.fromOffset(2, 14), Position = UDim2.new(0.5, -1, 0.5, -7),
+            BackgroundColor3 = self._theme.Accent, BorderSizePixel = 0, ZIndex = 10001, Parent = cursor,
+        })
+        self._cursorConn = RunService.RenderStepped:Connect(function()
+            if not cursor.Parent then return end
+            cursor.Visible = true
+            local mouse = UserInputService:GetMouseLocation()
+            local inset = GuiService:GetGuiInset()
+            cursor.Position = UDim2.fromOffset(mouse.X - inset.X, mouse.Y - inset.Y)
+        end)
+        self._restoreMouseIcon = function()
+            UserInputService.MouseIconEnabled = previousMouseIcon
+        end
+        cursor.Destroying:Connect(function()
+            if self._cursorConn then self._cursorConn:Disconnect(); self._cursorConn = nil end
+            if self._restoreMouseIcon then self._restoreMouseIcon(); self._restoreMouseIcon = nil end
+        end)
+        self:RegisterThemed(function(theme)
+            for _, line in ipairs(cursor:GetChildren()) do
+                if line:IsA("Frame") then line.BackgroundColor3 = theme.Accent end
+            end
+        end, cursor)
+    end
 
     local NotifContainer = Create("Frame", {Name = "NotifContainer", Size = UDim2.new(0, 300, 1, 0), Position = UDim2.new(1, -315, 0, 0), BackgroundTransparency = 1, ZIndex = 500, Parent = ScreenGui})
     Create("UIListLayout", {VerticalAlignment = Enum.VerticalAlignment.Bottom, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, Parent = NotifContainer})
@@ -660,19 +830,73 @@ function MinecraftLib:CreateWindow(title, config)
     _ApplyTabLayout()
 
     -- ---- search filtering logic ----
+    local function FuzzyMatch(text, query)
+        text, query = text:lower(), query:lower()
+        if text:find(query, 1, true) then return true end
+        if #query < 3 then return false end
+        local function Distance(a, b)
+            if math.abs(#a - #b) > math.max(1, math.floor(#query * 0.25)) then return math.huge end
+            local previous = {}
+            for j = 0, #b do previous[j] = j end
+            for i = 1, #a do
+                local current = {[0] = i}
+                local rowMin = i
+                for j = 1, #b do
+                    local cost = a:sub(i, i) == b:sub(j, j) and 0 or 1
+                    current[j] = math.min(current[j - 1] + 1, previous[j] + 1, previous[j - 1] + cost)
+                    rowMin = math.min(rowMin, current[j])
+                end
+                if rowMin > math.max(1, math.floor(#query * 0.25)) then return math.huge end
+                previous = current
+            end
+            return previous[#b]
+        end
+        local maxDistance = math.max(1, math.floor(#query * 0.25))
+        for word in text:gmatch("[%w_]+") do
+            if math.abs(#word - #query) <= maxDistance then
+                if Distance(word, query) <= maxDistance then return true end
+            end
+            local windowSize = math.min(#word, #query + maxDistance)
+            for startAt = 1, #word - windowSize + 1 do
+                local chunk = word:sub(startAt, startAt + windowSize - 1)
+                if Distance(chunk, query) <= maxDistance then return true end
+            end
+        end
+        return false
+    end
+
+    local function SearchItemText(item)
+        local parts = {}
+        if item:IsA("TextLabel") or item:IsA("TextButton") or item:IsA("TextBox") then
+            table.insert(parts, item.Text)
+        end
+        for _, descendant in ipairs(item:GetDescendants()) do
+            if descendant:IsA("TextLabel") or descendant:IsA("TextButton") or descendant:IsA("TextBox") then
+                table.insert(parts, descendant.Text)
+            end
+        end
+        return table.concat(parts, " "):lower()
+    end
+
+    local function SearchMatches(item, query)
+        for token in query:gmatch("%S+") do
+            if not FuzzyMatch(SearchItemText(item), token) then return false end
+        end
+        return true
+    end
+
+    local activeSearchQuery = ""
     local function _FilterSearch(query)
         query = query:lower():gsub("^%s*(.-)%s*$", "%1")
+        activeSearchQuery = query
         for _, tabInfo in ipairs(self._tabs) do
-            local scroll = tabInfo.content
-            for _, child in ipairs(scroll:GetChildren()) do
-                if child:IsA("Frame") or child:IsA("TextButton") then
-                    local lbl = child:FindFirstChildWhichIsA("TextLabel", true)
-                    local visible = true
-                    if query ~= "" then
-                        local text = lbl and lbl.Text:lower() or child.Name:lower()
-                        visible = text:find(query, 1, true) ~= nil
+            for _, child in ipairs(tabInfo.content:GetDescendants()) do
+                if child:GetAttribute("MC_SearchItem") then
+                    if child:GetAttribute("MC_SearchDefaultVisible") == nil then
+                        child:SetAttribute("MC_SearchDefaultVisible", child.Visible)
                     end
-                    child.Visible = visible
+                    local matches = query == "" or SearchMatches(child, query)
+                    child.Visible = child:GetAttribute("MC_SearchDefaultVisible") and matches and child:GetAttribute("MC_DepVisible") ~= false
                 end
             end
         end
@@ -1366,15 +1590,23 @@ function MinecraftLib:CreateWindow(title, config)
         if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
         if input.KeyCode == Enum.KeyCode.Escape and self._openPopup then ClosePopups() return end
         if gp then return end
-        if not mobile and input.KeyCode == self._toggleKey then self:ToggleVisible() return end
+        if not mobile and self._toggleKey and input.KeyCode == self._toggleKey then self:ToggleVisible() return end
         for _, kb in ipairs(self._keybinds) do
-            if kb.key == input.KeyCode and not kb.listening and not kb.cooldown then Invoke(kb.callback, true) end
+            if not kb.listening and not kb.cooldown and MatchesKeyBinding(kb, input) then
+                if kb.mode == "Hold" then
+                    kb.active = true
+                end
+                Invoke(kb.callback, true)
+            end
         end
     end)
     self._inputEndConn = UserInputService.InputEnded:Connect(function(input)
         if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
         for _, kb in ipairs(self._keybinds) do
-            if kb.key == input.KeyCode and kb.mode == "Hold" then Invoke(kb.callback, false) end
+            if kb.key == input.KeyCode and kb.mode == "Hold" and kb.active then
+                kb.active = false
+                Invoke(kb.callback, false)
+            end
         end
     end)
 
@@ -2055,11 +2287,26 @@ function MinecraftLib:CreateWindow(title, config)
     -- TABS
     -- ================================================================
     function self:AddTab(name)
-        local icon
-        if type(name) == "table" then icon = name.Icon; name = name.Name or name.Title or name[1] end
+        local icon, iconColor = nil, "FFFFFF"
+        if type(name) == "table" then
+            icon, iconColor = name.Icon, name.IconColor or "FFFFFF"
+            name = name.Name or name.Title or name[1]
+        end
         name = tostring(name or "Tab")
         local win = self
         local t = self._theme
+
+        local function CreateTabIcon(parent, position, zIndex)
+            local image
+            image = Create("ImageLabel", {
+                Size = UDim2.fromOffset(16, 16), Position = position, BackgroundTransparency = 1,
+                Image = ResolveIcon(icon, iconColor, function(assetId)
+                    if image.Parent then image.Image = assetId end
+                end),
+                ScaleType = Enum.ScaleType.Fit, ZIndex = zIndex, Parent = parent,
+            })
+            return image
+        end
 
         local tabOrder = #self._tabs + 1
 
@@ -2071,20 +2318,24 @@ function MinecraftLib:CreateWindow(title, config)
         })
         PixelText(TabBtn); PixelBevel(TabBtn, t, 1); CreateInsetShadow(TabBtn, t, 2)
         if icon then
-            Create("ImageLabel", {Size = UDim2.fromOffset(16, 16), Position = UDim2.new(0, 7, 0.5, -8), BackgroundTransparency = 1, Image = icon, ZIndex = 6, Parent = TabBtn})
+            CreateTabIcon(TabBtn, UDim2.new(0, 7, 0.5, -8), 6)
             AddPadding(TabBtn, 0, 0, 26, 4)
             TabBtn.TextXAlignment = Enum.TextXAlignment.Left
         end
         local ActiveBar = Create("Frame", {Size = UDim2.new(0, 3, 1, 0), BackgroundColor3 = t.Accent, BorderSizePixel = 0, Visible = false, ZIndex = 6, Parent = TabBtn})
 
         -- horizontal tab button (compact pill style)
-        local htabW = math.max(60, #name * (FONT_BODY - 1) + 20)
+        local htabW = math.max(60, #name * (FONT_BODY - 1) + 20) + (icon and 18 or 0)
         local HTabBtn = Create("TextButton", {
             Name = "HTab_" .. name, Size = UDim2.new(0, htabW, 1, -6), BackgroundColor3 = t.TabInactive, Text = name,
             TextColor3 = t.TextSecondary, TextSize = FONT_BODY - 1, Font = FONT, BorderSizePixel = 0, LayoutOrder = tabOrder,
             TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 4, Parent = self._hTabList,
         })
         PixelText(HTabBtn); PixelBevel(HTabBtn, t, 1); CreateInsetShadow(HTabBtn, t, 2)
+        if icon then
+            CreateTabIcon(HTabBtn, UDim2.new(0, 5, 0.5, -8), 6)
+            HTabBtn.Text = "   " .. name
+        end
         local HActiveBar = Create("Frame", {Size = UDim2.new(1, 0, 0, 3), Position = UDim2.new(0, 0, 1, -3), BackgroundColor3 = t.Accent, BorderSizePixel = 0, Visible = false, ZIndex = 6, Parent = HTabBtn})
 
         local ContentScroll = Create("ScrollingFrame", {
@@ -2259,12 +2510,20 @@ function MinecraftLib:CreateWindow(title, config)
                 Size = UDim2.new(1, 0, 0, height or rowH), BackgroundColor3 = th.Glass, BackgroundTransparency = 0.25,
                 BorderSizePixel = 0, LayoutOrder = NextOrder(), ZIndex = 4, Parent = parent,
             })
+            row:SetAttribute("MC_SearchItem", true)
+            row:SetAttribute("MC_SearchDefaultVisible", row.Visible)
             PixelBevel(row, th, 1, true)
             return row
         end
 
         local function BaseElement(row)
-            local el = {Instance = row, _enabled = true}
+            local changedEvent = Instance.new("BindableEvent")
+            local el = {Instance = row, _enabled = true, Changed = changedEvent.Event, _changedEvent = changedEvent}
+            row:SetAttribute("MC_SearchItem", true)
+            if row:GetAttribute("MC_SearchDefaultVisible") == nil then
+                row:SetAttribute("MC_SearchDefaultVisible", row.Visible)
+            end
+            row.Destroying:Connect(function() changedEvent:Destroy() end)
             local overlay
             function el:Destroy() if row.Parent then row:Destroy() end end
             function el:SetVisible(v) row.Visible = v and true or false end
@@ -2284,6 +2543,26 @@ function MinecraftLib:CreateWindow(title, config)
         end
 
         local function Finish(el, o, row)
+            local callback = o.Callback
+            local function CurrentValue()
+                if type(el.Get) == "function" then return el:Get() end
+                return nil
+            end
+            o.Callback = function(...)
+                Invoke(callback, ...)
+                if el._changedEvent then el._changedEvent:Fire(CurrentValue()) end
+            end
+            local setter = el.Set
+            if setter then
+                el.Set = function(element, ...)
+                    local args = table.pack(...)
+                    local results = table.pack(setter(element, table.unpack(args, 1, args.n)))
+                    if args[2] == true and el._changedEvent then
+                        el._changedEvent:Fire(CurrentValue())
+                    end
+                    return table.unpack(results, 1, results.n)
+                end
+            end
             win:_AttachTooltip(row, o.Tooltip)
             win:RegisterFlag(o.Flag, el)
             return el
@@ -2309,6 +2588,18 @@ function MinecraftLib:CreateWindow(title, config)
                 Text = "> " .. tostring(o.Name), TextColor3 = t2.TextPrimary, TextSize = FONT_BODY, Font = FONT, BorderSizePixel = 0,
                 TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 5, Parent = row,
             })
+            if o.Icon then
+                local icon
+                icon = Create("ImageLabel", {
+                    Size = UDim2.fromOffset(16, 16), Position = UDim2.new(0, 9, 0.5, -8),
+                    BackgroundTransparency = 1, Image = ResolveIcon(o.Icon, o.IconColor or "FFFFFF", function(assetId)
+                        if icon.Parent then icon.Image = assetId end
+                    end),
+                    ScaleType = Enum.ScaleType.Fit, ZIndex = 6, Parent = Btn,
+                })
+                Btn.Text = "   > " .. tostring(o.Name)
+                Btn.TextXAlignment = Enum.TextXAlignment.Left
+            end
             PixelText(Btn); PixelBevel(Btn, t2, 1); CreateInsetShadow(Btn, t2, 2)
             Btn.MouseEnter:Connect(function() Tween(Btn, {BackgroundColor3 = t2.AccentHover}, 0.18); Btn.TextColor3 = t2.TextHover end)
             Btn.MouseLeave:Connect(function() Tween(Btn, {BackgroundColor3 = t2.Accent}, 0.18); Btn.TextColor3 = t2.TextPrimary; Btn.Position = basePos end)
@@ -2317,9 +2608,9 @@ function MinecraftLib:CreateWindow(title, config)
             Btn.Activated:Connect(function() Invoke(o.Callback) end)
             win:RegisterThemed(function(nt) t2 = nt; row.BackgroundColor3 = t2.Glass; Btn.BackgroundColor3 = t2.Accent; Btn.TextColor3 = t2.TextPrimary end, row)
 
-            local el = BaseElement(row)
+            el = BaseElement(row)
             el.Button = Btn
-            function el:SetText(v) Btn.Text = "> " .. tostring(v) end
+            function el:SetText(v) Btn.Text = (o.Icon and "   " or "") .. "> " .. tostring(v) end
             function el:SetCallback(fn) o.Callback = fn end
             return Finish(el, o, row)
         end
@@ -2363,17 +2654,22 @@ function MinecraftLib:CreateWindow(title, config)
             -- Привязанная клавиша
             local KeyLbl
             if o.Keybind then
-                local binding = {key = ToKeyCode(o.Keybind), callback = function() el:Toggle() end, mode = "Press"}
+                local key, modifiers = ParseKeyBinding(o.Keybind, o.Modifiers)
+                local binding = {key = key, modifiers = modifiers, callback = function() el:Toggle() end, mode = "Press"}
                 table.insert(win._keybinds, binding)
-                KeyLbl = MakeLabel(row, "[" .. (binding.key and binding.key.Name or "?") .. "]", UDim2.new(0, 50, 1, 0), UDim2.new(1, -trackW - 62, 0, 0), t2.Accent, Enum.TextXAlignment.Right)
+                KeyLbl = MakeLabel(row, "[" .. FormatKeyBinding(binding) .. "]", UDim2.new(0, 70, 1, 0), UDim2.new(1, -trackW - 82, 0, 0), t2.Accent, Enum.TextXAlignment.Right)
                 KeyLbl.TextSize = FONT_BODY - 2
                 row.Destroying:Connect(function()
                     local idx = table.find(win._keybinds, binding)
                     if idx then table.remove(win._keybinds, idx) end
                 end)
                 function el:SetKeybind(k)
-                    binding.key = ToKeyCode(k)
-                    KeyLbl.Text = "[" .. (binding.key and binding.key.Name or "?") .. "]"
+                    binding.key, binding.modifiers = ParseKeyBinding(k, o.Modifiers)
+                    KeyLbl.Text = "[" .. FormatKeyBinding(binding) .. "]"
+                end
+                function el:SetModifiers(value)
+                    binding.modifiers = NormalizeModifiers(value)
+                    KeyLbl.Text = "[" .. FormatKeyBinding(binding) .. "]"
                 end
             end
 
@@ -2716,6 +3012,130 @@ function MinecraftLib:CreateWindow(title, config)
             return Finish(el, o, row)
         end
 
+        function Tab:AddImage(image, height)
+            local o = Opts(image, {"Image", "Height"}, height)
+            local caption = o.Caption or o.Title or o.Name
+            local row = MakeSlot(math.max(48, tonumber(o.Height) or 150) + (caption and 22 or 0), self._parent)
+            local imageView = Create("ImageLabel", {
+                Name = "Image", Size = UDim2.new(1, -12, 1, caption and -28 or -12), Position = UDim2.fromOffset(6, 6),
+                BackgroundColor3 = win._theme.Background, BorderSizePixel = 0, Image = tostring(o.Image or ""),
+                ScaleType = o.ScaleType or Enum.ScaleType.Fit, ZIndex = 5, Parent = row,
+            })
+            if caption then
+                MakeLabel(row, caption, UDim2.new(1, -12, 0, 18), UDim2.new(0, 6, 1, -20), win._theme.TextSecondary)
+            end
+            local el = BaseElement(row)
+            el.Image = imageView
+            function el:Set(source) imageView.Image = tostring(source or "") end
+            function el:Get() return imageView.Image end
+            return Finish(el, o, row)
+        end
+
+        function Tab:AddVideo(video, height)
+            local o = Opts(video, {"Video", "Height"}, height)
+            local caption = o.Caption or o.Title or o.Name
+            local videoHeight = math.max(80, tonumber(o.Height) or 180)
+            local row = MakeSlot(videoHeight + (caption and 22 or 0), self._parent)
+            local videoView = Create("VideoFrame", {
+                Name = "Video", Size = UDim2.new(1, -12, 0, videoHeight - 12), Position = UDim2.fromOffset(6, 6),
+                BackgroundColor3 = win._theme.Background, BorderSizePixel = 0, Video = tostring(o.Video or ""),
+                Looped = o.Looped == true, Volume = math.clamp(tonumber(o.Volume) or 1, 0, 10),
+                ZIndex = 5, Parent = row,
+            })
+            local playButton = Create("TextButton", {
+                Size = UDim2.fromOffset(32, 28), AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -10, 0, videoHeight - 10),
+                BackgroundColor3 = win._theme.SecondaryBG, Text = "▶", TextColor3 = win._theme.TextPrimary,
+                TextSize = FONT_BODY, Font = FONT, BorderSizePixel = 0, ZIndex = 6, Parent = row,
+            })
+            PixelBevel(playButton, win._theme, 1)
+            if caption then
+                MakeLabel(row, caption, UDim2.new(1, -12, 0, 18), UDim2.new(0, 6, 1, -20), win._theme.TextSecondary)
+            end
+            local function TogglePlayback()
+                if videoView.Playing then videoView:Pause() else videoView:Play() end
+                playButton.Text = videoView.Playing and "Ⅱ" or "▶"
+            end
+            playButton.Activated:Connect(TogglePlayback)
+            local el = BaseElement(row)
+            el.Video = videoView
+            function el:Set(source, autoplay)
+                videoView:Pause()
+                videoView.Video = tostring(source or "")
+                playButton.Text = "▶"
+                if autoplay then TogglePlayback() end
+            end
+            function el:Get() return videoView.Video end
+            function el:Play() if not videoView.Playing then TogglePlayback() end end
+            function el:Pause() if videoView.Playing then TogglePlayback() end end
+            row.Destroying:Connect(function() videoView:Pause() end)
+            win:RegisterThemed(function(theme)
+                videoView.BackgroundColor3 = theme.Background
+                playButton.BackgroundColor3 = theme.SecondaryBG
+                playButton.TextColor3 = theme.TextPrimary
+            end, row)
+            if o.AutoPlay then TogglePlayback() end
+            return Finish(el, o, row)
+        end
+
+        function Tab:AddViewport(model, height)
+            local o = Opts(model, {"Model", "Height"}, height)
+            local caption = o.Caption or o.Title or o.Name
+            local viewportHeight = math.max(96, tonumber(o.Height) or 180)
+            local row = MakeSlot(viewportHeight + (caption and 22 or 0), self._parent)
+            local viewport = Create("ViewportFrame", {
+                Name = "Viewport", Size = UDim2.new(1, -12, 0, viewportHeight - 12), Position = UDim2.fromOffset(6, 6),
+                BackgroundColor3 = win._theme.Background, BorderSizePixel = 0, Ambient = Color3.fromRGB(180, 180, 180),
+                LightColor = Color3.fromRGB(255, 255, 255), LightDirection = Vector3.new(-1, -1, -1), ZIndex = 5, Parent = row,
+            })
+            if caption then
+                MakeLabel(row, caption, UDim2.new(1, -12, 0, 18), UDim2.new(0, 6, 1, -20), win._theme.TextSecondary)
+            end
+            local world = Create("WorldModel", {Parent = viewport})
+            local camera = Create("Camera", {FieldOfView = 35, Parent = viewport})
+            viewport.CurrentCamera = camera
+            local currentModel
+            local el = BaseElement(row)
+            el.Viewport = viewport
+            function el:SetModel(source)
+                if currentModel then currentModel:Destroy(); currentModel = nil end
+                if source == nil then return true end
+                if typeof(source) ~= "Instance" or not (source:IsA("Model") or source:IsA("BasePart")) then
+                    warn("[MinecraftLib] AddViewport expects a Model or BasePart")
+                    return false
+                end
+                local ok, clone = pcall(function() return source:Clone() end)
+                if not ok or not clone then
+                    warn("[MinecraftLib] Failed to clone viewport model: " .. tostring(clone))
+                    return false
+                end
+                if clone:IsA("BasePart") then
+                    local modelContainer = Instance.new("Model")
+                    clone.Parent = modelContainer
+                    currentModel = modelContainer
+                else
+                    currentModel = clone
+                end
+                currentModel.Parent = world
+                local okBounds, center, size = pcall(function() return currentModel:GetBoundingBox() end)
+                if not okBounds then
+                    warn("[MinecraftLib] Failed to measure viewport model: " .. tostring(center))
+                    currentModel:Destroy()
+                    currentModel = nil
+                    return false
+                end
+                local distance = math.max(size.X, size.Y, size.Z, 1) * 2.2
+                camera.CFrame = CFrame.lookAt(center.Position + Vector3.new(distance, distance * 0.65, distance), center.Position)
+                return true
+            end
+            function el:GetModel() return currentModel end
+            row.Destroying:Connect(function()
+                if currentModel then currentModel:Destroy(); currentModel = nil end
+            end)
+            win:RegisterThemed(function(theme) viewport.BackgroundColor3 = theme.Background end, row)
+            if o.Model then el:SetModel(o.Model) end
+            return Finish(el, o, row)
+        end
+
         function Tab:AddSeparator(labelText)
             local t2 = win._theme
             local row = Create("Frame", {Size = UDim2.new(1, 0, 0, mobile and 22 or 20), BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = NextOrder(), ZIndex = 4, Parent = self._parent})
@@ -2740,26 +3160,31 @@ function MinecraftLib:CreateWindow(title, config)
             local t2 = win._theme
             local row = MakeSlot(rowH, self._parent)
             local keybinds = win._keybinds
-            local binding = {key = ToKeyCode(o.Default), callback = o.Callback, mode = o.Mode or "Press", listening = false, cooldown = false}
+            local defaultModifiers = NormalizeModifiers(o.Modifiers)
+            local key, modifiers = ParseKeyBinding(o.Default, o.Modifiers)
+            local binding = {key = key, modifiers = modifiers, callback = o.Callback, mode = o.Mode or "Press", listening = false, cooldown = false}
             table.insert(keybinds, binding)
 
             local lbl = MakeLabel(row, o.Name, UDim2.new(0.5, 0, 1, 0), UDim2.new(0, 10, 0, 0), t2.TextPrimary)
+            local keyButtonWidth = mobile and 118 or 116
             local KeyBtn = Create("TextButton", {
-                Size = UDim2.new(0, mobile and 90 or 80, 0, rowH - 10), Position = UDim2.new(1, -(mobile and 102 or 92), 0.5, -(rowH - 10) / 2), BackgroundColor3 = t2.Background,
-                BackgroundTransparency = 0.3, Text = binding.key and binding.key.Name or "None", TextColor3 = t2.Accent, TextSize = FONT_BODY - 1, Font = FONT, BorderSizePixel = 0,
+                Size = UDim2.new(0, keyButtonWidth, 0, rowH - 10), Position = UDim2.new(1, -keyButtonWidth - 12, 0.5, -(rowH - 10) / 2), BackgroundColor3 = t2.Background,
+                BackgroundTransparency = 0.3, Text = FormatKeyBinding(binding), TextColor3 = t2.Accent, TextSize = FONT_BODY - 1, Font = FONT, BorderSizePixel = 0,
                 TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 5, Parent = row,
             })
             PixelText(KeyBtn, t2.Accent); PixelBevel(KeyBtn, t2, 1, true); CreateInsetShadow(KeyBtn, t2, 2)
 
             local listenConn
+            local el
             local function StopListening()
                 binding.listening = false
                 if listenConn then listenConn:Disconnect(); listenConn = nil end
-                KeyBtn.Text = binding.key and binding.key.Name or "None"
+                KeyBtn.Text = FormatKeyBinding(binding)
             end
             local function KeyChanged()
-                Invoke(o.OnChanged, binding.key)
+                Invoke(o.OnChanged, binding.key, table.clone(binding.modifiers))
                 if o.Flag then win:_FlagChanged(o.Flag) end
+                if el and el._changedEvent then el._changedEvent:Fire(binding.key) end
             end
             KeyBtn.Activated:Connect(function()
                 if binding.listening then StopListening() return end
@@ -2767,12 +3192,17 @@ function MinecraftLib:CreateWindow(title, config)
                 KeyBtn.Text = "..."
                 listenConn = UserInputService.InputBegan:Connect(function(inp)
                     if inp.UserInputType ~= Enum.UserInputType.Keyboard then return end
+                    if ModifierForKey(inp.KeyCode) then return end
                     if inp.KeyCode == Enum.KeyCode.Escape then
                         StopListening()
                     elseif inp.KeyCode == Enum.KeyCode.Backspace or inp.KeyCode == Enum.KeyCode.Delete then
-                        binding.key = nil; StopListening(); KeyChanged()
+                        binding.key = nil; binding.modifiers = {}; StopListening(); KeyChanged()
                     else
                         binding.key = inp.KeyCode
+                        binding.modifiers = {}
+                        for name in pairs(ModifierKeys) do
+                            if ModifierDown(name) then binding.modifiers[name] = true end
+                        end
                         binding.cooldown = true
                         task.delay(0.2, function() binding.cooldown = false end)
                         StopListening(); KeyChanged()
@@ -2787,9 +3217,16 @@ function MinecraftLib:CreateWindow(title, config)
 
             local el = BaseElement(row)
             function el:Get() return binding.key end
+            function el:GetBinding() return {Key = binding.key, Modifiers = table.clone(binding.modifiers)} end
+            function el:GetModifiers() return table.clone(binding.modifiers) end
             function el:Set(k, silent)
-                binding.key = ToKeyCode(k)
-                KeyBtn.Text = binding.key and binding.key.Name or "None"
+                binding.key, binding.modifiers = ParseKeyBinding(k, o.Modifiers or defaultModifiers)
+                KeyBtn.Text = FormatKeyBinding(binding)
+                if not silent then KeyChanged() end
+            end
+            function el:SetModifiers(value, silent)
+                binding.modifiers = NormalizeModifiers(value)
+                KeyBtn.Text = FormatKeyBinding(binding)
                 if not silent then KeyChanged() end
             end
             function el:SetCallback(fn) binding.callback = fn end
@@ -2968,6 +3405,8 @@ function MinecraftLib:CreateWindow(title, config)
                 Size = UDim2.new(1, 0, 0, mobile and 32 or 28), BackgroundColor3 = t2.TertiaryBG, BackgroundTransparency = 0.2, Text = (open and "v " or "> ") .. sname, TextColor3 = t2.Accent,
                 TextSize = FONT_BODY, Font = FONT, TextXAlignment = Enum.TextXAlignment.Left, BorderSizePixel = 0, LayoutOrder = NextOrder(), ZIndex = 4, Parent = self._parent,
             })
+            Header:SetAttribute("MC_SearchItem", true)
+            Header:SetAttribute("MC_SearchDefaultVisible", true)
             PixelText(Header, t2.Accent); AddPadding(Header, 0, 0, 10, 10); PixelBevel(Header, t2, 1); CreateInsetShadow(Header, t2, 2)
             local SectionFrame = Create("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = NextOrder(), Visible = open, ZIndex = 4, Parent = self._parent})
             Create("UIListLayout", {Padding = UDim.new(0, mobile and 5 or 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = SectionFrame})
@@ -2989,6 +3428,236 @@ function MinecraftLib:CreateWindow(title, config)
             return Sec
         end
 
+        function Tab:AddGroupbox(title, defaultOpen)
+            local group = self:AddSection(title, defaultOpen)
+            group.Instance:SetAttribute("MC_Groupbox", true)
+            group.Instance.BackgroundColor3 = win._theme.Glass
+            group.Instance.BackgroundTransparency = 0.35
+            local stroke = Create("UIStroke", {
+                Color = win._theme.Accent, Transparency = 0.55, Thickness = 1, Parent = group.Instance,
+            })
+            win:RegisterThemed(function(theme)
+                group.Instance.BackgroundColor3 = theme.Glass
+                stroke.Color = theme.Accent
+            end, group.Instance)
+            return group
+        end
+
+        function Tab:AddTabbox(options)
+            local o = type(options) == "table" and options or {Name = tostring(options or "Tabs")}
+            local tabboxHeight = math.max(80, tonumber(o.Height) or 190)
+            local tabbox = Create("Frame", {
+                Name = "Tabbox", Size = UDim2.new(1, 0, 0, tabboxHeight + 32),
+                BackgroundColor3 = win._theme.Glass, BackgroundTransparency = 0.3, BorderSizePixel = 0,
+                LayoutOrder = NextOrder(), ZIndex = 4, Parent = self._parent,
+            })
+            tabbox:SetAttribute("MC_SearchItem", true)
+            tabbox:SetAttribute("MC_SearchDefaultVisible", true)
+            PixelBevel(tabbox, win._theme, 1, true)
+            local tabButtons = Create("Frame", {
+                Size = UDim2.new(1, -8, 0, 26), Position = UDim2.fromOffset(4, 4),
+                BackgroundTransparency = 1, ZIndex = 5, Parent = tabbox,
+            })
+            Create("UIListLayout", {
+                FillDirection = Enum.FillDirection.Horizontal, SortOrder = Enum.SortOrder.LayoutOrder,
+                Padding = UDim.new(0, 4), Parent = tabButtons,
+            })
+            local pages = Create("Frame", {
+                Size = UDim2.new(1, -8, 1, -38), Position = UDim2.fromOffset(4, 34),
+                BackgroundTransparency = 1, ZIndex = 5, Parent = tabbox,
+            })
+            local controller = {Instance = tabbox, Tabs = {}, _scroll = self._scroll, _window = win}
+
+            function controller:AddTab(tabName)
+                local icon, iconColor
+                if type(tabName) == "table" then
+                    icon, iconColor = tabName.Icon, tabName.IconColor or "FFFFFF"
+                    tabName = tabName.Name or tabName.Title or tabName[1]
+                end
+                tabName = tostring(tabName or "Tab")
+                local button = Create("TextButton", {
+                    Size = UDim2.new(0, math.max(54, #tabName * 8 + 18) + (icon and 18 or 0), 1, 0),
+                    BackgroundColor3 = win._theme.TabInactive, Text = tabName, TextColor3 = win._theme.TextSecondary,
+                    TextSize = FONT_BODY - 1, Font = FONT, BorderSizePixel = 0,
+                    LayoutOrder = #self.Tabs + 1, ZIndex = 6, Parent = tabButtons,
+                })
+                PixelBevel(button, win._theme, 1)
+                if icon then
+                    local iconImage
+                    iconImage = Create("ImageLabel", {
+                        Size = UDim2.fromOffset(14, 14), Position = UDim2.new(0, 5, 0.5, -7),
+                        BackgroundTransparency = 1, Image = ResolveIcon(icon, iconColor, function(assetId)
+                            if iconImage.Parent then iconImage.Image = assetId end
+                        end),
+                        ScaleType = Enum.ScaleType.Fit, ZIndex = 7, Parent = button,
+                    })
+                    button.Text = "   " .. tabName
+                    button.TextXAlignment = Enum.TextXAlignment.Left
+                end
+                local page = Create("ScrollingFrame", {
+                    Name = "TabboxPage_" .. tabName, Size = UDim2.fromScale(1, 1),
+                    BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = mobile and 4 or 3,
+                    ScrollBarImageColor3 = win._theme.Scrollbar, CanvasSize = UDim2.new(0, 0, 0, 0),
+                    AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y,
+                    Visible = false, ZIndex = 5, Parent = pages,
+                })
+                Create("UIListLayout", {Padding = UDim.new(0, mobile and 5 or 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = page})
+                AddPadding(page, 4, 4, 4, 4)
+                local subTab = setmetatable({}, Tab)
+                subTab._parent, subTab._scroll, subTab._window, subTab.Name = page, self._scroll, win, tabName
+                local entry = {Name = tabName, Button = button, Page = page, Tab = subTab}
+                table.insert(self.Tabs, entry)
+                local function Select()
+                    for _, candidate in ipairs(self.Tabs) do
+                        candidate.Page.Visible = candidate == entry
+                        candidate.Button.BackgroundColor3 = candidate == entry and win._theme.TabActive or win._theme.TabInactive
+                        candidate.Button.TextColor3 = candidate == entry and win._theme.TextPrimary or win._theme.TextSecondary
+                    end
+                    self.ActiveTab = entry
+                end
+                entry.Select = Select
+                button.Activated:Connect(Select)
+                if #self.Tabs == 1 then Select() end
+                return subTab
+            end
+
+            function controller:Select(name)
+                for _, entry in ipairs(self.Tabs) do
+                    if entry.Name == name then entry.Select(); return true end
+                end
+                return false
+            end
+            function controller:Destroy() if tabbox.Parent then tabbox:Destroy() end end
+            win:RegisterThemed(function(theme)
+                tabbox.BackgroundColor3 = theme.Glass
+                for _, candidate in ipairs(controller.Tabs) do
+                    local active = candidate == controller.ActiveTab
+                    candidate.Button.BackgroundColor3 = active and theme.TabActive or theme.TabInactive
+                    candidate.Button.TextColor3 = active and theme.TextPrimary or theme.TextSecondary
+                    candidate.Page.ScrollBarImageColor3 = theme.Scrollbar
+                end
+            end, tabbox)
+            return controller
+        end
+
+        function Tab:AddDependencyBox(dependencies, options)
+            local specs = dependencies
+            local o = type(options) == "table" and options or {}
+            if type(dependencies) == "table" and dependencies.Dependencies then
+                o, specs = dependencies, dependencies.Dependencies
+            end
+            specs = type(specs) == "table" and specs or {}
+            local box = Create("Frame", {
+                Name = "DependencyBox", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
+                BackgroundColor3 = win._theme.Glass, BackgroundTransparency = 0.3, BorderSizePixel = 0,
+                LayoutOrder = NextOrder(), ZIndex = 4, Parent = self._parent,
+            })
+            box:SetAttribute("MC_SearchItem", true)
+            box:SetAttribute("MC_SearchDefaultVisible", true)
+            box:SetAttribute("MC_DepVisible", true)
+            local border = Create("UIStroke", {
+                Color = win._theme.Border, Transparency = 0.25, Thickness = 1, Parent = box,
+            })
+            Create("UIListLayout", {
+                Padding = UDim.new(0, mobile and 5 or 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = box,
+            })
+            local heading
+            if o.Name then
+                heading = MakeLabel(box, tostring(o.Name), UDim2.new(1, -12, 0, 20), UDim2.fromOffset(6, 0), win._theme.Accent)
+                heading.LayoutOrder = 0
+            end
+            local body = Create("Frame", {
+                Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
+                BackgroundTransparency = 1, LayoutOrder = 1, ZIndex = 5, Parent = box,
+            })
+            Create("UIListLayout", {Padding = UDim.new(0, mobile and 5 or 4), SortOrder = Enum.SortOrder.LayoutOrder, Parent = body})
+            AddPadding(body, 4, 4, 6, 6)
+            local controller = setmetatable({}, Tab)
+            controller._parent, controller._scroll, controller._window, controller.Instance = body, self._scroll, win, box
+            local connections = {}
+
+            local function RefreshDependencies()
+                local visible = true
+                for _, dependency in ipairs(specs) do
+                    local element = type(dependency) == "table" and (dependency.Element or (dependency.Flag and win._flags[dependency.Flag]))
+                    if type(element) ~= "table" or type(element.Get) ~= "function" then
+                        warn("[MinecraftLib] DependencyBox requires an element with Get() or a registered Flag")
+                        visible = false
+                        break
+                    end
+                    local value = element:Get()
+                    local expected = dependency.Value
+                    local matches
+                    if type(dependency.Values) == "table" then
+                        matches = table.find(dependency.Values, value) ~= nil
+                    elseif type(expected) == "table" then
+                        matches = table.find(expected, value) ~= nil
+                    else
+                        matches = value == (expected == nil and true or expected)
+                    end
+                    if dependency.Not then matches = not matches end
+                    if not matches then visible = false; break end
+                end
+                box:SetAttribute("MC_DepVisible", visible)
+                local searchVisible = box:GetAttribute("MC_SearchDefaultVisible") ~= false
+                    and (activeSearchQuery == "" or SearchMatches(box, activeSearchQuery))
+                box.Visible = visible and searchVisible
+            end
+
+            local function SetDependencies(newSpecs)
+                for _, connection in ipairs(connections) do connection:Disconnect() end
+                table.clear(connections)
+                specs = type(newSpecs) == "table" and newSpecs or {}
+                for _, dependency in ipairs(specs) do
+                    local element = type(dependency) == "table" and (dependency.Element or (dependency.Flag and win._flags[dependency.Flag]))
+                    if type(element) == "table" and element.Changed and element.Changed.Connect then
+                        table.insert(connections, element.Changed:Connect(RefreshDependencies))
+                    end
+                end
+                RefreshDependencies()
+            end
+
+            function controller:SetDependencies(newSpecs) SetDependencies(newSpecs) end
+            function controller:Refresh() RefreshDependencies() end
+            function controller:Destroy() if box.Parent then box:Destroy() end end
+            box.Destroying:Connect(function()
+                for _, connection in ipairs(connections) do connection:Disconnect() end
+                table.clear(connections)
+            end)
+            win:RegisterThemed(function(theme)
+                box.BackgroundColor3 = theme.Glass
+                border.Color = theme.Border
+                if heading then heading.TextColor3 = theme.Accent end
+            end, box)
+            SetDependencies(specs)
+            return controller
+        end
+
+        function Tab:AddPopout(text, callback, options)
+            local o = type(text) == "table" and text or {Name = text, Callback = callback, Options = options}
+            local button = self:AddButton(o.Name or o.Title or "Open pop-out", function()
+                if o.Window and o.Window._gui and o.Window._gui.Parent then
+                    o.Window:Show()
+                    return
+                end
+                o.Window = win:CreatePopout(o.WindowTitle or o.Name or "Pop-out", o.Options)
+                o.Tab = o.Window:AddTab(o.TabName or "Main")
+                Invoke(o.Callback, o.Window, o.Tab)
+            end)
+            button.Open = function()
+                if not o.Window or not o.Window._gui or not o.Window._gui.Parent then
+                    o.Window = win:CreatePopout(o.WindowTitle or o.Name or "Pop-out", o.Options)
+                    o.Tab = o.Window:AddTab(o.TabName or "Main")
+                    Invoke(o.Callback, o.Window, o.Tab)
+                else
+                    o.Window:Show()
+                end
+                return o.Window, o.Tab
+            end
+            button.GetWindow = function() return o.Window end
+            return button
+        end
+
         function Tab:AddNotify(title, msg, duration) win:Notify(title, msg, duration) end
         function Tab:Select() SelectThis() end
 
@@ -2996,7 +3665,21 @@ function MinecraftLib:CreateWindow(title, config)
         Tab.Textbox = Tab.AddTextbox; Tab.Input = Tab.AddTextbox; Tab.Dropdown = Tab.AddDropdown
         Tab.Label = Tab.AddLabel; Tab.Paragraph = Tab.AddParagraph; Tab.Keybind = Tab.AddKeybind
         Tab.ColorPicker = Tab.AddColorPicker; Tab.Section = Tab.AddSection; Tab.Separator = Tab.AddSeparator
+        Tab.Groupbox = Tab.AddGroupbox; Tab.Tabbox = Tab.AddTabbox
+        Tab.DependencyBox = Tab.AddDependencyBox; Tab.Popout = Tab.AddPopout
+        Tab.Image = Tab.AddImage; Tab.Video = Tab.AddVideo; Tab.Viewport = Tab.AddViewport
         return Tab
+    end
+
+    function self:CreatePopout(popoutTitle, options)
+        options = type(options) == "table" and table.clone(options) or {}
+        popoutSequence += 1
+        options.GuiName = "MinecraftUI_v3_Popout_" .. tostring(popoutSequence)
+        options.Theme = options.Theme or self._themeName
+        if options.ToggleKey == nil or options.ToggleKey == false then
+            options.DisableToggleKey = true
+        end
+        return MinecraftLib:CreateWindow(popoutTitle or "Pop-out", options)
     end
 
     function self:SelectTab(name)
@@ -3190,9 +3873,10 @@ function MinecraftLib:CreateWindow(title, config)
     -- DESTROY
     -- ================================================================
     function self:Destroy()
-        for _, k in ipairs({"_inputConn", "_inputEndConn", "_cameraWatchConn"}) do
+        for _, k in ipairs({"_inputConn", "_inputEndConn", "_cameraWatchConn", "_cursorConn"}) do
             if self[k] then self[k]:Disconnect(); self[k] = nil end
         end
+        if self._restoreMouseIcon then self._restoreMouseIcon(); self._restoreMouseIcon = nil end
         if self._getViewportConn then
             local vc = self._getViewportConn()
             if vc then vc:Disconnect() end
@@ -3205,11 +3889,13 @@ function MinecraftLib:CreateWindow(title, config)
 
     self.Tab = self.AddTab
     self.CreateTab = self.AddTab
+    self.Popout = self.CreatePopout
     self.Notification = self.Notify
     return self
 end
 
 MinecraftLib.Window = MinecraftLib.CreateWindow
 MinecraftLib.New = MinecraftLib.CreateWindow
+MinecraftLib.ResolveIcon = ResolveIcon
 
 return MinecraftLib
